@@ -242,31 +242,32 @@ export function TransactionForm({
         </div>
 
         {/* Scan bar */}
-        <div className="px-5 py-3 bg-green-50 border-b border-green-100 flex items-center gap-3 flex-wrap">
-          <span className="text-xl">⬛</span>
-          <div>
-            <label className="block text-[10px] font-medium text-green-700 mb-0.5 uppercase tracking-wide">Scan / SKU</label>
-            <input
-              ref={scanRef}
-              value={scanInput}
-              onChange={(e) => setScanInput(e.target.value)}
-              onKeyDown={handleScan}
-              autoFocus
-              className="w-56 px-3 py-2 border-2 border-green-500 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
-              placeholder="Scan barcode or type SKU…"
-              disabled={scanning}
-            />
+        <div className="px-5 py-3 bg-green-50 border-b border-green-100 flex flex-wrap gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <span className="text-xl">⬛</span>
+            <div className="flex-1 sm:flex-none">
+              <label className="block text-[10px] font-medium text-green-700 mb-0.5 uppercase tracking-wide">Scan / SKU</label>
+              <input
+                ref={scanRef}
+                value={scanInput}
+                onChange={(e) => setScanInput(e.target.value)}
+                onKeyDown={handleScan}
+                autoFocus
+                className="w-full sm:w-56 px-3 py-2 border-2 border-green-500 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+                placeholder="Scan barcode or type SKU…"
+                disabled={scanning}
+              />
+            </div>
           </div>
-          <span className="text-slate-300 text-xl font-light self-end mb-1">|</span>
           {/* Name search */}
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <label className="block text-[10px] font-medium text-slate-500 mb-0.5 uppercase tracking-wide">Search by name</label>
             <input
               ref={searchRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery && setShowDropdown(true)}
-              className="w-64 px-3 py-2 border-2 border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+              className="w-full sm:w-64 px-3 py-2 border-2 border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
               placeholder="Type product name…"
               autoComplete="off"
             />
@@ -275,7 +276,7 @@ export function TransactionForm({
             )}
             {showDropdown && searchResults.length > 0 && (
               <div ref={dropdownRef}
-                className="absolute z-50 top-full mt-1 left-0 w-80 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                className="absolute z-50 top-full mt-1 left-0 w-full sm:w-80 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
                 {searchResults.map((p) => (
                   <button
                     key={p.id}
@@ -299,15 +300,16 @@ export function TransactionForm({
               </div>
             )}
             {showDropdown && searchQuery && searchResults.length === 0 && !searchLoading && (
-              <div className="absolute z-50 top-full mt-1 left-0 w-64 bg-white border border-slate-200 rounded-xl shadow-xl px-4 py-3 text-xs text-slate-400">
+              <div className="absolute z-50 top-full mt-1 left-0 w-full sm:w-64 bg-white border border-slate-200 rounded-xl shadow-xl px-4 py-3 text-xs text-slate-400">
                 No products found for "{searchQuery}"
               </div>
             )}
           </div>
-          {scanning && <span className="text-xs text-slate-500 animate-pulse self-end mb-2">Looking up…</span>}
+          {scanning && <span className="text-xs text-slate-500 animate-pulse">Looking up…</span>}
         </div>
 
         {/* Line items */}
+        <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
@@ -357,8 +359,9 @@ export function TransactionForm({
           </tbody>
         </table>
 
+        </div>
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-slate-500">
             {lines.length} line{lines.length !== 1 ? "s" : ""} · {lines.reduce((s, l) => s + l.quantity, 0)} items total
           </span>

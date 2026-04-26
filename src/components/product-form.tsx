@@ -100,7 +100,7 @@ export function ProductForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 p-6 max-w-2xl space-y-5">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="col-span-2">
           <label className="block text-xs font-medium text-slate-600 mb-1">Product Name *</label>
           <input value={form.name} onChange={(e) => set("name", e.target.value)} required

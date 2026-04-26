@@ -79,7 +79,7 @@ export default async function ProductsPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
         <h1 className="text-base font-semibold text-slate-800">Products</h1>
         <div className="flex gap-2">
           <Link href="/products/import" className="text-xs px-3 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
@@ -93,7 +93,7 @@ export default async function ProductsPage({
 
       <form method="GET" className="flex gap-2 mb-4 flex-wrap items-center">
         <input name="q" defaultValue={q} placeholder="Search name, SKU or barcode…"
-          className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64" />
+          className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64" />
         <select name="categoryId" defaultValue={categoryId}
           className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">All Categories</option>
@@ -121,6 +121,7 @@ export default async function ProductsPage({
       </form>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
@@ -212,6 +213,7 @@ export default async function ProductsPage({
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {pages > 1 && (
