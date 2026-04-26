@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+// LOCAL DEV: provider = "sqlite" | PRODUCTION: provider = "postgresql"
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum OrderType {
+  GRN
+  GOODS_OUT
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum MovementType {
+  IN
+  OUT
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum OpnameStatus {
+  IN_PROGRESS
+  REVIEWING
+  APPROVED
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+  VIEWER
+  OPERATOR
+}
+
+// ─── Models ──────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(STAFF)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// User-managed units of measure (editable from Settings)
+model Unit {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  products Product[]
+}
+
+// User-managed product categories (editable from Settings)
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  products Product[]
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  type      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  stock          Stock[]
+  ordersFrom     Order[]         @relation("OrderFromLocation")
+  ordersTo       Order[]         @relation("OrderToLocation")
+  movementsFrom  Movement[]      @relation("MovementFrom")
+  movementsTo    Movement[]      @relation("MovementTo")
+  opnameSessions OpnameSession[]
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  sku          String   @unique
+  barcode      String   @unique
+  category     Category @relation(fields: [categoryId], references: [id])
+  categoryId   String
+  unit         Unit     @relation(fields: [unitId], references: [id])
+  unitId       String
+  reorderPoint Int      @default(0)
+  imageUrl     String?
+  colorVariant String?
+  description  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stock       Stock[]
+  orderLines  OrderLine[]
+  movements   Movement[]
+  opnameLines OpnameLine[]
+}
+
+// Current stock level per product per location
+model Stock {
+  id         String   @id @default(cuid())
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  String
+  location   Location @relation(fields: [locationId], references: [id])
+  locationId String
+  quantity   Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([productId, locationId])
+}
+
+// Parent order document (GRN / Goods Out / Transfer / Adjustment)
+model Order {
+  id             String    @id @default(cuid())
+  orderNumber    String    @unique
+  type           OrderType
+  fromLocation   Location? @relation("OrderFromLocation", fields: [fromLocationId], references: [id])
+  fromLocationId String?
+  toLocation     Location? @relation("OrderToLocation", fields: [toLocationId], references: [id])
+  toLocationId   String?
+  reference      String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+
+  lines     OrderLine[]
+  movements Movement[]
+}
+
+// Line items within an order
+model OrderLine {
+  id        String  @id @default(cuid())
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+  quantity  Int
+  notes     String?
+
+  movements Movement[]
+}
+
+// Individual stock movements — full audit trail
+model Movement {
+  id             String       @id @default(cuid())
+  order          Order        @relation(fields: [orderId], references: [id])
+  orderId        String
+  orderLine      OrderLine    @relation(fields: [orderLineId], references: [id])
+  orderLineId    String
+  product        Product      @relation(fields: [productId], references: [id])
+  productId      String
+  fromLocation   Location?    @relation("MovementFrom", fields: [fromLocationId], references: [id])
+  fromLocationId String?
+  toLocation     Location?    @relation("MovementTo", fields: [toLocationId], references: [id])
+  toLocationId   String?
+  quantity       Int
+  type           MovementType
+  createdAt      DateTime     @default(now())
+}
+
+// Stock opname (physical count) session per location
+model OpnameSession {
+  id            String       @id @default(cuid())
+  sessionNumber String       @unique
+  location      Location     @relation(fields: [locationId], references: [id])
+  locationId    String
+  status        OpnameStatus @default(IN_PROGRESS)
+  notes         String?
+  createdAt     DateTime     @default(now())
+  approvedAt    DateTime?
+
+  lines OpnameLine[]
+}
+
+// Individual counted item within an opname session
+model OpnameLine {
+  id          String        @id @default(cuid())
+  session     OpnameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId   String
+  product     Product       @relation(fields: [productId], references: [id])
+  productId   String
+  bookQty     Int
+  physicalQty Int?
+  difference  Int?
+
+  @@unique([sessionId, productId])
+}

@@ -1,0 +1,113 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
+
+const nav = [
+  {
+    section: "Main",
+    roles: ["ADMIN", "STAFF", "VIEWER"],
+    links: [
+      { href: "/dashboard", label: "Dashboard", icon: "▦" },
+      { href: "/products", label: "Products", icon: "⊞" },
+      { href: "/products/add", label: "Add Product", icon: "↳", indent: true, small: true },
+      { href: "/products/import", label: "Bulk Import", icon: "↳", indent: true, small: true },
+    ],
+  },
+  {
+    section: "Transactions",
+    roles: ["ADMIN", "STAFF", "VIEWER", "OPERATOR"],
+    links: [
+      { href: "/transactions/grn", label: "Goods Received (GRN)", icon: "↓" },
+      { href: "/transactions/goods-out", label: "Goods Out Order", icon: "↑" },
+      { href: "/transactions/transfer", label: "Transfer", icon: "⇄" },
+    ],
+  },
+  {
+    section: "Barcodes",
+    roles: ["ADMIN", "STAFF", "VIEWER"],
+    links: [{ href: "/barcodes", label: "Barcode Labels", icon: "▣" }],
+  },
+  {
+    section: "History",
+    roles: ["ADMIN", "STAFF", "VIEWER"],
+    links: [
+      { href: "/orders", label: "Order History", icon: "📋" },
+      { href: "/movements", label: "Movement Log", icon: "≡" },
+      { href: "/reports", label: "Reports", icon: "⊙" },
+    ],
+  },
+  {
+    section: "Operations",
+    roles: ["ADMIN", "STAFF", "VIEWER"],
+    links: [{ href: "/opname", label: "Stock Opname", icon: "⊘" }],
+  },
+  {
+    section: "Settings",
+    roles: ["ADMIN", "STAFF"],
+    links: [
+      { href: "/settings", label: "Settings", icon: "⚙" },
+      { href: "/settings/users", label: "User Management", icon: "↳", indent: true, small: true },
+    ],
+  },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const { data: session } = useSession();
+  const role = session?.user.role ?? "";
+
+  return (
+    <div className="w-[230px] bg-slate-800 text-slate-400 flex-shrink-0 flex flex-col min-h-screen">
+      <div className="px-4 py-5 border-b border-slate-700">
+        <div className="text-base font-extrabold text-white tracking-tight">
+          MR<span className="text-sky-400">Is</span>
+        </div>
+        {role === "OPERATOR" && (
+          <div className="mt-1 text-[10px] uppercase tracking-widest text-amber-400 font-semibold">Operator</div>
+        )}
+      </div>
+
+      <nav className="flex-1 overflow-y-auto">
+        {nav
+          .filter((s) => s.roles.includes(role))
+          .map(({ section, links }) => (
+            <div key={section}>
+              <div className="px-4 pt-3.5 pb-1 text-[10px] uppercase tracking-widest text-slate-500">
+                {section}
+              </div>
+              {links.map(({ href, label, icon, indent, small }) => {
+                const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={[
+                      "flex items-center gap-2.5 py-2.5 border-l-[3px] transition-colors",
+                      indent ? "pl-7" : "pl-4",
+                      small ? "text-xs" : "text-[13px]",
+                      active
+                        ? "bg-slate-900 text-sky-400 border-sky-400"
+                        : "border-transparent hover:bg-slate-900 hover:text-slate-200",
+                    ].join(" ")}
+                  >
+                    <span>{icon}</span>
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+      </nav>
+
+      <button
+        onClick={() => signOut({ callbackUrl: "/login" })}
+        className="mx-4 mb-4 mt-2 text-xs text-slate-500 hover:text-slate-300 text-left py-2 px-3 rounded-lg hover:bg-slate-700 transition-colors"
+      >
+        ⎋ &nbsp;Sign out
+      </button>
+    </div>
+  );
+}
