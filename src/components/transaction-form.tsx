@@ -185,8 +185,15 @@ export function TransactionForm({
       }),
     });
 
-    const data = await res.json();
     setSubmitting(false);
+
+    let data: { error?: string; order?: { orderNumber: string }; warnings?: string[] } = {};
+    try {
+      data = await res.json();
+    } catch {
+      toast.error("Server error — please try again");
+      return;
+    }
 
     if (!res.ok) {
       toast.error(data.error ?? "Failed to save order");
@@ -197,7 +204,7 @@ export function TransactionForm({
       data.warnings.forEach((w: string) => toast(w, { icon: "⚠️", duration: 6000 }));
     }
 
-    toast.success(`${data.order.orderNumber} saved`);
+    toast.success(`${data.order!.orderNumber} saved`);
     router.push("/orders");
     router.refresh();
   }

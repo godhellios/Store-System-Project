@@ -20,6 +20,34 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   return NextResponse.json(product);
 }
 
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { id } = await params;
+
+  const product = await prisma.product.findUnique({ where: { id } });
+  if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (product.isActive) return NextResponse.json({ error: "Deactivate the product before deleting" }, { status: 400 });
+
+  const orderLineCount = await prisma.orderLine.count({ where: { productId: id } });
+  if (orderLineCount > 0) {
+    return NextResponse.json(
+      { error: "Cannot delete: product has order history. Keep it deactivated instead." },
+      { status: 409 }
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.opnameLine.deleteMany({ where: { productId: id } }),
+    prisma.stock.deleteMany({ where: { productId: id } }),
+    prisma.product.delete({ where: { id } }),
+  ]);
+
+  return NextResponse.json({ success: true });
+}
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

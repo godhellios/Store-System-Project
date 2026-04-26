@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { nextOrderNumber } from "@/lib/order-number";
 import { MovementType, OrderType } from "@/generated/prisma";
+
+const ORDER_PREFIX: Record<string, string> = {
+  GRN: "GRN", GOODS_OUT: "OUT", TRANSFER: "TRF", ADJUSTMENT: "ADJ",
+};
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -79,77 +82,90 @@ export async function POST(req: Request) {
 
   const warnings: string[] = [];
 
-  const result = await prisma.$transaction(async (tx) => {
-    const orderNumber = await nextOrderNumber(type);
+  let result;
+  try {
+    result = await prisma.$transaction(async (tx) => {
+      const prefix = ORDER_PREFIX[type] ?? "ORD";
+      const year = new Date().getFullYear();
+      const last = await tx.order.findFirst({
+        where: { orderNumber: { startsWith: `${prefix}-${year}-` } },
+        orderBy: { orderNumber: "desc" },
+        select: { orderNumber: true },
+      });
+      const lastNum = last ? parseInt(last.orderNumber.split("-").pop() ?? "0") : 0;
+      const orderNumber = `${prefix}-${year}-${String(lastNum + 1).padStart(4, "0")}`;
 
-    const order = await tx.order.create({
-      data: { orderNumber, type, fromLocationId, toLocationId, reference, notes },
-    });
-
-    for (const line of lines) {
-      const orderLine = await tx.orderLine.create({
-        data: { orderId: order.id, productId: line.productId, quantity: line.quantity, notes: line.notes },
+      const order = await tx.order.create({
+        data: { orderNumber, type, fromLocationId, toLocationId, reference, notes },
       });
 
-      await tx.movement.create({
-        data: {
-          orderId: order.id,
-          orderLineId: orderLine.id,
-          productId: line.productId,
-          fromLocationId: fromLocationId ?? null,
-          toLocationId: toLocationId ?? null,
-          quantity: line.quantity,
-          type: MOVEMENT_TYPE[type],
-        },
-      });
+      for (const line of lines) {
+        const orderLine = await tx.orderLine.create({
+          data: { orderId: order.id, productId: line.productId, quantity: line.quantity, notes: line.notes },
+        });
 
-      // Update stock
-      if (type === "GRN") {
-        await tx.stock.upsert({
-          where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
-          create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
-          update: { quantity: { increment: line.quantity } },
+        await tx.movement.create({
+          data: {
+            orderId: order.id,
+            orderLineId: orderLine.id,
+            productId: line.productId,
+            fromLocationId: fromLocationId ?? null,
+            toLocationId: toLocationId ?? null,
+            quantity: line.quantity,
+            type: MOVEMENT_TYPE[type],
+          },
         });
-      } else if (type === "GOODS_OUT") {
-        const current = await tx.stock.findUnique({
-          where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
-          include: { product: true },
-        });
-        const newQty = (current?.quantity ?? 0) - line.quantity;
-        if (newQty < 0) warnings.push(`⚠ ${current?.product.name ?? line.productId}: stock went negative (${newQty})`);
-        await tx.stock.upsert({
-          where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
-          create: { productId: line.productId, locationId: fromLocationId!, quantity: -line.quantity },
-          update: { quantity: { decrement: line.quantity } },
-        });
-      } else if (type === "TRANSFER") {
-        const current = await tx.stock.findUnique({
-          where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
-          include: { product: true },
-        });
-        const newQty = (current?.quantity ?? 0) - line.quantity;
-        if (newQty < 0) warnings.push(`⚠ ${current?.product.name ?? line.productId}: source stock went negative (${newQty})`);
-        await tx.stock.upsert({
-          where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
-          create: { productId: line.productId, locationId: fromLocationId!, quantity: -line.quantity },
-          update: { quantity: { decrement: line.quantity } },
-        });
-        await tx.stock.upsert({
-          where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
-          create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
-          update: { quantity: { increment: line.quantity } },
-        });
-      } else if (type === "ADJUSTMENT") {
-        await tx.stock.upsert({
-          where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
-          create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
-          update: { quantity: { increment: line.quantity } },
-        });
+
+        if (type === "GRN") {
+          await tx.stock.upsert({
+            where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
+            create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
+            update: { quantity: { increment: line.quantity } },
+          });
+        } else if (type === "GOODS_OUT") {
+          const current = await tx.stock.findUnique({
+            where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
+            include: { product: true },
+          });
+          const newQty = (current?.quantity ?? 0) - line.quantity;
+          if (newQty < 0) warnings.push(`⚠ ${current?.product.name ?? line.productId}: stock went negative (${newQty})`);
+          await tx.stock.upsert({
+            where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
+            create: { productId: line.productId, locationId: fromLocationId!, quantity: -line.quantity },
+            update: { quantity: { decrement: line.quantity } },
+          });
+        } else if (type === "TRANSFER") {
+          const current = await tx.stock.findUnique({
+            where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
+            include: { product: true },
+          });
+          const newQty = (current?.quantity ?? 0) - line.quantity;
+          if (newQty < 0) warnings.push(`⚠ ${current?.product.name ?? line.productId}: source stock went negative (${newQty})`);
+          await tx.stock.upsert({
+            where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
+            create: { productId: line.productId, locationId: fromLocationId!, quantity: -line.quantity },
+            update: { quantity: { decrement: line.quantity } },
+          });
+          await tx.stock.upsert({
+            where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
+            create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
+            update: { quantity: { increment: line.quantity } },
+          });
+        } else if (type === "ADJUSTMENT") {
+          await tx.stock.upsert({
+            where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
+            create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
+            update: { quantity: { increment: line.quantity } },
+          });
+        }
       }
-    }
 
-    return order;
-  });
+      return order;
+    });
+  } catch (err) {
+    console.error("Order creation failed:", err);
+    return NextResponse.json({ error: "Failed to create order — please try again" }, { status: 500 });
+  }
 
   return NextResponse.json({ order: result, warnings }, { status: 201 });
 }

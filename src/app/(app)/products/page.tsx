@@ -21,7 +21,8 @@ export default async function ProductsPage({
 }: {
   searchParams: Promise<{ q?: string; categoryId?: string; locationId?: string; page?: string; showInactive?: string; lowStock?: string }>;
 }) {
-  await blockOperator();
+  const session = await blockOperator();
+  const userRole = session.user.role;
   const params = await searchParams;
   const q = params.q ?? "";
   const categoryId = params.categoryId ?? "";
@@ -161,7 +162,7 @@ export default async function ProductsPage({
                       )}
                     <div className="min-w-0">
                     <div className={`font-medium flex items-center gap-2 ${!p.isActive ? "text-slate-400 line-through" : "text-slate-800"}`}>
-                      {p.name}
+                      <Link href={`/products/${p.id}`} className="hover:text-blue-600 hover:underline">{p.name}</Link>
                       {!p.isActive && (
                         <span className="no-underline not-italic line-through-none text-[10px] font-semibold bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded-full uppercase tracking-wide" style={{ textDecoration: "none" }}>
                           Inactive
@@ -206,7 +207,7 @@ export default async function ProductsPage({
                       <Link href={`/barcodes?productId=${p.id}`} className="text-xs text-slate-500 hover:underline">Label</Link>
                     )}
                     <Link href={`/products/${p.id}/edit`} className="text-xs text-blue-600 hover:underline">Edit</Link>
-                    <ProductDeactivateButton productId={p.id} isActive={p.isActive} />
+                    <ProductDeactivateButton productId={p.id} isActive={p.isActive} userRole={userRole} />
                   </td>
                 </tr>
               );

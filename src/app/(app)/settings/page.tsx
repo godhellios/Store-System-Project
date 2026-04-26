@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
-type Row = { id: string; name: string; type?: string; isActive: boolean; _count?: { products: number } };
+type Row = { id: string; name: string; type?: string; isActive: boolean; _count?: { products?: number; stock?: number } };
 
 const TABS = ["Categories", "Units", "Locations"];
 
@@ -111,8 +111,11 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
                 <div className="flex-1">
                   <span className="text-sm text-slate-800">{row.name}</span>
                   {hasType && row.type && <span className="ml-2 text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{row.type}</span>}
-                  {row._count !== undefined && (
+                  {row._count?.products !== undefined && (
                     <span className="ml-2 text-xs text-slate-400">{row._count.products} product{row._count.products !== 1 ? "s" : ""}</span>
+                  )}
+                  {row._count?.stock !== undefined && (
+                    <span className="ml-2 text-xs text-slate-400">{row._count.stock} stock record{row._count.stock !== 1 ? "s" : ""}</span>
                   )}
                 </div>
                 <button onClick={() => setEditing({ id: row.id, name: row.name, type: row.type ?? "" })}
