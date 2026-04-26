@@ -3,9 +3,10 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
-// LOCAL DEV: provider = "sqlite" | PRODUCTION: provider = "postgresql"
 datasource db {
-  provider = "sqlite"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Enums ───────────────────────────────────────────────
