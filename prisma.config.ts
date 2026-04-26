@@ -11,7 +11,5 @@ export default defineConfig({
   },
   datasource: {
     url: process.env["DATABASE_URL"]!,
-    // LOCAL DEV: remove directUrl for SQLite. Restore for Supabase/PostgreSQL.
-    // directUrl: process.env["DIRECT_URL"],
   },
 });
