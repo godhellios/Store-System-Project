@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 type Line = {
-  id: string; bookQty: number; physicalQty: number | null; difference: number | null;
+  id: string; bookQty: number; physicalQty: number | null; difference: number | null; notes: string | null;
   product: { name: string; sku: string; category: { name: string }; unit: { name: string } };
 };
 type Session = { id: string; sessionNumber: string; status: string; notes: string | null; lines: Line[] };
@@ -89,6 +89,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
               <th className="px-4 py-2.5 text-center font-medium">Physical Qty</th>
               <th className="px-4 py-2.5 text-right font-medium">Difference</th>
               <th className="px-4 py-2.5 text-left font-medium">Unit</th>
+              <th className="px-4 py-2.5 text-left font-medium">Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -120,6 +121,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
                     {diff === null ? "—" : diff === 0 ? "✓" : diff > 0 ? `+${diff}` : diff}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-slate-500">{line.product.unit.name}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-400">{line.notes ?? "—"}</td>
                 </tr>
               );
             })}

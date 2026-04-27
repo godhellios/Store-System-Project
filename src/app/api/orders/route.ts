@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     toLocationId?: string;
     reference?: string;
     notes?: string;
-    lines: Array<{ productId: string; quantity: number; notes?: string }>;
+    lines: Array<{ productId: string; quantity: number; inputQty?: number; inputUnit?: string; notes?: string }>;
   };
 
   if (!type) return NextResponse.json({ error: "Type is required" }, { status: 400 });
@@ -101,7 +101,14 @@ export async function POST(req: Request) {
 
       for (const line of lines) {
         const orderLine = await tx.orderLine.create({
-          data: { orderId: order.id, productId: line.productId, quantity: line.quantity, notes: line.notes },
+          data: {
+            orderId: order.id,
+            productId: line.productId,
+            quantity: line.quantity,
+            inputQty: line.inputQty ?? null,
+            inputUnit: line.inputUnit ?? null,
+            notes: line.notes,
+          },
         });
 
         await tx.movement.create({

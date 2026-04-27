@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { name, sku, barcode, categoryId, unitId, reorderPoint, colorVariant, description, imageUrl } = body;
+  const { name, sku, barcode, categoryId, unitId, reorderPoint, colorVariant, description, imageUrl, unitConversions } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 });
   if (!sku?.trim()) return NextResponse.json({ error: "SKU is required" }, { status: 400 });
@@ -63,6 +63,12 @@ export async function POST(req: Request) {
   if (skuConflict) return NextResponse.json({ error: "SKU already exists" }, { status: 409 });
   if (barcodeConflict) return NextResponse.json({ error: "Barcode already exists" }, { status: 409 });
 
+  const validConversions = Array.isArray(unitConversions)
+    ? unitConversions.filter((c: { name?: string; conversionFactor?: number }) =>
+        c.name?.trim() && (c.conversionFactor ?? 0) > 0
+      )
+    : [];
+
   const product = await prisma.product.create({
     data: {
       name: name.trim(),
@@ -74,8 +80,16 @@ export async function POST(req: Request) {
       colorVariant: colorVariant?.trim() || null,
       description: description?.trim() || null,
       imageUrl: imageUrl?.trim() || null,
+      ...(validConversions.length > 0 ? {
+        unitConversions: {
+          create: validConversions.map((c: { name: string; conversionFactor: number }) => ({
+            name: c.name.trim(),
+            conversionFactor: c.conversionFactor,
+          })),
+        },
+      } : {}),
     },
-    include: { category: true, unit: true },
+    include: { category: true, unit: true, unitConversions: true },
   });
 
   return NextResponse.json(product, { status: 201 });

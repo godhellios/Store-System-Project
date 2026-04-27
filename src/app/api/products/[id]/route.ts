@@ -13,6 +13,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     include: {
       category: true,
       unit: true,
+      unitConversions: true,
       stock: { include: { location: true } },
     },
   });
@@ -54,7 +55,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params;
   const body = await req.json();
-  const { name, sku, barcode, categoryId, unitId, reorderPoint, colorVariant, description, imageUrl, isActive } = body;
+  const { name, sku, barcode, categoryId, unitId, reorderPoint, colorVariant, description, imageUrl, isActive, unitConversions } = body;
 
   if (sku) {
     const c = await prisma.product.findFirst({ where: { sku: sku.trim(), NOT: { id } } });
@@ -64,6 +65,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const c = await prisma.product.findFirst({ where: { barcode: barcode.trim(), NOT: { id } } });
     if (c) return NextResponse.json({ error: "Barcode already in use" }, { status: 409 });
   }
+
+  const validConversions = Array.isArray(unitConversions)
+    ? unitConversions.filter((c: { name?: string; conversionFactor?: number }) =>
+        c.name?.trim() && (c.conversionFactor ?? 0) > 0
+      )
+    : undefined;
 
   const product = await prisma.product.update({
     where: { id },
@@ -78,8 +85,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       ...(description !== undefined ? { description: description?.trim() || null } : {}),
       ...(imageUrl !== undefined ? { imageUrl: imageUrl?.trim() || null } : {}),
       ...(isActive !== undefined ? { isActive } : {}),
+      ...(validConversions !== undefined ? {
+        unitConversions: {
+          deleteMany: {},
+          create: validConversions.map((c: { name: string; conversionFactor: number }) => ({
+            name: c.name.trim(),
+            conversionFactor: c.conversionFactor,
+          })),
+        },
+      } : {}),
     },
-    include: { category: true, unit: true },
+    include: { category: true, unit: true, unitConversions: true },
   });
 
   return NextResponse.json(product);

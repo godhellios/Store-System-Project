@@ -5,19 +5,30 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 type Location = { id: string; name: string; type: string };
+type UnitConversion = { id: string; name: string; conversionFactor: number };
+
 type LineItem = {
   _key: string;
   productId: string;
   name: string;
   sku: string;
   barcode: string;
-  unitName: string;
+  baseUnitId: string;
+  baseUnitName: string;
   quantity: number;
+  inputUnitId: string;      // which unit the user is entering in
+  inputUnitName: string;
+  conversionFactor: number; // 1 inputUnit = conversionFactor baseUnits
+  unitConversions: UnitConversion[];
   notes: string;
 };
+
 type SearchProduct = {
   id: string; name: string; sku: string; barcode: string;
-  isActive: boolean; unit: { name: string }; category: { name: string };
+  isActive: boolean;
+  unit: { id: string; name: string };
+  unitConversions: UnitConversion[];
+  category: { name: string };
   colorVariant: string | null;
 };
 
@@ -55,8 +66,8 @@ export function TransactionForm({
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [printDialog, setPrintDialog] = useState<{ orderId: string; orderNumber: string } | null>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
@@ -80,11 +91,28 @@ export function TransactionForm({
     }
   }, []);
 
-  // Debounce search
   useEffect(() => {
     const t = setTimeout(() => doSearch(searchQuery), 250);
     return () => clearTimeout(t);
   }, [searchQuery, doSearch]);
+
+  function buildLineItem(product: SearchProduct): LineItem {
+    return {
+      _key: Math.random().toString(36).slice(2),
+      productId: product.id,
+      name: product.name,
+      sku: product.sku,
+      barcode: product.barcode,
+      baseUnitId: product.unit.id,
+      baseUnitName: product.unit.name,
+      quantity: 1,
+      inputUnitId: product.unit.id,
+      inputUnitName: product.unit.name,
+      conversionFactor: 1,
+      unitConversions: product.unitConversions ?? [],
+      notes: "",
+    };
+  }
 
   function addProduct(product: SearchProduct) {
     if (!product.isActive && type === "GRN") {
@@ -96,16 +124,7 @@ export function TransactionForm({
       if (existing) {
         return prev.map((l) => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
       }
-      return [...prev, {
-        _key: Math.random().toString(36).slice(2),
-        productId: product.id,
-        name: product.name,
-        sku: product.sku,
-        barcode: product.barcode,
-        unitName: product.unit.name,
-        quantity: 1,
-        notes: "",
-      }];
+      return [...prev, buildLineItem(product)];
     });
     toast.success(`Added: ${product.name}`, { duration: 1500 });
     setSearchQuery("");
@@ -116,7 +135,6 @@ export function TransactionForm({
   async function handleScan(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter" || !scanInput.trim()) return;
     setScanning(true);
-
     const res = await fetch(`/api/products/lookup?q=${encodeURIComponent(scanInput.trim())}`);
     setScanning(false);
 
@@ -141,23 +159,25 @@ export function TransactionForm({
       if (existing) {
         return prev.map((l) => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
       }
-      return [...prev, {
-        _key: Math.random().toString(36).slice(2),
-        productId: product.id,
-        name: product.name,
-        sku: product.sku,
-        barcode: product.barcode,
-        unitName: product.unit.name,
-        quantity: 1,
-        notes: "",
-      }];
+      return [...prev, buildLineItem(product)];
     });
-
     toast.success(`Added: ${product.name}`, { duration: 1500 });
   }
 
   function updateLine(key: string, field: keyof LineItem, value: string | number) {
     setLines((prev) => prev.map((l) => l._key === key ? { ...l, [field]: value } : l));
+  }
+
+  function changeInputUnit(key: string, newUnitId: string) {
+    setLines((prev) => prev.map((l) => {
+      if (l._key !== key) return l;
+      if (newUnitId === l.baseUnitId) {
+        return { ...l, inputUnitId: l.baseUnitId, inputUnitName: l.baseUnitName, conversionFactor: 1 };
+      }
+      const match = l.unitConversions.find((c) => c.id === newUnitId);
+      if (!match) return l;
+      return { ...l, inputUnitId: match.id, inputUnitName: match.name, conversionFactor: match.conversionFactor };
+    }));
   }
 
   function removeLine(key: string) {
@@ -181,13 +201,19 @@ export function TransactionForm({
         toLocationId: toLocationId || undefined,
         reference: reference || undefined,
         notes: notes || undefined,
-        lines: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, notes: l.notes || undefined })),
+        lines: lines.map((l) => ({
+          productId: l.productId,
+          quantity: Math.round(l.quantity * l.conversionFactor),
+          inputQty: l.conversionFactor !== 1 ? l.quantity : undefined,
+          inputUnit: l.conversionFactor !== 1 ? l.inputUnitName : undefined,
+          notes: l.notes || undefined,
+        })),
       }),
     });
 
     setSubmitting(false);
 
-    let data: { error?: string; order?: { orderNumber: string }; warnings?: string[] } = {};
+    let data: { error?: string; order?: { id: string; orderNumber: string }; warnings?: string[] } = {};
     try {
       data = await res.json();
     } catch {
@@ -204,10 +230,16 @@ export function TransactionForm({
       data.warnings.forEach((w: string) => toast(w, { icon: "⚠️", duration: 6000 }));
     }
 
-    toast.success(`${data.order!.orderNumber} saved`);
-    router.push("/orders");
-    router.refresh();
+    if (type === "GOODS_OUT") {
+      setPrintDialog({ orderId: data.order!.id, orderNumber: data.order!.orderNumber });
+    } else {
+      toast.success(`${data.order!.orderNumber} saved`);
+      router.push("/orders");
+      router.refresh();
+    }
   }
+
+  const totalBaseUnits = lines.reduce((s, l) => s + Math.round(l.quantity * l.conversionFactor), 0);
 
   return (
     <div>
@@ -308,7 +340,7 @@ export function TransactionForm({
             )}
             {showDropdown && searchQuery && searchResults.length === 0 && !searchLoading && (
               <div className="absolute z-50 top-full mt-1 left-0 w-full sm:w-64 bg-white border border-slate-200 rounded-xl shadow-xl px-4 py-3 text-xs text-slate-400">
-                No products found for "{searchQuery}"
+                No products found for &quot;{searchQuery}&quot;
               </div>
             )}
           </div>
@@ -317,60 +349,86 @@ export function TransactionForm({
 
         {/* Line items */}
         <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-              <th className="px-4 py-2.5 text-left font-medium">#</th>
-              <th className="px-4 py-2.5 text-left font-medium">Product</th>
-              <th className="px-4 py-2.5 text-left font-medium">Barcode</th>
-              <th className="px-4 py-2.5 text-left font-medium">Unit</th>
-              <th className="px-4 py-2.5 text-center font-medium">Qty</th>
-              <th className="px-4 py-2.5 text-left font-medium">Notes</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">
-                Scan a barcode, type a SKU, or search by product name above to add items
-              </td></tr>
-            ) : lines.map((line, i) => (
-              <tr key={line._key} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="px-4 py-2 text-slate-400 text-xs">{i + 1}</td>
-                <td className="px-4 py-2">
-                  <div className="font-medium text-slate-800">{line.name}</div>
-                  <div className="text-xs font-mono text-slate-400">{line.sku}</div>
-                </td>
-                <td className="px-4 py-2 font-mono text-xs text-slate-400">{line.barcode}</td>
-                <td className="px-4 py-2 text-xs text-slate-500">{line.unitName}</td>
-                <td className="px-4 py-2 text-center">
-                  <input
-                    type="number" min="1" value={line.quantity}
-                    onChange={(e) => updateLine(line._key, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-20 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </td>
-                <td className="px-4 py-2">
-                  <input value={line.notes} onChange={(e) => updateLine(line._key, "notes", e.target.value)}
-                    className="w-full px-2 py-1 border border-slate-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                    placeholder="Optional" />
-                </td>
-                <td className="px-4 py-2">
-                  <button onClick={() => removeLine(line._key)}
-                    className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded px-1.5 py-0.5 transition-colors text-base leading-none">
-                    ×
-                  </button>
-                </td>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                <th className="px-4 py-2.5 text-left font-medium">#</th>
+                <th className="px-4 py-2.5 text-left font-medium">Product</th>
+                <th className="px-4 py-2.5 text-center font-medium">Qty</th>
+                <th className="px-4 py-2.5 text-left font-medium">Unit</th>
+                <th className="px-4 py-2.5 text-right font-medium">= Base qty</th>
+                <th className="px-4 py-2.5 text-left font-medium">Notes</th>
+                <th className="px-4 py-2.5"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {lines.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">
+                  Scan a barcode, type a SKU, or search by product name above to add items
+                </td></tr>
+              ) : lines.map((line, i) => {
+                const hasPackaging = line.unitConversions.length > 0;
+                const baseQty = Math.round(line.quantity * line.conversionFactor);
 
+                return (
+                  <tr key={line._key} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-2 text-slate-400 text-xs">{i + 1}</td>
+                    <td className="px-4 py-2">
+                      <div className="font-medium text-slate-800">{line.name}</div>
+                      <div className="text-xs font-mono text-slate-400">{line.sku}</div>
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      <input
+                        type="number" min="1" value={line.quantity}
+                        onChange={(e) => updateLine(line._key, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-20 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </td>
+                    <td className="px-4 py-2">
+                      {hasPackaging ? (
+                        <select
+                          value={line.inputUnitId}
+                          onChange={(e) => changeInputUnit(line._key, e.target.value)}
+                          className="px-2 py-1 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value={line.baseUnitId}>{line.baseUnitName}</option>
+                          {line.unitConversions.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name} (×{c.conversionFactor})</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs text-slate-500">{line.baseUnitName}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {line.conversionFactor !== 1 ? (
+                        <span className="text-sm font-semibold text-blue-700">{baseQty} {line.baseUnitName}</span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      <input value={line.notes} onChange={(e) => updateLine(line._key, "notes", e.target.value)}
+                        className="w-full px-2 py-1 border border-slate-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        placeholder="Optional" />
+                    </td>
+                    <td className="px-4 py-2">
+                      <button onClick={() => removeLine(line._key)}
+                        className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded px-1.5 py-0.5 transition-colors text-base leading-none">
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
+
         {/* Footer */}
         <div className="px-5 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-slate-500">
-            {lines.length} line{lines.length !== 1 ? "s" : ""} · {lines.reduce((s, l) => s + l.quantity, 0)} items total
+            {lines.length} line{lines.length !== 1 ? "s" : ""} · {totalBaseUnits} base unit{totalBaseUnits !== 1 ? "s" : ""} total
           </span>
           <div className="flex gap-3">
             <button onClick={() => router.back()} className="px-4 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
@@ -383,6 +441,43 @@ export function TransactionForm({
           </div>
         </div>
       </div>
+
+      {/* Print DO dialog */}
+      {printDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4 text-center">
+            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-1">Order Saved!</h2>
+            <p className="text-sm text-slate-500 mb-1 font-mono">{printDialog.orderNumber}</p>
+            <p className="text-sm text-slate-600 mb-6">Would you like to print the Delivery Order?</p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => {
+                  window.open(`/orders/${printDialog.orderId}/print`, "_blank");
+                  router.push("/orders");
+                  router.refresh();
+                }}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                Print DO
+              </button>
+              <button
+                onClick={() => {
+                  router.push("/orders");
+                  router.refresh();
+                }}
+                className="px-5 py-2.5 border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-colors"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

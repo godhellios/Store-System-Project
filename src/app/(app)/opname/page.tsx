@@ -2,7 +2,12 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { NewOpnameButton } from "@/components/new-opname-button";
 import CancelOpnameButton from "@/components/cancel-opname-button";
+import DeleteOpnameButton from "@/components/delete-opname-button";
 import { blockOperator } from "@/lib/role-guard";
+import { OpnameExportButton } from "@/components/opname-export-button";
+import { OpnameImportButton } from "@/components/opname-import-button";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 const STATUS_BADGE: Record<string, string> = {
   IN_PROGRESS: "bg-yellow-100 text-yellow-700",
@@ -12,6 +17,9 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default async function OpnamePage() {
   await blockOperator();
+  const authSession = await getServerSession(authOptions);
+  const isAdmin = authSession?.user.role === "ADMIN";
+
   const [sessions, locations] = await Promise.all([
     prisma.opnameSession.findMany({
       orderBy: { createdAt: "desc" },
@@ -24,7 +32,11 @@ export default async function OpnamePage() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-base font-semibold text-slate-800">Stock Opname</h1>
-        <NewOpnameButton locations={locations} />
+        <div className="flex items-center gap-2">
+          <OpnameExportButton locations={locations} />
+          <OpnameImportButton locations={locations} />
+          <NewOpnameButton locations={locations} />
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -65,6 +77,9 @@ export default async function OpnamePage() {
                   </Link>
                   {s.status === "IN_PROGRESS" && (
                     <CancelOpnameButton sessionId={s.id} sessionNumber={s.sessionNumber} />
+                  )}
+                  {s.status !== "IN_PROGRESS" && isAdmin && (
+                    <DeleteOpnameButton sessionId={s.id} sessionNumber={s.sessionNumber} status={s.status} />
                   )}
                 </td>
               </tr>

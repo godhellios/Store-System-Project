@@ -71,12 +71,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     });
 
     const discrepancies = fullSession!.lines.filter(
-      (l) => l.physicalQty !== null && l.difference !== 0
+      (l) => l.physicalQty !== null && l.difference !== null && l.difference !== 0
     );
 
     if (discrepancies.length > 0) {
+      // Generate order number before the transaction — nextOrderNumber uses the global
+      // prisma client which shares the same single-connection pool; calling it inside
+      // prisma.$transaction would deadlock because the transaction already holds the
+      // one available connection.
+      const orderNumber = await nextOrderNumber("ADJUSTMENT");
+
       await prisma.$transaction(async (tx) => {
-        const orderNumber = await nextOrderNumber("ADJUSTMENT");
         const order = await tx.order.create({
           data: {
             orderNumber,
@@ -127,9 +132,13 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const opnameSession = await prisma.opnameSession.findUnique({ where: { id } });
   if (!opnameSession) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (opnameSession.status !== "IN_PROGRESS")
-    return NextResponse.json({ error: "Only in-progress sessions can be cancelled" }, { status: 400 });
 
+  // Non-IN_PROGRESS sessions require ADMIN role
+  if (opnameSession.status !== "IN_PROGRESS" && session.user.role !== "ADMIN")
+    return NextResponse.json({ error: "Only admins can delete completed sessions" }, { status: 403 });
+
+  // Deleting an APPROVED session only removes the opname record — the adjustment
+  // orders that were applied on approval remain intact in the orders history.
   await prisma.opnameSession.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

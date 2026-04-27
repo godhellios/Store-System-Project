@@ -31,7 +31,13 @@ export default async function MovementsPage({
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * perPage,
       take: perPage,
-      include: { product: { include: { unit: true } }, fromLocation: true, toLocation: true, order: true },
+      include: {
+        product: { include: { unit: true } },
+        fromLocation: true,
+        toLocation: true,
+        order: true,
+        orderLine: { select: { inputQty: true, inputUnit: true } },
+      },
     }),
     prisma.movement.count({ where }),
     prisma.location.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
@@ -102,8 +108,21 @@ export default async function MovementsPage({
                 </td>
                 <td className="px-4 py-2.5 text-xs text-slate-500">{m.fromLocation?.name ?? "—"}</td>
                 <td className="px-4 py-2.5 text-xs text-slate-500">{m.toLocation?.name ?? "—"}</td>
-                <td className="px-4 py-2.5 text-right font-semibold text-slate-800">
-                  {m.quantity} <span className="text-slate-400 font-normal">{m.product.unit.name.toLowerCase()}</span>
+                <td className="px-4 py-2.5 text-right">
+                  {m.orderLine?.inputQty != null ? (
+                    <>
+                      <div className="font-semibold text-slate-800">
+                        {m.orderLine.inputQty} <span className="text-xs font-normal text-slate-400">{m.orderLine.inputUnit}</span>
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        = {m.quantity} {m.product.unit.name.toLowerCase()}
+                      </div>
+                    </>
+                  ) : (
+                    <span className="font-semibold text-slate-800">
+                      {m.quantity} <span className="text-xs font-normal text-slate-400">{m.product.unit.name.toLowerCase()}</span>
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

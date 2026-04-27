@@ -22,7 +22,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     include: {
       fromLocation: true,
       toLocation: true,
-      lines: { include: { product: { include: { category: true, unit: true } } } },
+      lines: { include: { product: { include: { category: true, unit: true } } }, orderBy: { id: "asc" } },
     },
   });
   if (!order) notFound();
@@ -38,7 +38,19 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             {TYPE_LABEL[order.type]}
           </span>
         </div>
-        <OrderActions orderId={id} userRole={userRole} />
+        <div className="flex items-center gap-2">
+          {order.type === "GOODS_OUT" && (
+            <a
+              href={`/orders/${id}/print`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors"
+            >
+              Print DO
+            </a>
+          )}
+          <OrderActions orderId={id} userRole={userRole} />
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 grid grid-cols-2 gap-4 text-sm text-gray-900">
@@ -80,8 +92,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <th className="px-4 py-2.5 text-left font-medium">#</th>
                 <th className="px-4 py-2.5 text-left font-medium">Product</th>
                 <th className="px-4 py-2.5 text-left font-medium">Category</th>
-                <th className="px-4 py-2.5 text-right font-medium">Qty</th>
-                <th className="px-4 py-2.5 text-left font-medium">Unit</th>
+                <th className="px-4 py-2.5 text-right font-medium">Qty (input)</th>
+                <th className="px-4 py-2.5 text-right font-medium">Base qty</th>
                 <th className="px-4 py-2.5 text-left font-medium">Notes</th>
               </tr>
             </thead>
@@ -94,8 +106,19 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     <div className="text-xs font-mono text-slate-500">{line.product.sku}</div>
                   </td>
                   <td className="px-4 py-2.5 text-xs text-gray-700">{line.product.category.name}</td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-gray-900">{line.quantity}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-700">{line.product.unit.name}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    {line.inputQty != null ? (
+                      <span className="font-semibold text-gray-900">
+                        {line.inputQty} <span className="text-xs font-normal text-slate-500">{line.inputUnit}</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <span className="font-semibold text-gray-900">{line.quantity}</span>
+                    <span className="text-xs font-normal text-slate-500 ml-1">{line.product.unit.name}</span>
+                  </td>
                   <td className="px-4 py-2.5 text-xs text-gray-700">{line.notes ?? "—"}</td>
                 </tr>
               ))}

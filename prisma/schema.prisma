@@ -51,10 +51,15 @@ model User {
 
 // User-managed units of measure (editable from Settings)
 model Unit {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  name             String   @unique
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  parentUnitId     String?
+  conversionFactor Float?   // 1 of this unit = conversionFactor of parentUnit
+
+  parent   Unit?  @relation("UnitHierarchy", fields: [parentUnitId], references: [id])
+  children Unit[] @relation("UnitHierarchy")
 
   products Product[]
 }
@@ -101,10 +106,23 @@ model Product {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  stock       Stock[]
-  orderLines  OrderLine[]
-  movements   Movement[]
-  opnameLines OpnameLine[]
+  stock           Stock[]
+  orderLines      OrderLine[]
+  movements       Movement[]
+  opnameLines     OpnameLine[]
+  unitConversions ProductUnitConversion[]
+}
+
+// Per-product packaging / larger-unit definitions
+// Example: Product "Thread Roll" can have 1 Box = 12 rolls, 1 Carton = 144 rolls
+model ProductUnitConversion {
+  id               String  @id @default(cuid())
+  product          Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId        String
+  name             String  // e.g., "Box", "Carton", "Lusin"
+  conversionFactor Float   // 1 of this unit = conversionFactor base units
+
+  @@unique([productId, name])
 }
 
 // Current stock level per product per location
@@ -144,7 +162,9 @@ model OrderLine {
   orderId   String
   product   Product @relation(fields: [productId], references: [id])
   productId String
-  quantity  Int
+  quantity  Int       // always stored in base units
+  inputQty  Float?    // quantity as entered by user (null when base unit was used)
+  inputUnit String?   // unit name used for input  (null when base unit was used)
   notes     String?
 
   movements Movement[]
@@ -192,6 +212,7 @@ model OpnameLine {
   bookQty     Int
   physicalQty Int?
   difference  Int?
+  notes       String?
 
   @@unique([sessionId, productId])
 }

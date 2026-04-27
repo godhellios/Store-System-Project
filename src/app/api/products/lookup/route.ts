@@ -18,6 +18,7 @@ export async function GET(req: Request) {
     include: {
       category: true,
       unit: true,
+      unitConversions: true,
       stock: { include: { location: true } },
     },
   });

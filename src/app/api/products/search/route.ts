@@ -18,7 +18,7 @@ export async function GET(req: Request) {
         { barcode: { contains: q } },
       ],
     },
-    include: { unit: true, category: true },
+    include: { unit: true, unitConversions: true, category: true },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
     take: 10,
   });

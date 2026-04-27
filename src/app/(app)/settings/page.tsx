@@ -6,9 +6,16 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 type Row = { id: string; name: string; type?: string; isActive: boolean; _count?: { products?: number; stock?: number } };
+type UnitRow = {
+  id: string; name: string; isActive: boolean;
+  parentUnitId: string | null; conversionFactor: number | null;
+  parent: { id: string; name: string } | null;
+  _count: { products: number };
+};
 
 const TABS = ["Categories", "Units", "Locations"];
 
+// Generic manager for categories and locations
 function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: string; hasType?: boolean }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [newName, setNewName] = useState("");
@@ -20,7 +27,6 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
     const res = await fetch(`/api/${endpoint}`);
     if (res.ok) setRows(await res.json());
   }
-
   useEffect(() => { load(); }, []);
 
   async function handleAdd(e: React.FormEvent) {
@@ -76,7 +82,6 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
 
   return (
     <div className="max-w-xl">
-      {/* Add form */}
       <form onSubmit={handleAdd} className="flex gap-2 mb-4">
         <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={`New ${label.toLowerCase()} name…`}
           className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -89,8 +94,6 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
           Add
         </button>
       </form>
-
-      {/* List */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
         {rows.length === 0 && <p className="px-4 py-6 text-center text-xs text-slate-400">No {label.toLowerCase()}s yet</p>}
         {rows.map((row) => (
@@ -134,6 +137,175 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
   );
 }
 
+// Dedicated unit manager with parent/conversion support
+function UnitManager() {
+  const [units, setUnits] = useState<UnitRow[]>([]);
+  const [newName, setNewName] = useState("");
+  const [newParentId, setNewParentId] = useState("");
+  const [newFactor, setNewFactor] = useState("");
+  const [editing, setEditing] = useState<{ id: string; name: string; parentUnitId: string; conversionFactor: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    const res = await fetch("/api/units");
+    if (res.ok) setUnits(await res.json());
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setLoading(true);
+    const res = await fetch("/api/units", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newName.trim(),
+        parentUnitId: newParentId || null,
+        conversionFactor: newFactor ? parseFloat(newFactor) : null,
+      }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { toast.error(data.error); return; }
+    toast.success("Unit added");
+    setNewName(""); setNewParentId(""); setNewFactor("");
+    load();
+  }
+
+  async function handleSave() {
+    if (!editing) return;
+    setLoading(true);
+    const res = await fetch(`/api/units/${editing.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: editing.name,
+        parentUnitId: editing.parentUnitId || null,
+        conversionFactor: editing.conversionFactor ? parseFloat(editing.conversionFactor) : null,
+      }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { toast.error(data.error); return; }
+    toast.success("Saved");
+    setEditing(null);
+    load();
+  }
+
+  async function toggleActive(unit: UnitRow) {
+    const res = await fetch(`/api/units/${unit.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !unit.isActive }),
+    });
+    if (!res.ok) { toast.error("Failed"); return; }
+    toast.success(unit.isActive ? "Deactivated" : "Activated");
+    load();
+  }
+
+  async function handleDelete(unit: UnitRow) {
+    if (!confirm(`Delete "${unit.name}"?`)) return;
+    const res = await fetch(`/api/units/${unit.id}`, { method: "DELETE" });
+    if (res.status === 204) { toast.success("Deleted"); load(); return; }
+    const data = await res.json();
+    toast.error(data.error);
+  }
+
+  const activeUnits = units.filter((u) => u.isActive);
+
+  return (
+    <div className="max-w-xl">
+      <p className="text-xs text-slate-500 mb-3">
+        Define higher units by selecting a parent. Example: <span className="font-medium">Box</span> → parent = <span className="font-medium">Dozen</span>, factor = <span className="font-medium">12</span> means 1 Box = 12 Dozen.
+      </p>
+      <form onSubmit={handleAdd} className="flex flex-wrap gap-2 mb-4 items-end">
+        <div className="flex-1 min-w-[140px]">
+          <label className="block text-xs text-slate-500 mb-0.5">Unit name *</label>
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Box"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div className="min-w-[130px]">
+          <label className="block text-xs text-slate-500 mb-0.5">1 of this = … of</label>
+          <select value={newParentId} onChange={(e) => setNewParentId(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">(base unit)</option>
+            {activeUnits.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </div>
+        {newParentId && (
+          <div className="w-24">
+            <label className="block text-xs text-slate-500 mb-0.5">Factor *</label>
+            <input type="number" min="1" step="any" value={newFactor} onChange={(e) => setNewFactor(e.target.value)}
+              placeholder="e.g. 12"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        )}
+        <button type="submit" disabled={loading || !newName.trim() || (!!newParentId && !newFactor)}
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+          Add
+        </button>
+      </form>
+
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+        {units.length === 0 && <p className="px-4 py-6 text-center text-xs text-slate-400">No units yet</p>}
+        {units.map((unit) => (
+          <div key={unit.id} className={`px-4 py-2.5 ${!unit.isActive ? "opacity-50" : ""}`}>
+            {editing?.id === unit.id ? (
+              <div className="flex flex-wrap gap-2 items-end">
+                <div className="flex-1 min-w-[120px]">
+                  <label className="block text-xs text-slate-400 mb-0.5">Name</label>
+                  <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                    className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none" autoFocus />
+                </div>
+                <div className="min-w-[120px]">
+                  <label className="block text-xs text-slate-400 mb-0.5">1 of this = … of</label>
+                  <select value={editing.parentUnitId}
+                    onChange={(e) => setEditing({ ...editing, parentUnitId: e.target.value, conversionFactor: "" })}
+                    className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none">
+                    <option value="">(base unit)</option>
+                    {activeUnits.filter((u) => u.id !== unit.id).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                </div>
+                {editing.parentUnitId && (
+                  <div className="w-20">
+                    <label className="block text-xs text-slate-400 mb-0.5">Factor</label>
+                    <input type="number" min="1" step="any" value={editing.conversionFactor}
+                      onChange={(e) => setEditing({ ...editing, conversionFactor: e.target.value })}
+                      className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none" />
+                  </div>
+                )}
+                <div className="flex gap-2 items-center">
+                  <button onClick={handleSave} className="text-xs text-blue-600 font-medium hover:underline">Save</button>
+                  <button onClick={() => setEditing(null)} className="text-xs text-slate-400 hover:underline">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <span className="text-sm text-slate-800">{unit.name}</span>
+                  {unit.parent && (
+                    <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                      1 {unit.name} = {unit.conversionFactor} {unit.parent.name}
+                    </span>
+                  )}
+                  <span className="ml-2 text-xs text-slate-400">{unit._count.products} product{unit._count.products !== 1 ? "s" : ""}</span>
+                </div>
+                <button onClick={() => setEditing({ id: unit.id, name: unit.name, parentUnitId: unit.parentUnitId ?? "", conversionFactor: unit.conversionFactor?.toString() ?? "" })}
+                  className="text-xs text-slate-500 hover:underline">Edit</button>
+                <button onClick={() => toggleActive(unit)}
+                  className={`text-xs hover:underline ${unit.isActive ? "text-orange-500" : "text-green-600"}`}>
+                  {unit.isActive ? "Deactivate" : "Activate"}
+                </button>
+                <button onClick={() => handleDelete(unit)} className="text-xs text-red-400 hover:underline">Delete</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -157,7 +329,7 @@ export default function SettingsPage() {
       </div>
 
       {tab === 0 && <EntityManager endpoint="categories" label="Category" />}
-      {tab === 1 && <EntityManager endpoint="units" label="Unit" />}
+      {tab === 1 && <UnitManager />}
       {tab === 2 && <EntityManager endpoint="locations" label="Location" hasType />}
     </div>
   );

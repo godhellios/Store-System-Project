@@ -8,6 +8,10 @@ import { OrderEditForm } from "@/components/order-edit-form";
 const TYPE_LABEL: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "Goods Out", TRANSFER: "Transfer", ADJUSTMENT: "Adjustment",
 };
+const TYPE_BADGE: Record<string, string> = {
+  GRN: "bg-green-100 text-green-700", GOODS_OUT: "bg-orange-100 text-orange-700",
+  TRANSFER: "bg-blue-100 text-blue-700", ADJUSTMENT: "bg-gray-100 text-gray-600",
+};
 
 export default async function OrderEditPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -17,12 +21,21 @@ export default async function OrderEditPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { lines: { include: { product: true } } },
+    include: {
+      fromLocation: true,
+      toLocation: true,
+      lines: {
+        include: {
+          product: { include: { unit: true, unitConversions: true } },
+        },
+        orderBy: { id: "asc" },
+      },
+    },
   });
   if (!order) notFound();
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-3xl">
       <div className="flex items-center gap-2 text-sm text-slate-500 mb-5">
         <Link href="/orders" className="hover:text-slate-800">Orders</Link>
         <span>/</span>
@@ -31,14 +44,18 @@ export default async function OrderEditPage({ params }: { params: Promise<{ id: 
         <span className="text-slate-800 font-medium">Edit</span>
       </div>
 
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-5">
         <h1 className="text-base font-semibold text-slate-800 font-mono">{order.orderNumber}</h1>
-        <span className="text-xs text-slate-500">{TYPE_LABEL[order.type]}</span>
+        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[order.type]}`}>
+          {TYPE_LABEL[order.type]}
+        </span>
+        {order.fromLocation && (
+          <span className="text-xs text-slate-500">from <span className="font-medium text-slate-700">{order.fromLocation.name}</span></span>
+        )}
+        {order.toLocation && (
+          <span className="text-xs text-slate-500">to <span className="font-medium text-slate-700">{order.toLocation.name}</span></span>
+        )}
       </div>
-
-      <p className="text-xs text-slate-400 mb-4">
-        Only reference, notes, and line notes can be edited. To correct quantities, delete and re-create the order.
-      </p>
 
       <OrderEditForm order={order} />
     </div>
