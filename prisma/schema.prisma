@@ -202,6 +202,13 @@ model OpnameSession {
   lines OpnameLine[]
 }
 
+// App-wide key-value configuration store
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 // Individual counted item within an opname session
 model OpnameLine {
   id          String        @id @default(cuid())
