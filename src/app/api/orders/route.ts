@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MovementType, OrderType } from "@/generated/prisma";
+// ── push-notify module ──────────────────────────────────────────────────────
+import { sendPushNotification } from "@/modules/push-notify/send";
+// ────────────────────────────────────────────────────────────────────────────
 
 const ORDER_PREFIX: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "OUT", TRANSFER: "TRF", ADJUSTMENT: "ADJ",
@@ -173,6 +176,22 @@ export async function POST(req: Request) {
     console.error("Order creation failed:", err);
     return NextResponse.json({ error: "Failed to create order — please try again" }, { status: 500 });
   }
+
+  // ── push-notify module ──────────────────────────────────────────────────
+  if (type === "GOODS_OUT") {
+    const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
+    const fromName = result.fromLocationId
+      ? await prisma.location.findUnique({ where: { id: result.fromLocationId }, select: { name: true } })
+          .then((l) => l?.name ?? "")
+          .catch(() => "")
+      : "";
+    sendPushNotification({
+      title: `🚚 Goods Out — ${result.orderNumber}`,
+      body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQty} units dispatched${fromName ? ` from ${fromName}` : ""}`,
+      url: `/orders/${result.id}`,
+    }).catch(() => {});
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   return NextResponse.json({ order: result, warnings }, { status: 201 });
 }

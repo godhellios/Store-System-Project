@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+// ── push-notify module ──────────────────────────────────────────────────────
+import { PushSubscribeButton } from "@/modules/push-notify";
+// ────────────────────────────────────────────────────────────────────────────
 
 type Row = { id: string; name: string; type?: string; isActive: boolean; _count?: { products?: number; stock?: number } };
 type LocationRow = { id: string; name: string; type: string; isActive: boolean; _count: { stock: number } };
@@ -562,6 +565,23 @@ function NotificationsManager() {
           {saving ? "Saving…" : "Save"}
         </button>
       </form>
+
+      {/* ── push-notify module ─────────────────────────────────────────── */}
+      <div className="mt-6 pt-6 border-t border-slate-200">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 flex gap-3">
+          <span className="text-xl">🔔</span>
+          <div>
+            <div className="text-sm font-semibold text-blue-800 mb-0.5">Phone Push Notifications</div>
+            <p className="text-xs text-blue-700">
+              Get an instant notification on this device whenever a Goods Out order is confirmed. Free — no service required. Enable on each device you want to receive alerts.
+            </p>
+          </div>
+        </div>
+        <PushSubscribeButton
+          vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
+        />
+      </div>
+      {/* ─────────────────────────────────────────────────────────────────── */}
     </div>
   );
 }
