@@ -43,6 +43,10 @@ export async function GET(req: Request) {
   return NextResponse.json({ products, total, page, pages: Math.ceil(total / perPage) });
 }
 
+function genBarcode(): string {
+  return "MR" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
+}
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -51,17 +55,39 @@ export async function POST(req: Request) {
   const { name, sku, barcode, categoryId, unitId, reorderPoint, colorVariant, description, imageUrl, unitConversions } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 });
-  if (!sku?.trim()) return NextResponse.json({ error: "SKU is required" }, { status: 400 });
-  if (!barcode?.trim()) return NextResponse.json({ error: "Barcode is required" }, { status: 400 });
   if (!categoryId) return NextResponse.json({ error: "Category is required" }, { status: 400 });
   if (!unitId) return NextResponse.json({ error: "Unit is required" }, { status: 400 });
 
-  const [skuConflict, barcodeConflict] = await Promise.all([
-    prisma.product.findUnique({ where: { sku: sku.trim() } }),
-    prisma.product.findUnique({ where: { barcode: barcode.trim() } }),
-  ]);
-  if (skuConflict) return NextResponse.json({ error: "SKU already exists" }, { status: 409 });
-  if (barcodeConflict) return NextResponse.json({ error: "Barcode already exists" }, { status: 409 });
+  // Auto-generate SKU if blank
+  let finalSku = sku?.trim();
+  if (!finalSku) {
+    const cat = await prisma.category.findUnique({ where: { id: categoryId }, select: { name: true } });
+    const prefix = (cat?.name ?? "PRD").slice(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, "X");
+    const total = await prisma.product.count();
+    let candidate = `${prefix}-${String(total + 1).padStart(4, "0")}`;
+    let attempt = 0;
+    while (await prisma.product.findUnique({ where: { sku: candidate } })) {
+      attempt++;
+      candidate = `${prefix}-${String(total + 1 + attempt).padStart(4, "0")}`;
+    }
+    finalSku = candidate;
+  } else {
+    const conflict = await prisma.product.findUnique({ where: { sku: finalSku } });
+    if (conflict) return NextResponse.json({ error: "SKU already exists" }, { status: 409 });
+  }
+
+  // Auto-generate barcode if blank
+  let finalBarcode = barcode?.trim();
+  if (!finalBarcode) {
+    let candidate = genBarcode();
+    while (await prisma.product.findUnique({ where: { barcode: candidate } })) {
+      candidate = genBarcode();
+    }
+    finalBarcode = candidate;
+  } else {
+    const conflict = await prisma.product.findUnique({ where: { barcode: finalBarcode } });
+    if (conflict) return NextResponse.json({ error: "Barcode already exists" }, { status: 409 });
+  }
 
   const validConversions = Array.isArray(unitConversions)
     ? unitConversions.filter((c: { name?: string; conversionFactor?: number }) =>
@@ -72,8 +98,8 @@ export async function POST(req: Request) {
   const product = await prisma.product.create({
     data: {
       name: name.trim(),
-      sku: sku.trim(),
-      barcode: barcode.trim(),
+      sku: finalSku,
+      barcode: finalBarcode,
       categoryId,
       unitId,
       reorderPoint: parseInt(reorderPoint) || 0,

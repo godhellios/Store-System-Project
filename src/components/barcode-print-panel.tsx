@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type Product = { id: string; name: string; sku: string; barcode: string; colorVariant: string | null; category: { name: string }; unit: { name: string } };
+type Product = { id: string; name: string; sku: string; barcode: string; colorVariant: string | null; isActive: boolean; categoryId: string; category: { name: string }; unit: { name: string } };
 type Category = { id: string; name: string };
 
 export function BarcodePrintPanel({
@@ -31,8 +31,8 @@ export function BarcodePrintPanel({
   function setCopy(id: string, n: number) { setCopies((c) => ({ ...c, [id]: Math.max(1, n) })); }
 
   const filtered = products.filter((p) => {
-    const matchQ = !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.sku.toLowerCase().includes(q.toLowerCase());
-    const matchCat = !categoryId || p.category.name === categories.find((c) => c.id === categoryId)?.name;
+    const matchQ = !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.sku.toLowerCase().includes(q.toLowerCase()) || p.barcode.toLowerCase().includes(q.toLowerCase());
+    const matchCat = !categoryId || p.categoryId === categoryId;
     return matchQ && matchCat;
   });
 
@@ -100,11 +100,18 @@ export function BarcodePrintPanel({
           </div>
           <div className="max-h-[480px] overflow-y-auto divide-y divide-slate-100">
             {filtered.map((p) => (
-              <label key={p.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer">
+              <label key={p.id} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer ${p.isActive ? "hover:bg-slate-50" : "hover:bg-slate-50 opacity-60"}`}>
                 <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)}
                   className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-slate-800 truncate">{p.name}{p.colorVariant ? <span className="text-slate-400"> — {p.colorVariant}</span> : null}</div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className={`text-sm font-medium truncate ${p.isActive ? "text-slate-800" : "text-slate-400"}`}>
+                      {p.name}{p.colorVariant ? <span className="text-slate-400"> — {p.colorVariant}</span> : null}
+                    </span>
+                    {!p.isActive && (
+                      <span className="flex-shrink-0 text-[9px] font-semibold bg-slate-200 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Inactive</span>
+                    )}
+                  </div>
                   <div className="text-xs font-mono text-slate-400">{p.barcode}</div>
                 </div>
                 {selected.has(p.id) && (

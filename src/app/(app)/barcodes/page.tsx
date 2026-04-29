@@ -5,33 +5,37 @@ import { blockOperator } from "@/lib/role-guard";
 export default async function BarcodesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ productId?: string; categoryId?: string; q?: string }>;
+  searchParams: Promise<{ productId?: string }>;
 }) {
   await blockOperator();
-  const params = await searchParams;
+  const { productId } = await searchParams;
 
-  const where = {
-    isActive: true,
-    ...(params.q ? { OR: [{ name: { contains: params.q, mode: "insensitive" as const } }, { sku: { contains: params.q, mode: "insensitive" as const } }] } : {}),
-    ...(params.categoryId ? { categoryId: params.categoryId } : {}),
-  };
-
-  const [products, categories] = await Promise.all([
+  const [products, categories, preselectProduct] = await Promise.all([
     prisma.product.findMany({
-      where,
       orderBy: { name: "asc" },
-      take: 100,
       include: { category: true, unit: true },
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    productId
+      ? prisma.product.findUnique({
+          where: { id: productId },
+          include: { category: true, unit: true },
+        })
+      : Promise.resolve(null),
   ]);
 
-  const preselect = params.productId ? [params.productId] : [];
+  // Ensure the linked product is in the list even if it was somehow excluded
+  const mergedProducts =
+    preselectProduct && !products.some((p) => p.id === preselectProduct.id)
+      ? [preselectProduct, ...products]
+      : products;
+
+  const preselect = productId ? [productId] : [];
 
   return (
     <div>
       <h1 className="text-base font-semibold text-slate-800 mb-5">Barcode Labels</h1>
-      <BarcodePrintPanel products={products} categories={categories} preselect={preselect} />
+      <BarcodePrintPanel products={mergedProducts} categories={categories} preselect={preselect} />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import toast from "react-hot-toast";
 
 type Category = { id: string; name: string };
@@ -14,10 +15,21 @@ type Product = {
   imageUrl: string | null;
   unitConversions?: UnitConversion[];
 };
+type SavedProduct = {
+  id: string; name: string; sku: string; barcode: string;
+  colorVariant: string | null;
+  category: { name: string };
+  unit: { name: string };
+};
 
 function generateBarcode(): string {
   return "MR" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
 }
+
+const EMPTY_FORM = {
+  name: "", sku: "", barcode: "", categoryId: "", unitId: "",
+  reorderPoint: "0", colorVariant: "", description: "", imageUrl: "",
+};
 
 export function ProductForm({
   categories, units, product,
@@ -43,6 +55,7 @@ export function ProductForm({
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [savedProduct, setSavedProduct] = useState<SavedProduct | null>(null);
 
   const [conversions, setConversions] = useState<UnitConversion[]>(
     product?.unitConversions ?? []
@@ -146,13 +159,98 @@ export function ProductForm({
       return;
     }
 
-    toast.success(isEdit ? "Product updated" : "Product created");
-    router.push("/products");
-    router.refresh();
+    if (isEdit) {
+      toast.success("Product updated");
+      router.push("/products");
+      router.refresh();
+    } else {
+      setSavedProduct(data as SavedProduct);
+    }
   }
 
+  function handleAddAnother() {
+    setSavedProduct(null);
+    setForm(EMPTY_FORM);
+    setConversions([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  // ── Post-save card ────────────────────────────────────────────────────────
+  if (savedProduct) {
+    return (
+      <div className="max-w-2xl">
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-2xl">✅</span>
+            <div>
+              <div className="font-semibold text-slate-800 text-sm">
+                Product saved — {savedProduct.name}{savedProduct.colorVariant ? ` ${savedProduct.colorVariant}` : ""}
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">
+                Code: <span className="font-mono">{savedProduct.sku}</span>
+                &nbsp;·&nbsp;
+                Barcode: <span className="font-mono">{savedProduct.barcode}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-6">
+            <div className="bg-white border-2 border-dashed border-slate-300 rounded-lg px-5 py-4 flex flex-col items-center gap-1.5 flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/barcodes/${encodeURIComponent(savedProduct.barcode)}`}
+                alt={savedProduct.barcode}
+                className="w-40 h-auto"
+              />
+              <div className="font-mono text-[10px] text-slate-500 tracking-wider">{savedProduct.barcode}</div>
+              <div className="text-xs font-semibold text-center text-slate-700">
+                {savedProduct.name}{savedProduct.colorVariant ? ` — ${savedProduct.colorVariant}` : ""}
+              </div>
+              <div className="text-[10px] text-slate-400">{savedProduct.unit.name} · {savedProduct.sku}</div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Link
+                href={`/barcodes?productId=${savedProduct.id}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-lg transition-colors"
+              >
+                🖨 Print Label
+              </Link>
+              <button
+                onClick={handleAddAnother}
+                className="px-4 py-2 text-xs border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors text-left"
+              >
+                + Add Another
+              </button>
+              <Link
+                href="/products"
+                className="px-4 py-2 text-xs border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                ← Back to Products
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main form ─────────────────────────────────────────────────────────────
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 p-6 max-w-2xl space-y-5">
+      {/* Barcode auto-generate notice — create only */}
+      {!isEdit && (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex items-start gap-3">
+          <span className="text-green-600 text-base leading-none mt-0.5">▣</span>
+          <div>
+            <div className="text-xs font-semibold text-green-700">Barcode Auto-Generated</div>
+            <div className="text-xs text-green-600 mt-0.5">
+              A unique Code-128 barcode will be created automatically when you save this product. You can print the label immediately after saving.
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="col-span-2">
           <label className="block text-xs font-medium text-slate-600 mb-1">Product Name *</label>
@@ -162,24 +260,36 @@ export function ProductForm({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">SKU *</label>
-          <input value={form.sku} onChange={(e) => set("sku", e.target.value)} required
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            {isEdit ? "SKU *" : "Internal Code / SKU"}
+          </label>
+          <input
+            value={form.sku}
+            onChange={(e) => set("sku", e.target.value)}
+            required={isEdit}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="BTN-12-BLK" />
+            placeholder={isEdit ? "BTN-001" : "e.g. BTN-001 (auto if blank)"}
+          />
+          {!isEdit && (
+            <p className="text-xs text-slate-400 mt-1">Leave blank to auto-generate</p>
+          )}
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Barcode *</label>
-          <div className="flex gap-2">
-            <input value={form.barcode} onChange={(e) => set("barcode", e.target.value)} required
-              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="MR…" />
-            <button type="button" onClick={() => set("barcode", generateBarcode())}
-              className="px-3 py-2 text-xs border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 whitespace-nowrap">
-              Generate
-            </button>
+        {/* Barcode — edit mode only */}
+        {isEdit && (
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Barcode *</label>
+            <div className="flex gap-2">
+              <input value={form.barcode} onChange={(e) => set("barcode", e.target.value)} required
+                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="MR…" />
+              <button type="button" onClick={() => set("barcode", generateBarcode())}
+                className="px-3 py-2 text-xs border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 whitespace-nowrap">
+                Generate
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Category *</label>
@@ -203,7 +313,7 @@ export function ProductForm({
           <label className="block text-xs font-medium text-slate-600 mb-1">Reorder Point</label>
           <input type="number" min="0" value={form.reorderPoint} onChange={(e) => set("reorderPoint", e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <p className="text-xs text-slate-400 mt-1">Alert when total stock ≤ this number</p>
+          <p className="text-xs text-slate-400 mt-1">Alert when total stock falls below this</p>
         </div>
 
         <div>
@@ -214,10 +324,10 @@ export function ProductForm({
         </div>
 
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-slate-600 mb-1">Description</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Description / Notes</label>
           <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            placeholder="Optional notes…" />
+            placeholder="Optional details about this product…" />
         </div>
 
         {/* ── Packaging / Higher Units ─────────────────────────── */}
@@ -356,7 +466,7 @@ export function ProductForm({
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={saving || uploading}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
-          {saving ? "Saving…" : isEdit ? "Save Changes" : "Create Product"}
+          {saving ? "Saving…" : isEdit ? "Save Changes" : "✓ Save & Generate Barcode"}
         </button>
         <button type="button" onClick={() => router.back()}
           className="px-5 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
