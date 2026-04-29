@@ -100,17 +100,14 @@ export function BarcodePrintPanel({
           </div>
           <div className="max-h-[480px] overflow-y-auto divide-y divide-slate-100">
             {filtered.map((p) => (
-              <label key={p.id} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer ${p.isActive ? "hover:bg-slate-50" : "hover:bg-slate-50 opacity-60"}`}>
+              <label key={p.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50">
                 <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)}
                   className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className={`text-sm font-medium truncate ${p.isActive ? "text-slate-800" : "text-slate-400"}`}>
+                    <span className="text-sm font-medium truncate text-slate-800">
                       {p.name}{p.colorVariant ? <span className="text-slate-400"> — {p.colorVariant}</span> : null}
                     </span>
-                    {!p.isActive && (
-                      <span className="flex-shrink-0 text-[9px] font-semibold bg-slate-200 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Inactive</span>
-                    )}
                   </div>
                   <div className="text-xs font-mono text-slate-400">{p.barcode}</div>
                 </div>

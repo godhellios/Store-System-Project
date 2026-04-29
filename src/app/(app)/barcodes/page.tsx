@@ -12,6 +12,7 @@ export default async function BarcodesPage({
 
   const [products, categories, preselectProduct] = await Promise.all([
     prisma.product.findMany({
+      where: { isActive: true },
       orderBy: { name: "asc" },
       include: { category: true, unit: true },
     }),
