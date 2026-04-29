@@ -66,7 +66,7 @@ export default async function ProductsPage({
   const [products, total, categories, units, locations] = await Promise.all([
     prisma.product.findMany({
       where,
-      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+      orderBy: showInactive ? [{ isActive: "asc" }, { name: "asc" }] : [{ name: "asc" }],
       skip: (page - 1) * perPage,
       take: perPage,
       include: { category: true, unit: true, stock: { include: { location: true } } },
@@ -113,12 +113,12 @@ export default async function ProductsPage({
           {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
         <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
-          <input type="checkbox" name="showInactive" value="1" defaultChecked={showInactive}
+          <input key={`si-${showInactive}`} type="checkbox" name="showInactive" value="1" defaultChecked={showInactive}
             className="w-4 h-4 accent-blue-600" />
           Show inactive
         </label>
         <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
-          <input type="checkbox" name="lowStock" value="1" defaultChecked={lowStock}
+          <input key={`ls-${lowStock}`} type="checkbox" name="lowStock" value="1" defaultChecked={lowStock}
             className="w-4 h-4 accent-red-500" />
           <span className={lowStock ? "text-red-600 font-medium" : ""}>⚠ Low stock only</span>
         </label>
@@ -254,17 +254,42 @@ export default async function ProductsPage({
         </div>
       </div>
 
-      {pages > 1 && (
-        <div className="flex gap-2 justify-center mt-4">
-          {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
-            <Link key={p} href={`/products?${baseQs}&page=${p}`}
-              className={`px-3 py-1 rounded text-xs ${p === page ? "bg-blue-600 text-white" : "border border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
-              {p}
+      {pages > 1 && (() => {
+        const slots: (number | "…")[] = [];
+        const near = new Set<number>([1, pages]);
+        for (let i = Math.max(2, page - 2); i <= Math.min(pages - 1, page + 2); i++) near.add(i);
+        let prev = 0;
+        for (const n of [...near].sort((a, b) => a - b)) {
+          if (n - prev > 1) slots.push("…");
+          slots.push(n);
+          prev = n;
+        }
+        return (
+          <div className="flex items-center gap-1 justify-center mt-5">
+            <Link href={`/products?${baseQs}&page=${page - 1}`}
+              className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${page === 1 ? "pointer-events-none opacity-30 border-slate-200 text-slate-400" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+              ← Prev
             </Link>
-          ))}
-        </div>
-      )}
-      <p className="text-xs text-slate-400 mt-3 text-right">{total} product{total !== 1 ? "s" : ""} total</p>
+            {slots.map((s, i) =>
+              s === "…" ? (
+                <span key={`e${i}`} className="px-2 text-xs text-slate-400">…</span>
+              ) : (
+                <Link key={s} href={`/products?${baseQs}&page=${s}`}
+                  className={`min-w-[32px] text-center px-2 py-1.5 rounded-lg text-xs border transition-colors ${s === page ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+                  {s}
+                </Link>
+              )
+            )}
+            <Link href={`/products?${baseQs}&page=${page + 1}`}
+              className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${page === pages ? "pointer-events-none opacity-30 border-slate-200 text-slate-400" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+              Next →
+            </Link>
+          </div>
+        );
+      })()}
+      <p className="text-xs text-slate-400 mt-3 text-right">
+        {(page - 1) * perPage + 1}–{Math.min(page * perPage, total)} of {total} product{total !== 1 ? "s" : ""}
+      </p>
     </div>
   );
 }
