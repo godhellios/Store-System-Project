@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 type Row = { id: string; name: string; type?: string; isActive: boolean; _count?: { products?: number; stock?: number } };
+type LocationRow = { id: string; name: string; type: string; isActive: boolean; _count: { stock: number } };
+type StockItem = {
+  id: string; quantity: number;
+  product: { id: string; name: string; sku: string; colorVariant: string | null; category: { name: string }; unit: { name: string } };
+};
 type UnitRow = {
   id: string; name: string; isActive: boolean;
   parentUnitId: string | null; conversionFactor: number | null;
@@ -306,6 +311,191 @@ function UnitManager() {
   );
 }
 
+function LocationManager() {
+  const [rows, setRows] = useState<LocationRow[]>([]);
+  const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState("Warehouse");
+  const [editing, setEditing] = useState<{ id: string; name: string; type: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [stockLoading, setStockLoading] = useState(false);
+
+  async function load() {
+    const res = await fetch("/api/locations");
+    if (res.ok) setRows(await res.json());
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setLoading(true);
+    const res = await fetch("/api/locations", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim(), type: newType.trim() || "Warehouse" }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { toast.error(data.error); return; }
+    toast.success("Location added");
+    setNewName(""); setNewType("Warehouse");
+    load();
+  }
+
+  async function handleSave() {
+    if (!editing) return;
+    setLoading(true);
+    const res = await fetch(`/api/locations/${editing.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editing.name, type: editing.type }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { toast.error(data.error); return; }
+    toast.success("Saved");
+    setEditing(null);
+    load();
+  }
+
+  async function toggleActive(row: LocationRow) {
+    const res = await fetch(`/api/locations/${row.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !row.isActive }),
+    });
+    if (!res.ok) { toast.error("Failed"); return; }
+    toast.success(row.isActive ? "Deactivated" : "Activated");
+    load();
+  }
+
+  async function handleDelete(row: LocationRow) {
+    if (!confirm(`Delete "${row.name}"?`)) return;
+    const res = await fetch(`/api/locations/${row.id}`, { method: "DELETE" });
+    if (res.status === 204) { toast.success("Deleted"); load(); return; }
+    const data = await res.json();
+    toast.error(data.error);
+  }
+
+  async function toggleExpand(id: string) {
+    if (expandedId === id) { setExpandedId(null); setStockItems([]); return; }
+    setExpandedId(id);
+    setStockLoading(true);
+    const res = await fetch(`/api/stock?locationId=${id}`);
+    if (res.ok) setStockItems(await res.json());
+    setStockLoading(false);
+  }
+
+  async function deleteStockItem(stockId: string, qty: number) {
+    const msg = qty > 0
+      ? `This item still has ${qty} units in stock. Remove it anyway?`
+      : `Remove this stock record?`;
+    if (!confirm(msg)) return;
+    const res = await fetch(`/api/stock/${stockId}`, { method: "DELETE" });
+    if (res.status !== 204) { const d = await res.json(); toast.error(d.error); return; }
+    toast.success("Removed");
+    if (expandedId) {
+      const r = await fetch(`/api/stock?locationId=${expandedId}`);
+      if (r.ok) setStockItems(await r.json());
+    }
+    load();
+  }
+
+  return (
+    <div className="max-w-2xl">
+      <form onSubmit={handleAdd} className="flex gap-2 mb-4">
+        <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New location name…"
+          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <input value={newType} onChange={(e) => setNewType(e.target.value)} placeholder="Type (e.g. Warehouse)"
+          className="w-36 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button type="submit" disabled={loading || !newName.trim()}
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+          Add
+        </button>
+      </form>
+
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+        {rows.length === 0 && <p className="px-4 py-6 text-center text-xs text-slate-400">No locations yet</p>}
+        {rows.map((row) => (
+          <div key={row.id}>
+            {/* Row header */}
+            <div className={`flex items-center gap-3 px-4 py-2.5 ${!row.isActive ? "opacity-50" : ""}`}>
+              {editing?.id === row.id ? (
+                <>
+                  <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                    className="flex-1 px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
+                  <input value={editing.type} onChange={(e) => setEditing({ ...editing, type: e.target.value })}
+                    className="w-28 px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none" />
+                  <button onClick={handleSave} className="text-xs text-blue-600 font-medium hover:underline">Save</button>
+                  <button onClick={() => setEditing(null)} className="text-xs text-slate-400 hover:underline">Cancel</button>
+                </>
+              ) : (
+                <>
+                  <div className="flex-1">
+                    <span className="text-sm text-slate-800">{row.name}</span>
+                    {row.type && <span className="ml-2 text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{row.type}</span>}
+                    <button
+                      onClick={() => toggleExpand(row.id)}
+                      className="ml-2 text-xs text-blue-600 hover:underline"
+                    >
+                      {row._count.stock} item{row._count.stock !== 1 ? "s" : ""}
+                      {row._count.stock > 0 && <span className="ml-1">{expandedId === row.id ? "▲" : "▼"}</span>}
+                    </button>
+                  </div>
+                  <button onClick={() => setEditing({ id: row.id, name: row.name, type: row.type })}
+                    className="text-xs text-slate-500 hover:underline">Edit</button>
+                  <button onClick={() => toggleActive(row)}
+                    className={`text-xs hover:underline ${row.isActive ? "text-orange-500" : "text-green-600"}`}>
+                    {row.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                  <button onClick={() => handleDelete(row)} className="text-xs text-red-400 hover:underline">Delete</button>
+                </>
+              )}
+            </div>
+
+            {/* Expanded stock items */}
+            {expandedId === row.id && (
+              <div className="bg-slate-50 border-t border-slate-100 px-4 py-3">
+                {stockLoading ? (
+                  <p className="text-xs text-slate-400">Loading…</p>
+                ) : stockItems.length === 0 ? (
+                  <p className="text-xs text-slate-400">No stock records for this location.</p>
+                ) : (
+                  <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 overflow-hidden bg-white">
+                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-3 py-1.5 bg-slate-100 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <span>Product</span>
+                      <span>Category</span>
+                      <span className="text-right">Qty</span>
+                      <span />
+                    </div>
+                    {stockItems.map((s) => (
+                      <div key={s.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-3 py-2 items-center">
+                        <div className="min-w-0">
+                          <div className="text-sm text-slate-800 truncate">
+                            {s.product.name}{s.product.colorVariant ? <span className="text-slate-400"> — {s.product.colorVariant}</span> : null}
+                          </div>
+                          <div className="text-xs font-mono text-slate-400">{s.product.sku}</div>
+                        </div>
+                        <span className="text-xs text-slate-500 whitespace-nowrap">{s.product.category.name}</span>
+                        <span className={`text-sm font-semibold text-right whitespace-nowrap ${s.quantity === 0 ? "text-slate-300" : "text-slate-800"}`}>
+                          {s.quantity} {s.product.unit.name.toLowerCase()}
+                        </span>
+                        <button onClick={() => deleteStockItem(s.id, s.quantity)}
+                          className="text-xs text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -330,7 +520,7 @@ export default function SettingsPage() {
 
       {tab === 0 && <EntityManager endpoint="categories" label="Category" />}
       {tab === 1 && <UnitManager />}
-      {tab === 2 && <EntityManager endpoint="locations" label="Location" hasType />}
+      {tab === 2 && <LocationManager />}
     </div>
   );
 }
