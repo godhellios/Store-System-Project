@@ -27,8 +27,11 @@ export default async function DeliveryOrderPrintPage({ params }: { params: Promi
   });
 
   // ── whatsapp-do module ────────────────────────────────────────────────────
-  const waSetting = await prisma.systemSetting.findUnique({ where: { key: WA_DO_PHONE_KEY } });
-  const waPhone = waSetting?.value ?? WA_DO_PHONE_DEFAULT;
+  // Falls back to default if SystemSetting table not yet migrated
+  const waPhone = await prisma.systemSetting
+    .findUnique({ where: { key: WA_DO_PHONE_KEY } })
+    .then((r) => r?.value ?? WA_DO_PHONE_DEFAULT)
+    .catch(() => WA_DO_PHONE_DEFAULT);
   const waMessage = buildDOMessage({
     orderNumber: order.orderNumber,
     date,

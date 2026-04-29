@@ -7,7 +7,7 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rows = await prisma.systemSetting.findMany();
+  const rows = await prisma.systemSetting.findMany().catch(() => []);
   const result = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return NextResponse.json(result);
 }
