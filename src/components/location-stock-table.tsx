@@ -1,0 +1,155 @@
+"use client";
+
+import { useState } from "react";
+
+type StockRow = {
+  id: string;
+  quantity: number;
+  product: {
+    id: string;
+    name: string;
+    sku: string;
+    barcode: string;
+    colorVariant: string | null;
+    reorderPoint: number;
+    isActive: boolean;
+    category: { id: string; name: string };
+    unit: { name: string };
+  };
+};
+
+type Props = {
+  stock: StockRow[];
+  categories: { id: string; name: string }[];
+};
+
+export function LocationStockTable({ stock, categories }: Props) {
+  const [q, setQ] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+
+  const filtered = stock.filter((s) => {
+    const matchQ =
+      !q ||
+      s.product.name.toLowerCase().includes(q.toLowerCase()) ||
+      s.product.sku.toLowerCase().includes(q.toLowerCase()) ||
+      s.product.barcode.toLowerCase().includes(q.toLowerCase());
+    const matchCat = !categoryId || s.product.category.id === categoryId;
+    return matchQ && matchCat;
+  });
+
+  const totalQty = filtered.reduce((sum, s) => sum + s.quantity, 0);
+  const lowCount = filtered.filter(
+    (s) => s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint
+  ).length;
+
+  return (
+    <div>
+      {/* Filters */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search name, code, or barcode…"
+          className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <select
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All Categories</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <div className="flex items-center gap-3 text-xs text-slate-500 px-1">
+          <span>{filtered.length} product{filtered.length !== 1 ? "s" : ""}</span>
+          <span>·</span>
+          <span>{totalQty} units total</span>
+          {lowCount > 0 && (
+            <>
+              <span>·</span>
+              <span className="text-red-500 font-medium">{lowCount} low stock</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                <th className="px-4 py-2.5 text-left font-medium">Product</th>
+                <th className="px-4 py-2.5 text-left font-medium">SKU</th>
+                <th className="px-4 py-2.5 text-left font-medium">Category</th>
+                <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                <th className="px-4 py-2.5 text-right font-medium">Reorder Pt</th>
+                <th className="px-4 py-2.5 text-left font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-10 text-center text-xs text-slate-400">
+                    No items found
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((s) => {
+                  const isLow =
+                    s.product.isActive &&
+                    s.product.reorderPoint > 0 &&
+                    s.quantity <= s.product.reorderPoint;
+                  const rowBg = !s.product.isActive
+                    ? "opacity-50"
+                    : isLow
+                    ? "bg-red-50"
+                    : "hover:bg-slate-50";
+                  return (
+                    <tr key={s.id} className={`border-t border-slate-100 ${rowBg}`}>
+                      <td className="px-4 py-2.5">
+                        <div className={`font-medium ${!s.product.isActive ? "text-slate-400 line-through" : "text-slate-800"}`}>
+                          {s.product.name}
+                          {s.product.colorVariant && (
+                            <span className="text-slate-400 font-normal"> — {s.product.colorVariant}</span>
+                          )}
+                        </div>
+                        <div className="text-xs font-mono text-slate-400">{s.product.barcode}</div>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="font-mono text-xs text-blue-600">{s.product.sku}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.category.name}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <span className={`font-semibold ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600" : "text-slate-800"}`}>
+                          {s.quantity}
+                        </span>
+                        <span className="text-xs text-slate-400 ml-1">{s.product.unit.name.toLowerCase()}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-xs text-slate-400">
+                        {s.product.reorderPoint > 0
+                          ? `${s.product.reorderPoint} ${s.product.unit.name.toLowerCase()}`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {!s.product.isActive ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-400 uppercase tracking-wide">Inactive</span>
+                        ) : isLow ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-600 uppercase tracking-wide">Low</span>
+                        ) : (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 uppercase tracking-wide">OK</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
