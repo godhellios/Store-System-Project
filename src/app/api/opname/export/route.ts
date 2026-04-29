@@ -9,11 +9,37 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
+  const scope = searchParams.get("scope") ?? "all";
   const locationId = searchParams.get("locationId") ?? undefined;
+
+  // For location scope: products that have a stock record OR movement record at that location
+  let locationProductIds: string[] | undefined;
+  if (scope === "location" && locationId) {
+    const [stockRows, movementRows] = await Promise.all([
+      prisma.stock.findMany({
+        where: { locationId },
+        select: { productId: true },
+      }),
+      prisma.orderLine.findMany({
+        where: { order: { OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] } },
+        select: { productId: true },
+        distinct: ["productId"],
+      }),
+    ]);
+    locationProductIds = [
+      ...new Set([
+        ...stockRows.map((r) => r.productId),
+        ...movementRows.map((r) => r.productId),
+      ]),
+    ];
+  }
 
   const [products, location] = await Promise.all([
     prisma.product.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(locationProductIds !== undefined ? { id: { in: locationProductIds } } : {}),
+      },
       include: { category: true, unit: true },
       orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
     }),
@@ -110,9 +136,11 @@ export async function GET(req: Request) {
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const locationName = location?.name.replace(/\s+/g, "_") ?? "AllLocations";
+  const scopeLabel = scope === "location" && location
+    ? location.name.replace(/\s+/g, "_")
+    : "AllItems";
   const dateStr = new Date().toISOString().slice(0, 10);
-  const filename = `StockOpname_${locationName}_${dateStr}.xlsx`;
+  const filename = `StockOpname_${scopeLabel}_${dateStr}.xlsx`;
 
   return new NextResponse(buffer as unknown as BodyInit, {
     headers: {
