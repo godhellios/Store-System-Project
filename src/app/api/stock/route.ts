@@ -11,12 +11,12 @@ export async function GET(req: Request) {
   const locationId = searchParams.get("locationId") ?? "";
   const categoryId = searchParams.get("categoryId") ?? "";
   const lowOnly = searchParams.get("lowOnly") === "true";
+  const includeInactive = searchParams.get("includeInactive") === "true";
 
   const stock = await prisma.stock.findMany({
     where: {
-      product: { isActive: true, ...(categoryId ? { categoryId } : {}) },
+      product: { ...(includeInactive ? {} : { isActive: true }), ...(categoryId ? { categoryId } : {}) },
       ...(locationId ? { locationId } : {}),
-      ...(lowOnly ? {} : {}),
     },
     include: {
       product: { include: { category: true, unit: true } },

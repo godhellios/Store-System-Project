@@ -9,7 +9,7 @@ type Row = { id: string; name: string; type?: string; isActive: boolean; _count?
 type LocationRow = { id: string; name: string; type: string; isActive: boolean; _count: { stock: number } };
 type StockItem = {
   id: string; quantity: number;
-  product: { id: string; name: string; sku: string; colorVariant: string | null; category: { name: string }; unit: { name: string } };
+  product: { id: string; name: string; sku: string; colorVariant: string | null; isActive: boolean; category: { name: string }; unit: { name: string } };
 };
 type UnitRow = {
   id: string; name: string; isActive: boolean;
@@ -380,7 +380,7 @@ function LocationManager() {
     if (expandedId === id) { setExpandedId(null); setStockItems([]); return; }
     setExpandedId(id);
     setStockLoading(true);
-    const res = await fetch(`/api/stock?locationId=${id}`);
+    const res = await fetch(`/api/stock?locationId=${id}&includeInactive=true`);
     if (res.ok) setStockItems(await res.json());
     setStockLoading(false);
   }
@@ -394,7 +394,7 @@ function LocationManager() {
     if (res.status !== 204) { const d = await res.json(); toast.error(d.error); return; }
     toast.success("Removed");
     if (expandedId) {
-      const r = await fetch(`/api/stock?locationId=${expandedId}`);
+      const r = await fetch(`/api/stock?locationId=${expandedId}&includeInactive=true`);
       if (r.ok) setStockItems(await r.json());
     }
     load();
@@ -470,8 +470,9 @@ function LocationManager() {
                     {stockItems.map((s) => (
                       <div key={s.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-3 py-2 items-center">
                         <div className="min-w-0">
-                          <div className="text-sm text-slate-800 truncate">
+                          <div className={`text-sm truncate flex items-center gap-1.5 ${!s.product.isActive ? "text-slate-400" : "text-slate-800"}`}>
                             {s.product.name}{s.product.colorVariant ? <span className="text-slate-400"> — {s.product.colorVariant}</span> : null}
+                            {!s.product.isActive && <span className="text-[9px] font-semibold bg-slate-200 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">Inactive</span>}
                           </div>
                           <div className="text-xs font-mono text-slate-400">{s.product.sku}</div>
                         </div>
