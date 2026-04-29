@@ -15,6 +15,29 @@ const ROLE_BADGE: Record<Role, string> = {
   OPERATOR: "bg-amber-100 text-amber-700",
 };
 
+const ROLE_INFO: Record<Role, { color: string; desc: string; perms: string[] }> = {
+  ADMIN: {
+    color: "bg-red-50 border-red-200 text-red-800",
+    desc: "Full access. Can manage users, settings, and all data.",
+    perms: ["All transactions", "Products & categories", "User management", "Settings & locations", "Reports & opname"],
+  },
+  STAFF: {
+    color: "bg-blue-50 border-blue-200 text-blue-800",
+    desc: "Day-to-day operations. Cannot manage users or settings.",
+    perms: ["All transactions", "Products (add/edit)", "Barcodes & reports", "Stock opname"],
+  },
+  VIEWER: {
+    color: "bg-slate-50 border-slate-200 text-slate-700",
+    desc: "Read-only access. Can view data but cannot make changes.",
+    perms: ["View products & stock", "View orders & movements", "View reports"],
+  },
+  OPERATOR: {
+    color: "bg-amber-50 border-amber-200 text-amber-800",
+    desc: "Transaction entry only. Limited to the transactions screen.",
+    perms: ["Goods received (GRN)", "Goods out orders", "Stock transfers"],
+  },
+};
+
 type User = {
   id: string;
   name: string;
@@ -209,6 +232,21 @@ export default function UsersPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                   {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
+                {(() => {
+                  const info = ROLE_INFO[form.role];
+                  return (
+                    <div className={`mt-2 rounded-lg border px-3 py-2.5 text-xs ${info.color}`}>
+                      <p className="font-semibold mb-1.5">{form.role} — {info.desc}</p>
+                      <ul className="space-y-0.5">
+                        {info.perms.map((p) => (
+                          <li key={p} className="flex items-center gap-1.5">
+                            <span className="opacity-60">✓</span> {p}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })()}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">
