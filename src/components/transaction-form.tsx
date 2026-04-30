@@ -3,6 +3,10 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+// ── whatsapp-do module ──────────────────────────────────────────────────────
+import { openWhatsApp, buildDOMessage } from "@/modules/whatsapp-do";
+import { WA_DO_PHONE_DEFAULT } from "@/modules/whatsapp-do";
+// ────────────────────────────────────────────────────────────────────────────
 
 type Location = { id: string; name: string; type: string };
 type UnitConversion = { id: string; name: string; conversionFactor: number };
@@ -61,6 +65,9 @@ export function TransactionForm({
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [scanning, setScanning] = useState(false);
+  // ── whatsapp-do module ────────────────────────────────────────────────────
+  const [waPhone, setWaPhone] = useState(WA_DO_PHONE_DEFAULT);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
@@ -78,6 +85,16 @@ export function TransactionForm({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  // ── whatsapp-do module ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!printDialog) return;
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s) => { if (s.wa_do_phone) setWaPhone(s.wa_do_phone); })
+      .catch(() => {});
+  }, [printDialog]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { setSearchResults([]); setShowDropdown(false); return; }
@@ -457,6 +474,22 @@ export function TransactionForm({
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => {
+                  // ── whatsapp-do module ──────────────────────────────────
+                  const fromName = locations.find((l) => l.id === fromLocationId)?.name;
+                  const message = buildDOMessage({
+                    orderNumber: printDialog.orderNumber,
+                    date: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
+                    fromLocation: fromName,
+                    lines: lines.map((l) => ({
+                      productName: l.name,
+                      quantity: Math.round(l.quantity * l.conversionFactor),
+                      unit: l.baseUnitName,
+                      inputQty: l.conversionFactor !== 1 ? l.quantity : null,
+                      inputUnit: l.conversionFactor !== 1 ? l.inputUnitName : null,
+                    })),
+                  });
+                  openWhatsApp(waPhone, message);
+                  // ───────────────────────────────────────────────────────
                   window.open(`/orders/${printDialog.orderId}/print`, "_blank");
                   router.push("/orders");
                   router.refresh();
