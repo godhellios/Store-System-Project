@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { blockOperator } from "@/lib/role-guard";
-import { LocationStockTable } from "@/components/location-stock-table";
+import { WarehouseStockTable } from "./stock-table";
 
 export default async function WarehousePage({
   searchParams,
@@ -97,7 +97,7 @@ export default async function WarehousePage({
               ✕ Deselect
             </Link>
           </div>
-          <LocationStockTable stock={stock} categories={categories} />
+          <WarehouseStockTable stock={stock} categories={categories} />
         </div>
       ) : (
         <p className="text-sm text-slate-400 text-center py-10">
