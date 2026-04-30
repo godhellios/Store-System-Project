@@ -60,15 +60,22 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const role = session?.user.role ?? "";
 
   return (
-    <div className="absolute inset-0 bg-slate-800 dark:bg-slate-950 text-slate-400 flex flex-col overflow-hidden">
-      {/* Header — always visible at top */}
+    /*
+     * h-full fills the shell (which is 100dvh on mobile, flex-stretch on desktop).
+     * overflow-hidden clips anything that escapes before the nav scroll kicks in.
+     */
+    <div className="h-full flex flex-col bg-slate-800 dark:bg-slate-950 text-slate-400 overflow-hidden">
+
+      {/* ── Logo / header ─ pinned at the top, never scrolls ── */}
       <div className="flex-shrink-0 px-4 py-5 border-b border-slate-700 dark:border-slate-800 flex items-center justify-between">
         <div>
           <div className="text-base font-extrabold text-white tracking-tight">
             MR<span className="text-sky-400">Is</span>
           </div>
           {role === "OPERATOR" && (
-            <div className="mt-1 text-[10px] uppercase tracking-widest text-amber-400 font-semibold">Operator</div>
+            <div className="mt-1 text-[10px] uppercase tracking-widest text-amber-400 font-semibold">
+              Operator
+            </div>
           )}
         </div>
         {onClose && (
@@ -84,8 +91,11 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      {/* Nav — scrollable, fills all remaining space */}
-      <nav className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
+      {/* ── Nav ─ flex-1 so it fills the gap; min-h-0 lets it shrink so overflow triggers ── */}
+      <nav
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         {nav
           .filter((s) => s.roles.includes(role))
           .map(({ section, links }) => (
@@ -94,7 +104,9 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                 {section}
               </div>
               {links.map(({ href, label, icon, indent, small }) => {
-                const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+                const active =
+                  pathname === href ||
+                  (href !== "/dashboard" && pathname.startsWith(href));
                 return (
                   <Link
                     key={href}
@@ -116,9 +128,12 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
               })}
             </div>
           ))}
+
+        {/* Extra bottom padding so last item clears the mobile browser bar */}
+        <div className="h-4" />
       </nav>
 
-      {/* Sign out — always visible at bottom */}
+      {/* ── Sign out ─ pinned at the bottom, never scrolls ── */}
       <div className="flex-shrink-0 border-t border-slate-700 dark:border-slate-800 p-4">
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}

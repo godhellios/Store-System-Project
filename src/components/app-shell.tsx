@@ -13,6 +13,17 @@ export function AppShell({
 }) {
   const [open, setOpen] = useState(false);
 
+  // Lock body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
+  // Close on resize to desktop
   useEffect(() => {
     const close = () => { if (window.innerWidth >= 768) setOpen(false); };
     window.addEventListener("resize", close);
@@ -21,7 +32,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen">
-      {/* Mobile overlay */}
+      {/* Mobile overlay — blocks interaction with content behind sidebar */}
       {open && (
         <div
           className="fixed inset-0 z-20 bg-black/50 md:hidden"
@@ -29,19 +40,24 @@ export function AppShell({
         />
       )}
 
-      {/* Sidebar shell — fixed on mobile, relative on desktop */}
+      {/* Sidebar shell
+          Mobile : fixed, 100dvh (dynamic viewport — accounts for browser chrome)
+          Desktop: relative flex-shrink-0, auto height via flex stretch            */}
       <div
         className={[
-          "fixed top-0 bottom-0 left-0 z-30 w-[230px]",
-          "md:relative md:top-auto md:bottom-auto md:left-auto md:flex-shrink-0",
+          "fixed top-0 left-0 z-30 w-[230px]",
+          "md:relative md:top-auto md:left-auto md:flex-shrink-0 md:h-auto md:min-h-screen",
           "transition-transform duration-200 ease-in-out",
           open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         ].join(" ")}
+        // 100dvh = dynamic viewport height: shrinks when browser chrome (address bar) is visible
+        // On desktop the md: Tailwind classes above override this via the media-query cascade
+        style={{ height: "100dvh" }}
       >
         <Sidebar onClose={() => setOpen(false)} />
       </div>
 
-      {/* Main area */}
+      {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 py-3.5 flex items-center gap-3 flex-shrink-0">
           <button
