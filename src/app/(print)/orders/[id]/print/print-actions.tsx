@@ -4,9 +4,14 @@ import { useEffect } from "react";
 
 export function PrintActions({ orderId }: { orderId: string }) {
   useEffect(() => {
+    fetch(`/api/orders/${orderId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ printedAt: true }),
+    }).catch(() => {});
     const t = setTimeout(() => window.print(), 300);
     return () => clearTimeout(t);
-  }, []);
+  }, [orderId]);
 
   return (
     <div className="flex items-center gap-2">

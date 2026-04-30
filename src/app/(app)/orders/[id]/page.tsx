@@ -66,9 +66,19 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             {TYPE_LABEL[order.type]}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {order.type === "GOODS_OUT" && (
             <>
+              {order.whatsappSentAt && (
+                <span className="text-[10px] px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
+                  WA sent
+                </span>
+              )}
+              {order.printedAt && (
+                <span className="text-[10px] px-2 py-1 bg-slate-100 text-slate-600 rounded-full font-medium">
+                  Printed
+                </span>
+              )}
               {/* ── whatsapp-do module ────────────────────────────────── */}
               <WhatsAppResendButton waPhone={waPhone} waMessage={waMessage} />
               {/* ────────────────────────────────────────────────────────── */}
