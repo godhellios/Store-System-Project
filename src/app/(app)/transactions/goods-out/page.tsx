@@ -16,7 +16,7 @@ export default async function GoodsOutPage() {
   ]);
   return (
     <div>
-      <h1 className="text-base font-semibold text-slate-800 mb-5">Goods Out Order</h1>
+      <h1 className="text-base font-semibold text-slate-800 mb-5">Goods Out</h1>
       <TransactionForm type="GOODS_OUT" locations={locations} waPhone={waPhone} />
     </div>
   );

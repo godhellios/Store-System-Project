@@ -71,7 +71,7 @@ export function TransactionForm({
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [printDialog, setPrintDialog] = useState<{ orderId: string; orderNumber: string } | null>(null);
+  const [printDialog, setPrintDialog] = useState<{ orderId: string; orderNumber: string; waMessage: string } | null>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -195,16 +195,6 @@ export function TransactionForm({
     if (cfg.toLabel && !toLocationId) { toast.error("Select destination location"); return; }
     if (type === "TRANSFER" && fromLocationId === toLocationId) { toast.error("Source and destination must be different"); return; }
 
-    // ── whatsapp-do module ──────────────────────────────────────────────────
-    // Open a blank window NOW (synchronous, inside the user-gesture context)
-    // so popup blockers won't block it. We'll navigate it to WhatsApp after
-    // the API call returns and we have the order number.
-    let waWindow: Window | null = null;
-    if (type === "GOODS_OUT" && waPhone) {
-      waWindow = window.open("", "_blank");
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
     setSubmitting(true);
 
     const res = await fetch("/api/orders", {
@@ -232,13 +222,11 @@ export function TransactionForm({
     try {
       data = await res.json();
     } catch {
-      waWindow?.close();
       toast.error("Server error — please try again");
       return;
     }
 
     if (!res.ok) {
-      waWindow?.close();
       toast.error(data.error ?? "Failed to save order");
       return;
     }
@@ -249,24 +237,24 @@ export function TransactionForm({
 
     if (type === "GOODS_OUT") {
       // ── whatsapp-do module ────────────────────────────────────────────────
-      if (waWindow && waPhone) {
-        const fromName = locations.find((l) => l.id === fromLocationId)?.name;
-        const message = buildDOMessage({
-          orderNumber: data.order!.orderNumber,
-          date: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
-          fromLocation: fromName,
-          lines: lines.map((l) => ({
-            productName: l.name,
-            quantity: Math.round(l.quantity * l.conversionFactor),
-            unit: l.baseUnitName,
-            inputQty: l.conversionFactor !== 1 ? l.quantity : null,
-            inputUnit: l.conversionFactor !== 1 ? l.inputUnitName : null,
-          })),
-        });
-        waWindow.location.href = `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`;
-      }
+      // Build WA message now (we have the order number). The actual
+      // window.open is deferred to the dialog button so it fires from a
+      // direct user gesture (guaranteed to work on every browser/mobile).
+      const fromName = locations.find((l) => l.id === fromLocationId)?.name;
+      const waMessage = buildDOMessage({
+        orderNumber: data.order!.orderNumber,
+        date: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
+        fromLocation: fromName,
+        lines: lines.map((l) => ({
+          productName: l.name,
+          quantity: Math.round(l.quantity * l.conversionFactor),
+          unit: l.baseUnitName,
+          inputQty: l.conversionFactor !== 1 ? l.quantity : null,
+          inputUnit: l.conversionFactor !== 1 ? l.inputUnitName : null,
+        })),
+      });
       // ─────────────────────────────────────────────────────────────────────
-      setPrintDialog({ orderId: data.order!.id, orderNumber: data.order!.orderNumber });
+      setPrintDialog({ orderId: data.order!.id, orderNumber: data.order!.orderNumber, waMessage });
     } else {
       toast.success(`${data.order!.orderNumber} saved`);
       router.push("/orders");
@@ -487,16 +475,24 @@ export function TransactionForm({
               </svg>
             </div>
             <h2 className="text-lg font-bold text-slate-800 mb-1">Order Saved!</h2>
-            <p className="text-sm text-slate-500 mb-1 font-mono">{printDialog.orderNumber}</p>
-            <p className="text-sm text-slate-600 mb-6">WhatsApp sent. Print the Delivery Order now.</p>
+            <p className="text-sm text-slate-500 mb-3 font-mono">{printDialog.orderNumber}</p>
+            {/* ── whatsapp-do module ─────────────────────────────────────────── */}
+            {/* window.open is called here — direct user gesture, never blocked */}
             <button
               onClick={() => {
+                if (waPhone) {
+                  window.open(
+                    `https://wa.me/${waPhone}?text=${encodeURIComponent(printDialog.waMessage)}`,
+                    "_blank"
+                  );
+                }
                 window.location.href = `/orders/${printDialog.orderId}/print`;
               }}
-              className="w-full px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+              className="w-full px-5 py-3 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition-colors mb-2"
             >
-              Print DO
+              📱 Send WhatsApp &amp; Print DO
             </button>
+            {/* ────────────────────────────────────────────────────────────────── */}
           </div>
         </div>
       )}
