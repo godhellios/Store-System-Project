@@ -20,7 +20,7 @@ export function AppShell({
   }, []);
 
   return (
-    <div className="flex min-h-screen items-stretch">
+    <div className="flex min-h-screen">
       {/* Mobile overlay */}
       {open && (
         <div
@@ -29,10 +29,13 @@ export function AppShell({
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — the wrapper IS the flex column, no inner div fighting for height */}
       <div
         className={[
-          "fixed inset-y-0 left-0 z-30 flex flex-col transition-transform duration-200 ease-in-out",
+          "fixed top-0 bottom-0 left-0 z-30 w-[230px]",
+          "flex flex-col",
+          "bg-slate-800 dark:bg-slate-950",
+          "transition-transform duration-200 ease-in-out",
           "md:relative md:translate-x-0 md:flex-shrink-0",
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}

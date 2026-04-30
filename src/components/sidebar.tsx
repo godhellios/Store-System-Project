@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 
 const nav = [
   {
@@ -61,8 +60,9 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const role = session?.user.role ?? "";
 
   return (
-    <div className="w-[230px] bg-slate-800 dark:bg-slate-950 text-slate-400 flex-shrink-0 flex flex-col h-full overflow-hidden">
-      <div className="px-4 py-5 border-b border-slate-700 dark:border-slate-800 flex items-center justify-between">
+    <>
+      {/* Header — pinned top */}
+      <div className="flex-shrink-0 px-4 py-5 border-b border-slate-700 dark:border-slate-800 flex items-center justify-between text-slate-400">
         <div>
           <div className="text-base font-extrabold text-white tracking-tight">
             MR<span className="text-sky-400">Is</span>
@@ -71,7 +71,6 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             <div className="mt-1 text-[10px] uppercase tracking-widest text-amber-400 font-semibold">Operator</div>
           )}
         </div>
-        {/* Close button — mobile only */}
         {onClose && (
           <button
             onClick={onClose}
@@ -85,7 +84,8 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto min-h-0">
+      {/* Nav — scrollable middle */}
+      <nav className="flex-1 overflow-y-auto min-h-0 text-slate-400">
         {nav
           .filter((s) => s.roles.includes(role))
           .map(({ section, links }) => (
@@ -118,12 +118,15 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           ))}
       </nav>
 
-      <button
-        onClick={() => signOut({ callbackUrl: "/login" })}
-        className="mx-4 mb-4 mt-2 text-xs text-slate-500 hover:text-slate-300 text-left py-2 px-3 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-800 transition-colors"
-      >
-        ⎋ &nbsp;Sign out
-      </button>
-    </div>
+      {/* Sign out — pinned bottom */}
+      <div className="flex-shrink-0 p-4 border-t border-slate-700 dark:border-slate-800">
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="w-full text-xs text-slate-500 hover:text-slate-300 text-left py-2 px-3 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-800 transition-colors"
+        >
+          ⎋ &nbsp;Sign out
+        </button>
+      </div>
+    </>
   );
 }
