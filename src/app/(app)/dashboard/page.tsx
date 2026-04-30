@@ -68,7 +68,7 @@ export default async function DashboardPage() {
         <StatCard label="Total Products" value={data.totalProducts} sub="All locations" color="border-sky-400" />
         <StatCard label="GRNs Today" value={data.grnsToday} sub="Received today" color="border-green-500" />
         <StatCard label="Orders Out Today" value={data.ordersOutToday} sub="Issued today" color="border-orange-400" />
-        <StatCard label="Low Stock Alerts" value={data.lowStockCount} sub="Below reorder point" color="border-red-400" valueClass={data.lowStockCount > 0 ? "text-red-600" : ""} />
+        <StatCard label="Low Stock Alerts" value={data.lowStockCount} sub="Below reorder point" color="border-red-400" valueClass={data.lowStockCount > 0 ? "text-red-600 dark:text-red-400" : ""} />
       </div>
 
       {/* Low stock by location */}
@@ -98,7 +98,7 @@ export default async function DashboardPage() {
                       <div className="text-slate-700 text-xs font-medium truncate">{s.product.name}</div>
                       <div className="text-[11px] text-slate-400">reorder at {s.product.reorderPoint}</div>
                     </div>
-                    <span className="font-semibold text-red-500 whitespace-nowrap text-xs">
+                    <span className="font-semibold text-red-500 dark:text-red-400 whitespace-nowrap text-xs">
                       {s.quantity} {s.product.unit.name.toLowerCase()} ⚠
                     </span>
                   </div>

@@ -154,14 +154,14 @@ export default async function ProductDetailPage({
           return (
             <div
               key={s.id}
-              className={`bg-white rounded-xl border p-4 flex items-center justify-between ${isLow ? "border-red-200 bg-red-50" : "border-slate-200"}`}
+              className={`bg-white dark:bg-slate-800 rounded-xl border p-4 flex items-center justify-between ${isLow ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40" : "border-slate-200 dark:border-slate-700"}`}
             >
               <div>
                 <div className="text-xs text-slate-500">{s.location.name}</div>
                 <div className="text-xs text-slate-400">{s.location.type}</div>
               </div>
               <div className="text-right">
-                <div className={`text-xl font-bold ${isLow ? "text-red-600" : "text-slate-800"}`}>
+                <div className={`text-xl font-bold ${isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>
                   {s.quantity}
                 </div>
                 <div className="text-xs text-slate-400">{product.unit.name.toLowerCase()}</div>

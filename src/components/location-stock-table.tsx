@@ -82,7 +82,7 @@ export function LocationStockTable({ stock, categories }: Props) {
         ) : filtered.map((s) => {
           const isLow = s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
           return (
-            <div key={s.id} className={`bg-white rounded-xl border px-4 py-3 ${!s.product.isActive ? "opacity-60 border-slate-200" : isLow ? "border-red-200 bg-red-50" : "border-slate-200"}`}>
+            <div key={s.id} className={`bg-white dark:bg-slate-800 rounded-xl border px-4 py-3 ${!s.product.isActive ? "opacity-60 border-slate-200 dark:border-slate-700" : isLow ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40" : "border-slate-200 dark:border-slate-700"}`}>
               <div className="flex items-start justify-between gap-2 mb-1">
                 <div className="min-w-0">
                   <div className={`font-medium text-sm ${!s.product.isActive ? "text-slate-400 line-through" : "text-slate-800"}`}>
@@ -94,13 +94,13 @@ export function LocationStockTable({ stock, categories }: Props) {
                 {!s.product.isActive ? (
                   <span className="flex-shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Inactive</span>
                 ) : isLow ? (
-                  <span className="flex-shrink-0 text-[10px] font-semibold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Low</span>
+                  <span className="flex-shrink-0 text-[10px] font-semibold bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Low</span>
                 ) : (
                   <span className="flex-shrink-0 text-[10px] font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">OK</span>
                 )}
               </div>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className={`font-semibold text-sm ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600" : "text-slate-800"}`}>{s.quantity}</span>
+                <span className={`font-semibold text-sm ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>{s.quantity}</span>
                 <span className="text-xs text-slate-500">{s.product.unit.name.toLowerCase()}</span>
                 {s.product.reorderPoint > 0 && (
                   <span className="text-xs text-slate-400">· reorder at {s.product.reorderPoint}</span>
@@ -141,8 +141,8 @@ export function LocationStockTable({ stock, categories }: Props) {
                   const rowBg = !s.product.isActive
                     ? "opacity-50"
                     : isLow
-                    ? "bg-red-50"
-                    : "hover:bg-slate-50";
+                    ? "bg-red-50 dark:bg-red-950/40"
+                    : "hover:bg-slate-50 dark:hover:bg-slate-700/50";
                   return (
                     <tr key={s.id} className={`border-t border-slate-100 ${rowBg}`}>
                       <td className="px-4 py-2.5">
@@ -159,7 +159,7 @@ export function LocationStockTable({ stock, categories }: Props) {
                       </td>
                       <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.category.name}</td>
                       <td className="px-4 py-2.5 text-right">
-                        <span className={`font-semibold ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600" : "text-slate-800"}`}>
+                        <span className={`font-semibold ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>
                           {s.quantity}
                         </span>
                         <span className="text-xs text-slate-400 ml-1">{s.product.unit.name.toLowerCase()}</span>

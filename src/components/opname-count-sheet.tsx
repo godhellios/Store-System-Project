@@ -88,7 +88,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
             const diff = phys !== null ? phys - line.bookQty : null;
             const hasDisc = diff !== null && diff !== 0;
             return (
-              <div key={line.id} className={`px-4 py-3 ${hasDisc ? "bg-red-50" : ""}`}>
+              <div key={line.id} className={`px-4 py-3 ${hasDisc ? "bg-red-50 dark:bg-red-950/40" : ""}`}>
                 {/* Product name + SKU */}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="min-w-0">
@@ -145,7 +145,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
               const diff = phys !== null ? phys - line.bookQty : null;
               const hasDisc = diff !== null && diff !== 0;
               return (
-                <tr key={line.id} className={`border-t border-slate-100 ${hasDisc ? "bg-red-50" : ""}`}>
+                <tr key={line.id} className={`border-t border-slate-100 ${hasDisc ? "bg-red-50 dark:bg-red-950/40" : ""}`}>
                   <td className="px-4 py-2.5">
                     <div className="font-medium text-slate-800">{line.product.name}</div>
                     <div className="text-xs font-mono text-slate-400">{line.product.sku}</div>
