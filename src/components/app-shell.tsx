@@ -20,7 +20,7 @@ export function AppShell({
   }, []);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen items-stretch">
       {/* Mobile overlay */}
       {open && (
         <div
