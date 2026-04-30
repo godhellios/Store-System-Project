@@ -3,10 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { blockOperator } from "@/lib/role-guard";
 import { OrderActions } from "@/components/order-actions";
-// ── whatsapp-do module ──────────────────────────────────────────────────────
-import { buildDOMessage, WA_DO_PHONE_KEY, WA_DO_PHONE_DEFAULT } from "@/modules/whatsapp-do";
-import { WhatsAppResendButton } from "@/components/whatsapp-resend-button";
-// ────────────────────────────────────────────────────────────────────────────
 
 const TYPE_BADGE: Record<string, string> = {
   GRN: "bg-green-100 text-green-700", GOODS_OUT: "bg-orange-100 text-orange-700",
@@ -31,30 +27,6 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   });
   if (!order) notFound();
 
-  // ── whatsapp-do module ──────────────────────────────────────────────────
-  let waPhone = WA_DO_PHONE_DEFAULT;
-  let waMessage = "";
-  if (order.type === "GOODS_OUT") {
-    waPhone = await prisma.systemSetting
-      .findUnique({ where: { key: WA_DO_PHONE_KEY } })
-      .then((r) => r?.value ?? WA_DO_PHONE_DEFAULT)
-      .catch(() => WA_DO_PHONE_DEFAULT);
-    const date = order.createdAt.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
-    waMessage = buildDOMessage({
-      orderNumber: order.orderNumber,
-      date,
-      fromLocation: order.fromLocation?.name,
-      lines: order.lines.map((l) => ({
-        productName: l.product.name,
-        quantity: l.quantity,
-        unit: l.product.unit.name,
-        inputQty: l.inputQty,
-        inputUnit: l.inputUnit,
-      })),
-    });
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-
   return (
     <div className="max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
@@ -69,19 +41,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <div className="flex items-center gap-2 flex-wrap">
           {order.type === "GOODS_OUT" && (
             <>
-              {order.whatsappSentAt && (
-                <span className="text-[10px] px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
-                  WA sent
-                </span>
-              )}
               {order.printedAt && (
                 <span className="text-[10px] px-2 py-1 bg-slate-100 text-slate-600 rounded-full font-medium">
                   Printed
                 </span>
               )}
-              {/* ── whatsapp-do module ────────────────────────────────── */}
-              <WhatsAppResendButton waPhone={waPhone} waMessage={waMessage} />
-              {/* ────────────────────────────────────────────────────────── */}
               <a
                 href={`/orders/${id}/print`}
                 target="_blank"

@@ -500,92 +500,26 @@ function LocationManager() {
   );
 }
 
-// ── whatsapp-do module ──────────────────────────────────────────────────────
 function NotificationsManager() {
-  const [phone, setPhone] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((data) => {
-        setPhone(data.wa_do_phone ?? "6281283118487");
-        setLoaded(true);
-      });
-  }, []);
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    const res = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "wa_do_phone", value: phone.trim() }),
-    });
-    setSaving(false);
-    if (res.ok) toast.success("WhatsApp number saved");
-    else toast.error("Failed to save");
-  }
-
-  if (!loaded) return <p className="text-sm text-slate-400 py-4">Loading…</p>;
-
   return (
     <div className="max-w-lg">
-      <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-5 flex gap-3">
-        <span className="text-xl">📱</span>
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 flex gap-3">
+        <span className="text-xl">🔔</span>
         <div>
-          <div className="text-sm font-semibold text-green-800 mb-0.5">WhatsApp Delivery Order Notification</div>
-          <p className="text-xs text-green-700">
-            When a Delivery Order (Goods Out) is printed, the DO summary is automatically opened in WhatsApp addressed to this number. No API or subscription required.
+          <div className="text-sm font-semibold text-blue-800 mb-0.5">Phone Push Notifications</div>
+          <p className="text-xs text-blue-700">
+            Get an instant notification on this device whenever a Goods Out order is confirmed. Free — no service required. Enable on each device you want to receive alerts.
           </p>
         </div>
       </div>
-
-      <form onSubmit={handleSave} className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
-            Recipient Phone Number
-          </label>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-            placeholder="6281283118487"
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-[11px] text-slate-400 mt-1">
-            Include country code, no + or spaces. Indonesia example: 628123456789 (62 + number without leading 0)
-          </p>
-        </div>
-        <button
-          type="submit"
-          disabled={saving || !phone.trim()}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
-      </form>
-
       {/* ── push-notify module ─────────────────────────────────────────── */}
-      <div className="mt-6 pt-6 border-t border-slate-200">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 flex gap-3">
-          <span className="text-xl">🔔</span>
-          <div>
-            <div className="text-sm font-semibold text-blue-800 mb-0.5">Phone Push Notifications</div>
-            <p className="text-xs text-blue-700">
-              Get an instant notification on this device whenever a Goods Out order is confirmed. Free — no service required. Enable on each device you want to receive alerts.
-            </p>
-          </div>
-        </div>
-        <PushSubscribeButton
-          vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
-        />
-      </div>
+      <PushSubscribeButton
+        vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
+      />
       {/* ─────────────────────────────────────────────────────────────────── */}
     </div>
   );
 }
-// ────────────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
   const { data: session } = useSession();
