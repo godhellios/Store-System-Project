@@ -75,8 +75,44 @@ export function LocationStockTable({ stock, categories }: Props) {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <p className="text-center text-xs text-slate-400 py-10">No items found</p>
+        ) : filtered.map((s) => {
+          const isLow = s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
+          return (
+            <div key={s.id} className={`bg-white rounded-xl border px-4 py-3 ${!s.product.isActive ? "opacity-60 border-slate-200" : isLow ? "border-red-200 bg-red-50" : "border-slate-200"}`}>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="min-w-0">
+                  <div className={`font-medium text-sm ${!s.product.isActive ? "text-slate-400 line-through" : "text-slate-800"}`}>
+                    {s.product.name}
+                    {s.product.colorVariant && <span className="text-slate-400 font-normal"> — {s.product.colorVariant}</span>}
+                  </div>
+                  <div className="text-xs font-mono text-slate-400 mt-0.5">{s.product.sku} · {s.product.category.name}</div>
+                </div>
+                {!s.product.isActive ? (
+                  <span className="flex-shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Inactive</span>
+                ) : isLow ? (
+                  <span className="flex-shrink-0 text-[10px] font-semibold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Low</span>
+                ) : (
+                  <span className="flex-shrink-0 text-[10px] font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">OK</span>
+                )}
+              </div>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className={`font-semibold text-sm ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600" : "text-slate-800"}`}>{s.quantity}</span>
+                <span className="text-xs text-slate-500">{s.product.unit.name.toLowerCase()}</span>
+                {s.product.reorderPoint > 0 && (
+                  <span className="text-xs text-slate-400">· reorder at {s.product.reorderPoint}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>

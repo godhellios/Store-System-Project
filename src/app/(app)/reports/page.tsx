@@ -122,94 +122,144 @@ export default function ReportsPage() {
       {loading ? (
         <div className="text-center py-12 text-slate-400 text-sm">Loading…</div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-          {/* Stock On Hand */}
-          {tab !== 1 && (
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                  {tab === 0 ? <>
-                    <th className="px-4 py-2.5 text-left font-medium">Location</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Product</th>
-                    <th className="px-4 py-2.5 text-left font-medium">SKU</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Category</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Qty</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Unit</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Reorder Pt</th>
-                  </> : <>
-                    <th className="px-4 py-2.5 text-left font-medium">Product</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Location</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Current Qty</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Reorder Pt</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Shortfall</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Unit</th>
-                  </>}
-                </tr>
-              </thead>
-              <tbody>
-                {stockData.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No data</td></tr>
-                ) : stockData.map((s) => {
-                  const isLow = s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
-                  return (
-                    <tr key={s.id} className={`border-t border-slate-100 hover:bg-slate-50 ${isLow ? "bg-red-50 hover:bg-red-50" : ""}`}>
-                      {tab === 0 ? <>
-                        <td className="px-4 py-2.5 text-slate-600">{s.location.name}</td>
-                        <td className="px-4 py-2.5 font-medium text-slate-800">{s.product.name}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{s.product.sku}</td>
-                        <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.category.name}</td>
-                        <td className={`px-4 py-2.5 text-right font-semibold ${isLow ? "text-red-600" : "text-slate-800"}`}>{s.quantity}{isLow ? " ⚠" : ""}</td>
-                        <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.unit.name}</td>
-                        <td className="px-4 py-2.5 text-right text-slate-500">{s.product.reorderPoint}</td>
-                      </> : <>
-                        <td className="px-4 py-2.5 font-medium text-slate-800">{s.product.name}</td>
-                        <td className="px-4 py-2.5 text-slate-600">{s.location.name}</td>
-                        <td className="px-4 py-2.5 text-right font-semibold text-red-600">{s.quantity}</td>
-                        <td className="px-4 py-2.5 text-right text-slate-500">{s.product.reorderPoint}</td>
-                        <td className="px-4 py-2.5 text-right font-semibold text-red-700">{s.product.reorderPoint - s.quantity}</td>
-                        <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.unit.name}</td>
-                      </>}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-
-          {/* Movements */}
-          {tab === 1 && (
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                  <th className="px-4 py-2.5 text-left font-medium">Date</th>
-                  <th className="px-4 py-2.5 text-left font-medium">Order</th>
-                  <th className="px-4 py-2.5 text-left font-medium">Type</th>
-                  <th className="px-4 py-2.5 text-left font-medium">Product</th>
-                  <th className="px-4 py-2.5 text-left font-medium">From</th>
-                  <th className="px-4 py-2.5 text-left font-medium">To</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movData.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No movements in range</td></tr>
-                ) : movData.map((m) => (
-                  <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
-                    <td className="px-4 py-2.5 text-xs text-slate-500">{new Date(m.createdAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-blue-600">{m.order?.orderNumber ?? m.orderId.slice(0, 8) + "…"}</td>
-                    <td className="px-4 py-2.5"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${MOVE_BADGE[m.type]}`}>{m.type}</span></td>
-                    <td className="px-4 py-2.5 text-slate-800">{m.product.name}</td>
-                    <td className="px-4 py-2.5 text-xs text-slate-500">{m.fromLocation?.name ?? "—"}</td>
-                    <td className="px-4 py-2.5 text-xs text-slate-500">{m.toLocation?.name ?? "—"}</td>
-                    <td className="px-4 py-2.5 text-right font-semibold text-slate-800">{m.quantity} <span className="text-slate-400 font-normal text-xs">{m.product.unit.name}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+        <>
+          {/* Mobile card lists */}
+          <div className="md:hidden space-y-2">
+            {tab !== 1 && (
+              stockData.length === 0 ? (
+                <p className="text-center text-xs text-slate-400 py-10">No data</p>
+              ) : stockData.map((s) => {
+                const isLow = s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
+                return (
+                  <div key={s.id} className={`bg-white rounded-xl border px-4 py-3 ${isLow ? "border-red-200 bg-red-50" : "border-slate-200"}`}>
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm text-slate-800 leading-tight">{s.product.name}</div>
+                        <div className="text-xs font-mono text-slate-400 mt-0.5">{s.product.sku} · {s.product.category.name}</div>
+                      </div>
+                      <span className={`flex-shrink-0 font-semibold text-sm ${isLow ? "text-red-600" : "text-slate-800"}`}>
+                        {s.quantity}{isLow ? " ⚠" : ""} <span className="text-xs font-normal text-slate-500">{s.product.unit.name}</span>
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500 flex gap-3 mt-1">
+                      <span>{s.location.name}</span>
+                      {s.product.reorderPoint > 0 && tab === 0 && <span className="text-slate-400">reorder at {s.product.reorderPoint}</span>}
+                      {tab === 2 && <span className="text-red-600 font-medium">shortfall: {s.product.reorderPoint - s.quantity}</span>}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            {tab === 1 && (
+              movData.length === 0 ? (
+                <p className="text-center text-xs text-slate-400 py-10">No movements in range</p>
+              ) : movData.map((m) => (
+                <div key={m.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="font-mono text-xs text-blue-600">{m.order?.orderNumber ?? m.orderId.slice(0, 8) + "…"}</span>
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${MOVE_BADGE[m.type]}`}>{m.type}</span>
+                  </div>
+                  <div className="font-medium text-sm text-slate-800 mb-1">{m.product.name}</div>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>{m.fromLocation?.name ?? "—"} → {m.toLocation?.name ?? "—"}</span>
+                    <span className="font-semibold text-slate-800">{m.quantity} <span className="font-normal text-slate-400">{m.product.unit.name}</span></span>
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">{new Date(m.createdAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}</div>
+                </div>
+              ))
+            )}
           </div>
-        </div>
+
+          {/* Desktop tables */}
+          <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+            {/* Stock On Hand / Low Stock */}
+            {tab !== 1 && (
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                    {tab === 0 ? <>
+                      <th className="px-4 py-2.5 text-left font-medium">Location</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Product</th>
+                      <th className="px-4 py-2.5 text-left font-medium">SKU</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Category</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Unit</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Reorder Pt</th>
+                    </> : <>
+                      <th className="px-4 py-2.5 text-left font-medium">Product</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Location</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Current Qty</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Reorder Pt</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Shortfall</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Unit</th>
+                    </>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockData.length === 0 ? (
+                    <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No data</td></tr>
+                  ) : stockData.map((s) => {
+                    const isLow = s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
+                    return (
+                      <tr key={s.id} className={`border-t border-slate-100 hover:bg-slate-50 ${isLow ? "bg-red-50 hover:bg-red-50" : ""}`}>
+                        {tab === 0 ? <>
+                          <td className="px-4 py-2.5 text-slate-600">{s.location.name}</td>
+                          <td className="px-4 py-2.5 font-medium text-slate-800">{s.product.name}</td>
+                          <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{s.product.sku}</td>
+                          <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.category.name}</td>
+                          <td className={`px-4 py-2.5 text-right font-semibold ${isLow ? "text-red-600" : "text-slate-800"}`}>{s.quantity}{isLow ? " ⚠" : ""}</td>
+                          <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.unit.name}</td>
+                          <td className="px-4 py-2.5 text-right text-slate-500">{s.product.reorderPoint}</td>
+                        </> : <>
+                          <td className="px-4 py-2.5 font-medium text-slate-800">{s.product.name}</td>
+                          <td className="px-4 py-2.5 text-slate-600">{s.location.name}</td>
+                          <td className="px-4 py-2.5 text-right font-semibold text-red-600">{s.quantity}</td>
+                          <td className="px-4 py-2.5 text-right text-slate-500">{s.product.reorderPoint}</td>
+                          <td className="px-4 py-2.5 text-right font-semibold text-red-700">{s.product.reorderPoint - s.quantity}</td>
+                          <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.unit.name}</td>
+                        </>}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            {/* Movements */}
+            {tab === 1 && (
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                    <th className="px-4 py-2.5 text-left font-medium">Date</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Order</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Type</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Product</th>
+                    <th className="px-4 py-2.5 text-left font-medium">From</th>
+                    <th className="px-4 py-2.5 text-left font-medium">To</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movData.length === 0 ? (
+                    <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No movements in range</td></tr>
+                  ) : movData.map((m) => (
+                    <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
+                      <td className="px-4 py-2.5 text-xs text-slate-500">{new Date(m.createdAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-blue-600">{m.order?.orderNumber ?? m.orderId.slice(0, 8) + "…"}</td>
+                      <td className="px-4 py-2.5"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${MOVE_BADGE[m.type]}`}>{m.type}</span></td>
+                      <td className="px-4 py-2.5 text-slate-800">{m.product.name}</td>
+                      <td className="px-4 py-2.5 text-xs text-slate-500">{m.fromLocation?.name ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-xs text-slate-500">{m.toLocation?.name ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold text-slate-800">{m.quantity} <span className="text-slate-400 font-normal text-xs">{m.product.unit.name}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
