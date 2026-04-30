@@ -3,6 +3,9 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+// ── whatsapp-do module ──────────────────────────────────────────────────────
+import { buildDOMessage } from "@/modules/whatsapp-do";
+// ────────────────────────────────────────────────────────────────────────────
 
 type Location = { id: string; name: string; type: string };
 type UnitConversion = { id: string; name: string; conversionFactor: number };
@@ -43,9 +46,11 @@ const CONFIG: Record<TransactionType, { title: string; fromLabel?: string; toLab
 export function TransactionForm({
   type,
   locations,
+  waPhone,
 }: {
   type: TransactionType;
   locations: Location[];
+  waPhone?: string;
 }) {
   const router = useRouter();
   const scanRef = useRef<HTMLInputElement>(null);
@@ -190,6 +195,16 @@ export function TransactionForm({
     if (cfg.toLabel && !toLocationId) { toast.error("Select destination location"); return; }
     if (type === "TRANSFER" && fromLocationId === toLocationId) { toast.error("Source and destination must be different"); return; }
 
+    // ── whatsapp-do module ──────────────────────────────────────────────────
+    // Open a blank window NOW (synchronous, inside the user-gesture context)
+    // so popup blockers won't block it. We'll navigate it to WhatsApp after
+    // the API call returns and we have the order number.
+    let waWindow: Window | null = null;
+    if (type === "GOODS_OUT" && waPhone) {
+      waWindow = window.open("", "_blank");
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     setSubmitting(true);
 
     const res = await fetch("/api/orders", {
@@ -217,11 +232,13 @@ export function TransactionForm({
     try {
       data = await res.json();
     } catch {
+      waWindow?.close();
       toast.error("Server error — please try again");
       return;
     }
 
     if (!res.ok) {
+      waWindow?.close();
       toast.error(data.error ?? "Failed to save order");
       return;
     }
@@ -231,6 +248,24 @@ export function TransactionForm({
     }
 
     if (type === "GOODS_OUT") {
+      // ── whatsapp-do module ────────────────────────────────────────────────
+      if (waWindow && waPhone) {
+        const fromName = locations.find((l) => l.id === fromLocationId)?.name;
+        const message = buildDOMessage({
+          orderNumber: data.order!.orderNumber,
+          date: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
+          fromLocation: fromName,
+          lines: lines.map((l) => ({
+            productName: l.name,
+            quantity: Math.round(l.quantity * l.conversionFactor),
+            unit: l.baseUnitName,
+            inputQty: l.conversionFactor !== 1 ? l.quantity : null,
+            inputUnit: l.conversionFactor !== 1 ? l.inputUnitName : null,
+          })),
+        });
+        waWindow.location.href = `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`;
+      }
+      // ─────────────────────────────────────────────────────────────────────
       setPrintDialog({ orderId: data.order!.id, orderNumber: data.order!.orderNumber });
     } else {
       toast.success(`${data.order!.orderNumber} saved`);
@@ -453,28 +488,15 @@ export function TransactionForm({
             </div>
             <h2 className="text-lg font-bold text-slate-800 mb-1">Order Saved!</h2>
             <p className="text-sm text-slate-500 mb-1 font-mono">{printDialog.orderNumber}</p>
-            <p className="text-sm text-slate-600 mb-2">Print the DO — WhatsApp will be sent first.</p>
-            <p className="text-xs text-slate-400 mb-4">You will see a WhatsApp button on the next screen.</p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => {
-                  // ?wa=1 tells the print page to show WhatsApp button first
-                  window.location.href = `/orders/${printDialog.orderId}/print?wa=1`;
-                }}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
-              >
-                Print DO
-              </button>
-              <button
-                onClick={() => {
-                  router.push("/orders");
-                  router.refresh();
-                }}
-                className="px-5 py-2.5 border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-colors"
-              >
-                Skip
-              </button>
-            </div>
+            <p className="text-sm text-slate-600 mb-6">WhatsApp sent. Print the Delivery Order now.</p>
+            <button
+              onClick={() => {
+                window.location.href = `/orders/${printDialog.orderId}/print`;
+              }}
+              className="w-full px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              Print DO
+            </button>
           </div>
         </div>
       )}

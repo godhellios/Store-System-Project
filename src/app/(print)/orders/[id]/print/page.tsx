@@ -1,19 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { PrintActions } from "./print-actions";
-// ── whatsapp-do module ──────────────────────────────────────────────────────
-import { buildDOMessage, WA_DO_PHONE_KEY, WA_DO_PHONE_DEFAULT } from "@/modules/whatsapp-do";
-// ────────────────────────────────────────────────────────────────────────────
 
-export default async function DeliveryOrderPrintPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ wa?: string }>;
-}) {
+export default async function DeliveryOrderPrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { wa } = await searchParams;
 
   const order = await prisma.order.findUnique({
     where: { id },
@@ -33,30 +23,6 @@ export default async function DeliveryOrderPrintPage({
     day: "numeric", month: "long", year: "numeric",
   });
 
-  // ── whatsapp-do module ────────────────────────────────────────────────────
-  // Only build WA data on first-print (?wa=1). Reprints skip this entirely.
-  let waPhone: string | undefined;
-  let waMessage: string | undefined;
-  if (wa === "1") {
-    waPhone = await prisma.systemSetting
-      .findUnique({ where: { key: WA_DO_PHONE_KEY } })
-      .then((r) => r?.value ?? WA_DO_PHONE_DEFAULT)
-      .catch(() => WA_DO_PHONE_DEFAULT);
-    waMessage = buildDOMessage({
-      orderNumber: order.orderNumber,
-      date,
-      fromLocation: order.fromLocation?.name,
-      lines: order.lines.map((l) => ({
-        productName: l.product.name,
-        quantity: l.quantity,
-        unit: l.product.unit.name,
-        inputQty: l.inputQty,
-        inputUnit: l.inputUnit,
-      })),
-    });
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-
   const totalBaseQty = order.lines.reduce((s, l) => s + l.quantity, 0);
 
   return (
@@ -72,7 +38,7 @@ export default async function DeliveryOrderPrintPage({
       {/* Screen toolbar */}
       <div className="no-print bg-slate-800 text-white px-6 py-3 flex items-center justify-between gap-4">
         <span className="text-sm font-medium">Delivery Order — {order.orderNumber}</span>
-        <PrintActions orderId={id} waPhone={waPhone} waMessage={waMessage} />
+        <PrintActions orderId={id} />
       </div>
 
       {/* DO document */}
