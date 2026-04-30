@@ -40,6 +40,7 @@ export default async function OpnamePage() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
@@ -86,6 +87,7 @@ export default async function OpnamePage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -123,6 +123,7 @@ export default function ReportsPage() {
         <div className="text-center py-12 text-slate-400 text-sm">Loading…</div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="overflow-x-auto">
           {/* Stock On Hand */}
           {tab !== 1 && (
             <table className="w-full text-sm border-collapse">
@@ -207,6 +208,7 @@ export default function ReportsPage() {
               </tbody>
             </table>
           )}
+          </div>
         </div>
       )}
     </div>
