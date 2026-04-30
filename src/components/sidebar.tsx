@@ -60,9 +60,9 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const role = session?.user.role ?? "";
 
   return (
-    <>
-      {/* Header — pinned top */}
-      <div className="flex-shrink-0 px-4 py-5 border-b border-slate-700 dark:border-slate-800 flex items-center justify-between text-slate-400">
+    <div className="absolute inset-0 bg-slate-800 dark:bg-slate-950 text-slate-400 flex flex-col overflow-hidden">
+      {/* Header — always visible at top */}
+      <div className="flex-shrink-0 px-4 py-5 border-b border-slate-700 dark:border-slate-800 flex items-center justify-between">
         <div>
           <div className="text-base font-extrabold text-white tracking-tight">
             MR<span className="text-sky-400">Is</span>
@@ -84,8 +84,8 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      {/* Nav — scrollable middle */}
-      <nav className="flex-1 overflow-y-auto min-h-0 text-slate-400">
+      {/* Nav — scrollable, fills all remaining space */}
+      <nav className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
         {nav
           .filter((s) => s.roles.includes(role))
           .map(({ section, links }) => (
@@ -118,8 +118,8 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           ))}
       </nav>
 
-      {/* Sign out — pinned bottom */}
-      <div className="flex-shrink-0 p-4 border-t border-slate-700 dark:border-slate-800">
+      {/* Sign out — always visible at bottom */}
+      <div className="flex-shrink-0 border-t border-slate-700 dark:border-slate-800 p-4">
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="w-full text-xs text-slate-500 hover:text-slate-300 text-left py-2 px-3 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-800 transition-colors"
@@ -127,6 +127,6 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           ⎋ &nbsp;Sign out
         </button>
       </div>
-    </>
+    </div>
   );
 }

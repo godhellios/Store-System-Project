@@ -29,15 +29,13 @@ export function AppShell({
         />
       )}
 
-      {/* Sidebar — the wrapper IS the flex column, no inner div fighting for height */}
+      {/* Sidebar shell — fixed on mobile, relative on desktop */}
       <div
         className={[
           "fixed top-0 bottom-0 left-0 z-30 w-[230px]",
-          "flex flex-col",
-          "bg-slate-800 dark:bg-slate-950",
+          "md:relative md:top-auto md:bottom-auto md:left-auto md:flex-shrink-0",
           "transition-transform duration-200 ease-in-out",
-          "md:relative md:translate-x-0 md:flex-shrink-0",
-          open ? "translate-x-0" : "-translate-x-full",
+          open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         ].join(" ")}
       >
         <Sidebar onClose={() => setOpen(false)} />
@@ -46,7 +44,6 @@ export function AppShell({
       {/* Main area */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 py-3.5 flex items-center gap-3 flex-shrink-0">
-          {/* Hamburger — mobile only */}
           <button
             onClick={() => setOpen(true)}
             className="md:hidden p-1.5 -ml-1 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 flex-shrink-0"
