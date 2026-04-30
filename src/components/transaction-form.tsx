@@ -76,7 +76,8 @@ export function TransactionForm({
     | { step: "idle" }
     | { step: "confirm" }
     | { step: "saving" }
-    | { step: "ready"; orderId: string; orderNumber: string; waMessage: string }
+    | { step: "wa"; orderId: string; orderNumber: string; waMessage: string }
+    | { step: "print"; orderId: string; orderNumber: string }
     | { step: "error"; message: string };
   const [flowState, setFlowState] = useState<FlowState>({ step: "idle" });
 
@@ -291,7 +292,7 @@ export function TransactionForm({
       })),
     });
     // ─────────────────────────────────────────────────────────────────────────
-    setFlowState({ step: "ready", orderId: data.order!.id, orderNumber: data.order!.orderNumber, waMessage });
+    setFlowState({ step: "wa", orderId: data.order!.id, orderNumber: data.order!.orderNumber, waMessage });
   }
 
   const totalBaseUnits = lines.reduce((s, l) => s + Math.round(l.quantity * l.conversionFactor), 0);
@@ -554,8 +555,8 @@ export function TransactionForm({
               </>
             )}
 
-            {/* ready step — WhatsApp + Print */}
-            {flowState.step === "ready" && (
+            {/* wa step — open WhatsApp first */}
+            {flowState.step === "wa" && (
               <>
                 <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -563,9 +564,10 @@ export function TransactionForm({
                   </svg>
                 </div>
                 <h2 className="text-lg font-bold text-slate-800 mb-1">Order Saved!</h2>
-                <p className="text-sm text-slate-500 mb-5 font-mono">{flowState.orderNumber}</p>
+                <p className="text-sm text-slate-500 mb-1 font-mono">{flowState.orderNumber}</p>
+                <p className="text-xs text-slate-400 mb-5">Step 1 of 2 — Send the Delivery Order to WhatsApp</p>
                 {/* ── whatsapp-do module ──────────────────────────────────────── */}
-                {/* window.open fires synchronously from this click — never blocked */}
+                {/* window.open fires synchronously — guaranteed not popup-blocked */}
                 <button
                   onClick={() => {
                     if (waPhone) {
@@ -574,6 +576,29 @@ export function TransactionForm({
                         "_blank"
                       );
                     }
+                    setFlowState({ step: "print", orderId: flowState.orderId, orderNumber: flowState.orderNumber });
+                  }}
+                  className="w-full px-5 py-3 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition-colors"
+                >
+                  📱 Open WhatsApp
+                </button>
+                {/* ─────────────────────────────────────────────────────────────── */}
+              </>
+            )}
+
+            {/* print step — after WhatsApp opened */}
+            {flowState.step === "print" && (
+              <>
+                <div className="w-14 h-14 bg-sky-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-slate-800 mb-1">WhatsApp Sent!</h2>
+                <p className="text-sm text-slate-500 mb-1 font-mono">{flowState.orderNumber}</p>
+                <p className="text-xs text-slate-400 mb-5">Step 2 of 2 — Print the Delivery Order</p>
+                <button
+                  onClick={() => {
                     fetch(`/api/orders/${flowState.orderId}/status`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
@@ -582,11 +607,10 @@ export function TransactionForm({
                     }).catch(() => {});
                     window.location.href = `/orders/${flowState.orderId}/print`;
                   }}
-                  className="w-full px-5 py-3 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition-colors"
+                  className="w-full px-5 py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-xl transition-colors"
                 >
-                  📱 Send WhatsApp &amp; Print DO
+                  🖨️ Print Delivery Order
                 </button>
-                {/* ─────────────────────────────────────────────────────────────── */}
               </>
             )}
 
