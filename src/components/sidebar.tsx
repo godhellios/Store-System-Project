@@ -61,7 +61,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const role = session?.user.role ?? "";
 
   return (
-    <div className="w-[230px] bg-slate-800 dark:bg-slate-950 text-slate-400 flex-shrink-0 flex flex-col h-full">
+    <div className="w-[230px] bg-slate-800 dark:bg-slate-950 text-slate-400 flex-shrink-0 flex flex-col h-full overflow-hidden">
       <div className="px-4 py-5 border-b border-slate-700 dark:border-slate-800 flex items-center justify-between">
         <div>
           <div className="text-base font-extrabold text-white tracking-tight">
@@ -85,7 +85,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto">
+      <nav className="flex-1 overflow-y-auto min-h-0">
         {nav
           .filter((s) => s.roles.includes(role))
           .map(({ section, links }) => (
