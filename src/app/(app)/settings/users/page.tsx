@@ -190,7 +190,7 @@ export default function UsersPage() {
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-xs text-slate-500">
-                  {new Date(u.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                  {new Date(u.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" })}
                 </td>
                 <td className="px-4 py-2.5 flex gap-3 items-center">
                   <button onClick={() => openEdit(u)} className="text-xs text-blue-600 hover:underline">Edit</button>

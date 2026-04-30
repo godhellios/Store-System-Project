@@ -196,7 +196,7 @@ export default function ReportsPage() {
                   <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No movements in range</td></tr>
                 ) : movData.map((m) => (
                   <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
-                    <td className="px-4 py-2.5 text-xs text-slate-500">{new Date(m.createdAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-500">{new Date(m.createdAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}</td>
                     <td className="px-4 py-2.5 font-mono text-xs text-blue-600">{m.order?.orderNumber ?? m.orderId.slice(0, 8) + "…"}</td>
                     <td className="px-4 py-2.5"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${MOVE_BADGE[m.type]}`}>{m.type}</span></td>
                     <td className="px-4 py-2.5 text-slate-800">{m.product.name}</td>

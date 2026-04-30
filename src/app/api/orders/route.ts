@@ -45,10 +45,11 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { type, fromLocationId, toLocationId, reference, notes, lines } = body as {
+  const { type, fromLocationId, toLocationId, customer, reference, notes, lines } = body as {
     type: OrderType;
     fromLocationId?: string;
     toLocationId?: string;
+    customer?: string;
     reference?: string;
     notes?: string;
     lines: Array<{ productId: string; quantity: number; inputQty?: number; inputUnit?: string; notes?: string }>;
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
       const orderNumber = `${prefix}-${year}-${String(lastNum + 1).padStart(4, "0")}`;
 
       const order = await tx.order.create({
-        data: { orderNumber, type, fromLocationId, toLocationId, reference, notes },
+        data: { orderNumber, type, fromLocationId, toLocationId, customer, reference, notes },
       });
 
       for (const line of lines) {

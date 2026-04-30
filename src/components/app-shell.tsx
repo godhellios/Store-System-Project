@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/sidebar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function AppShell({
   children,
@@ -28,7 +29,7 @@ export function AppShell({
         />
       )}
 
-      {/* Sidebar — drawer on mobile, static on md+ */}
+      {/* Sidebar */}
       <div
         className={[
           "fixed inset-y-0 left-0 z-30 transition-transform duration-200 ease-in-out",
@@ -41,32 +42,35 @@ export function AppShell({
 
       {/* Main area */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center gap-3 flex-shrink-0">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 py-3.5 flex items-center gap-3 flex-shrink-0">
           {/* Hamburger — mobile only */}
           <button
             onClick={() => setOpen(true)}
-            className="md:hidden p-1.5 -ml-1 rounded-lg text-slate-500 hover:bg-slate-100 flex-shrink-0"
+            className="md:hidden p-1.5 -ml-1 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 flex-shrink-0"
             aria-label="Open navigation"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div className="flex items-center justify-between flex-1 min-w-0">
-            <span className="text-sm font-semibold text-slate-800 truncate">
+          <div className="flex items-center justify-between flex-1 min-w-0 gap-3">
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
               MRIs — Mitra Ramah Inventory System
             </span>
-            <span className="text-xs text-slate-500 whitespace-nowrap ml-3 hidden sm:block">
-              {userName} · MRIs v1.0
-            </span>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap hidden sm:block">
+                {userName}
+              </span>
+              <ThemeToggle />
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50 dark:bg-slate-950">
           {children}
         </main>
 
-        <footer className="text-center text-xs text-slate-400 py-3 bg-white border-t border-slate-100">
+        <footer className="text-center text-xs text-slate-400 dark:text-slate-500 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
           © 2026 Mitra Ramah — All rights reserved | MRIs v1.0
         </footer>
       </div>

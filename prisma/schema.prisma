@@ -147,6 +147,7 @@ model Order {
   fromLocationId String?
   toLocation     Location? @relation("OrderToLocation", fields: [toLocationId], references: [id])
   toLocationId   String?
+  customer       String?
   reference      String?
   notes          String?
   createdAt      DateTime  @default(now())
