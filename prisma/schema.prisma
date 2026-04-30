@@ -150,6 +150,8 @@ model Order {
   reference      String?
   notes          String?
   createdAt      DateTime  @default(now())
+  whatsappSentAt DateTime?
+  printedAt      DateTime?
 
   lines     OrderLine[]
   movements Movement[]
@@ -200,6 +202,13 @@ model OpnameSession {
   approvedAt    DateTime?
 
   lines OpnameLine[]
+}
+
+// App-wide key-value configuration store
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 // Individual counted item within an opname session

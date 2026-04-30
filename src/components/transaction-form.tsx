@@ -66,7 +66,14 @@ export function TransactionForm({
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [printDialog, setPrintDialog] = useState<{ orderId: string; orderNumber: string } | null>(null);
+
+  type FlowState =
+    | { step: "idle" }
+    | { step: "confirm" }
+    | { step: "saving" }
+    | { step: "print"; orderId: string; orderNumber: string }
+    | { step: "error"; message: string };
+  const [flowState, setFlowState] = useState<FlowState>({ step: "idle" });
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -184,14 +191,22 @@ export function TransactionForm({
     setLines((prev) => prev.filter((l) => l._key !== key));
   }
 
+  function validate(): boolean {
+    if (lines.length === 0) { toast.error("Add at least one item"); return false; }
+    if (cfg.fromLabel && !fromLocationId) { toast.error("Select source location"); return false; }
+    if (cfg.toLabel && !toLocationId) { toast.error("Select destination location"); return false; }
+    if (type === "TRANSFER" && fromLocationId === toLocationId) { toast.error("Source and destination must be different"); return false; }
+    return true;
+  }
+
   async function handleSubmit() {
-    if (lines.length === 0) { toast.error("Add at least one item"); return; }
-    if (cfg.fromLabel && !fromLocationId) { toast.error("Select source location"); return; }
-    if (cfg.toLabel && !toLocationId) { toast.error("Select destination location"); return; }
-    if (type === "TRANSFER" && fromLocationId === toLocationId) { toast.error("Source and destination must be different"); return; }
-
+    if (!validate()) return;
+    if (type === "GOODS_OUT") {
+      setFlowState({ step: "confirm" });
+      return;
+    }
+    // Non-GOODS_OUT: direct save
     setSubmitting(true);
-
     const res = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -210,33 +225,53 @@ export function TransactionForm({
         })),
       }),
     });
-
     setSubmitting(false);
-
     let data: { error?: string; order?: { id: string; orderNumber: string }; warnings?: string[] } = {};
+    try { data = await res.json(); } catch { toast.error("Server error — please try again"); return; }
+    if (!res.ok) { toast.error(data.error ?? "Failed to save order"); return; }
+    if (data.warnings?.length) data.warnings.forEach((w) => toast(w, { icon: "⚠️", duration: 6000 }));
+    toast.success(`${data.order!.orderNumber} saved`);
+    router.push("/orders");
+    router.refresh();
+  }
+
+  async function executeGoodsOutSave() {
+    setFlowState({ step: "saving" });
+    let res: Response;
     try {
-      data = await res.json();
+      res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          fromLocationId: fromLocationId || undefined,
+          toLocationId: toLocationId || undefined,
+          reference: reference || undefined,
+          notes: notes || undefined,
+          lines: lines.map((l) => ({
+            productId: l.productId,
+            quantity: Math.round(l.quantity * l.conversionFactor),
+            inputQty: l.conversionFactor !== 1 ? l.quantity : undefined,
+            inputUnit: l.conversionFactor !== 1 ? l.inputUnitName : undefined,
+            notes: l.notes || undefined,
+          })),
+        }),
+      });
     } catch {
-      toast.error("Server error — please try again");
+      setFlowState({ step: "error", message: "Network error — check your connection and try again" });
       return;
     }
-
+    let data: { error?: string; order?: { id: string; orderNumber: string }; warnings?: string[] } = {};
+    try { data = await res.json(); } catch {
+      setFlowState({ step: "error", message: "Server error — please try again" });
+      return;
+    }
     if (!res.ok) {
-      toast.error(data.error ?? "Failed to save order");
+      setFlowState({ step: "error", message: data.error ?? "Failed to save order" });
       return;
     }
-
-    if (data.warnings?.length) {
-      data.warnings.forEach((w: string) => toast(w, { icon: "⚠️", duration: 6000 }));
-    }
-
-    if (type === "GOODS_OUT") {
-      setPrintDialog({ orderId: data.order!.id, orderNumber: data.order!.orderNumber });
-    } else {
-      toast.success(`${data.order!.orderNumber} saved`);
-      router.push("/orders");
-      router.refresh();
-    }
+    if (data.warnings?.length) data.warnings.forEach((w) => toast(w, { icon: "⚠️", duration: 6000 }));
+    setFlowState({ step: "print", orderId: data.order!.id, orderNumber: data.order!.orderNumber });
   }
 
   const totalBaseUnits = lines.reduce((s, l) => s + Math.round(l.quantity * l.conversionFactor), 0);
@@ -434,50 +469,121 @@ export function TransactionForm({
             <button onClick={() => router.back()} className="px-4 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
               Cancel
             </button>
-            <button onClick={handleSubmit} disabled={submitting || lines.length === 0}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || lines.length === 0 || flowState.step !== "idle"}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+            >
               {submitting ? "Saving…" : "Save Order"}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Print DO dialog */}
-      {printDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      {/* ── Goods Out flow modal ────────────────────────────────────────────── */}
+      {flowState.step !== "idle" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4 text-center">
-            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-bold text-slate-800 mb-1">Order Saved!</h2>
-            <p className="text-sm text-slate-500 mb-1 font-mono">{printDialog.orderNumber}</p>
-            <p className="text-sm text-slate-600 mb-6">Would you like to print the Delivery Order?</p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => {
-                  window.open(`/orders/${printDialog.orderId}/print`, "_blank");
-                  router.push("/orders");
-                  router.refresh();
-                }}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
-              >
-                Print DO
-              </button>
-              <button
-                onClick={() => {
-                  router.push("/orders");
-                  router.refresh();
-                }}
-                className="px-5 py-2.5 border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-colors"
-              >
-                Skip
-              </button>
-            </div>
+
+            {/* confirm step */}
+            {flowState.step === "confirm" && (
+              <>
+                <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-slate-800 mb-1">Save Goods Out Order?</h2>
+                <p className="text-sm text-slate-500 mb-1">
+                  {lines.length} item{lines.length !== 1 ? "s" : ""} · {totalBaseUnits} base unit{totalBaseUnits !== 1 ? "s" : ""}
+                </p>
+                {fromLocationId && (
+                  <p className="text-xs text-slate-400 mb-4">
+                    From: {locations.find((l) => l.id === fromLocationId)?.name}
+                  </p>
+                )}
+                <p className="text-xs text-slate-400 mb-6">After saving, you&apos;ll send a WhatsApp notification and print the DO.</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setFlowState({ step: "idle" })}
+                    className="flex-1 px-4 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={executeGoodsOutSave}
+                    className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors"
+                  >
+                    Yes, Save
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* saving step */}
+            {flowState.step === "saving" && (
+              <>
+                <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-slate-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-slate-800 mb-1">Saving order…</h2>
+                <p className="text-sm text-slate-400">Please wait</p>
+              </>
+            )}
+
+            {/* print step */}
+            {flowState.step === "print" && (
+              <>
+                <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-slate-800 mb-1">Order Saved!</h2>
+                <p className="text-sm text-slate-500 mb-5 font-mono">{flowState.orderNumber}</p>
+                <button
+                  onClick={() => { window.location.href = `/orders/${flowState.orderId}/print`; }}
+                  className="w-full px-5 py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-xl transition-colors"
+                >
+                  🖨️ Print Delivery Order
+                </button>
+              </>
+            )}
+
+            {/* error step */}
+            {flowState.step === "error" && (
+              <>
+                <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-slate-800 mb-1">Save Failed</h2>
+                <p className="text-sm text-red-600 mb-6">{flowState.message}</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setFlowState({ step: "idle" })}
+                    className="flex-1 px-4 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={executeGoodsOutSave}
+                    className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors"
+                  >
+                    Retry
+                  </button>
+                </div>
+              </>
+            )}
+
           </div>
         </div>
       )}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
     </div>
   );
 }

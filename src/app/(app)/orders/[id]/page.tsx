@@ -38,16 +38,23 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             {TYPE_LABEL[order.type]}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {order.type === "GOODS_OUT" && (
-            <a
-              href={`/orders/${id}/print`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors"
-            >
-              Print DO
-            </a>
+            <>
+              {order.printedAt && (
+                <span className="text-[10px] px-2 py-1 bg-slate-100 text-slate-600 rounded-full font-medium">
+                  Printed
+                </span>
+              )}
+              <a
+                href={`/orders/${id}/print`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors"
+              >
+                Print DO
+              </a>
+            </>
           )}
           <OrderActions orderId={id} userRole={userRole} />
         </div>

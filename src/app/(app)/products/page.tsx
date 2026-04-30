@@ -94,38 +94,42 @@ export default async function ProductsPage({
         </div>
       </div>
 
-      <form method="GET" className="flex gap-2 mb-4 flex-wrap items-center">
-        <select name="categoryId" defaultValue={categoryId}
-          className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">All Categories</option>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select name="unitId" defaultValue={unitId}
-          className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">All Units</option>
-          {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-        <input name="q" defaultValue={q} placeholder="Search name, code, or barcode…"
-          className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64" />
-        <select name="locationId" defaultValue={locationId}
-          className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">All Locations</option>
-          {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-        </select>
-        <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
-          <input key={`si-${showInactive}`} type="checkbox" name="showInactive" value="1" defaultChecked={showInactive}
-            className="w-4 h-4 accent-blue-600" />
-          Show inactive
-        </label>
-        <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
-          <input key={`ls-${lowStock}`} type="checkbox" name="lowStock" value="1" defaultChecked={lowStock}
-            className="w-4 h-4 accent-red-500" />
-          <span className={lowStock ? "text-red-600 font-medium" : ""}>⚠ Low stock only</span>
-        </label>
-        <button type="submit" className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700">Search</button>
-        {(q || categoryId || unitId || locationId || showInactive || lowStock) && (
-          <Link href="/products" className="text-sm px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">Clear</Link>
-        )}
+      <form method="GET" className="mb-4">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-center">
+          <select name="categoryId" defaultValue={categoryId}
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">All Categories</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select name="unitId" defaultValue={unitId}
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">All Units</option>
+            {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+          <select name="locationId" defaultValue={locationId}
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">All Locations</option>
+            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+          <input name="q" defaultValue={q} placeholder="Search name, code, barcode…"
+            className="col-span-2 sm:col-auto px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-64" />
+        </div>
+        <div className="flex flex-wrap items-center gap-3 mt-2">
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input key={`si-${showInactive}`} type="checkbox" name="showInactive" value="1" defaultChecked={showInactive}
+              className="w-4 h-4 accent-blue-600" />
+            Show inactive
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input key={`ls-${lowStock}`} type="checkbox" name="lowStock" value="1" defaultChecked={lowStock}
+              className="w-4 h-4 accent-red-500" />
+            <span className={lowStock ? "text-red-600 font-medium" : ""}>⚠ Low stock only</span>
+          </label>
+          <button type="submit" className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700">Search</button>
+          {(q || categoryId || unitId || locationId || showInactive || lowStock) && (
+            <Link href="/products" className="text-sm px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">Clear</Link>
+          )}
+        </div>
       </form>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">

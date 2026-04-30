@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+// ── push-notify module ──────────────────────────────────────────────────────
+import { PushSubscribeButton } from "@/modules/push-notify";
+// ────────────────────────────────────────────────────────────────────────────
 
 type Row = { id: string; name: string; type?: string; isActive: boolean; _count?: { products?: number; stock?: number } };
 type LocationRow = { id: string; name: string; type: string; isActive: boolean; _count: { stock: number } };
@@ -18,7 +21,7 @@ type UnitRow = {
   _count: { products: number };
 };
 
-const TABS = ["Categories", "Units", "Locations"];
+const TABS = ["Categories", "Units", "Locations", "Notifications"];
 
 // Generic manager for categories and locations
 function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: string; hasType?: boolean }) {
@@ -497,6 +500,27 @@ function LocationManager() {
   );
 }
 
+function NotificationsManager() {
+  return (
+    <div className="max-w-lg">
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 flex gap-3">
+        <span className="text-xl">🔔</span>
+        <div>
+          <div className="text-sm font-semibold text-blue-800 mb-0.5">Phone Push Notifications</div>
+          <p className="text-xs text-blue-700">
+            Get an instant notification on this device whenever a Goods Out order is confirmed. Free — no service required. Enable on each device you want to receive alerts.
+          </p>
+        </div>
+      </div>
+      {/* ── push-notify module ─────────────────────────────────────────── */}
+      <PushSubscribeButton
+        vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
+      />
+      {/* ─────────────────────────────────────────────────────────────────── */}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -522,6 +546,7 @@ export default function SettingsPage() {
       {tab === 0 && <EntityManager endpoint="categories" label="Category" />}
       {tab === 1 && <UnitManager />}
       {tab === 2 && <LocationManager />}
+      {tab === 3 && <NotificationsManager />}
     </div>
   );
 }

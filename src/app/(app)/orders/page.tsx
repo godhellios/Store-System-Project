@@ -63,55 +63,91 @@ export default async function OrdersPage({
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-              <th className="px-4 py-2.5 text-left font-medium">Document</th>
-              <th className="px-4 py-2.5 text-left font-medium">Type</th>
-              <th className="px-4 py-2.5 text-left font-medium">Location(s)</th>
-              <th className="px-4 py-2.5 text-left font-medium">Qty · Categories</th>
-              <th className="px-4 py-2.5 text-left font-medium">Reference</th>
-              <th className="px-4 py-2.5 text-left font-medium">Date</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No orders yet</td></tr>
-            ) : orders.map((o) => {
-              const { totalQty, catLabel } = summariseLines(o.lines);
-              return (
-                <tr key={o.id} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-4 py-2.5 font-mono font-semibold text-blue-600 text-xs">{o.orderNumber}</td>
-                  <td className="px-4 py-2.5">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[o.type]}`}>
-                      {TYPE_LABEL[o.type]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-slate-600">
-                    {o.type === "TRANSFER"
-                      ? `${o.fromLocation?.name ?? "?"} → ${o.toLocation?.name ?? "?"}`
-                      : o.type === "GRN" || o.type === "ADJUSTMENT"
-                      ? o.toLocation?.name ?? "—"
-                      : o.fromLocation?.name ?? "—"}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="font-semibold text-gray-900 text-xs">{totalQty} pcs</div>
-                    <div className="text-xs text-slate-400 mt-0.5">{catLabel || "—"}</div>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-slate-400">{o.reference ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-xs text-slate-500">
-                    {o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 hover:underline">View</Link>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-2">
+        {orders.length === 0 ? (
+          <p className="text-center text-slate-400 text-xs py-10">No orders yet</p>
+        ) : orders.map((o) => {
+          const { totalQty, catLabel } = summariseLines(o.lines);
+          const location = o.type === "TRANSFER"
+            ? `${o.fromLocation?.name ?? "?"} → ${o.toLocation?.name ?? "?"}`
+            : o.type === "GRN" || o.type === "ADJUSTMENT"
+            ? o.toLocation?.name ?? "—"
+            : o.fromLocation?.name ?? "—";
+          return (
+            <div key={o.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="font-mono font-semibold text-blue-600 text-xs">{o.orderNumber}</span>
+                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[o.type]}`}>
+                  {TYPE_LABEL[o.type]}
+                </span>
+              </div>
+              <div className="text-xs text-slate-600 mb-1">{location}</div>
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span><span className="font-semibold text-gray-900">{totalQty} pcs</span>{catLabel ? ` · ${catLabel}` : ""}</span>
+                <span>{o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+              {o.reference && <div className="text-xs text-slate-400 mt-1">{o.reference}</div>}
+              <div className="mt-2 text-right">
+                <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 font-medium">View →</Link>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                <th className="px-4 py-2.5 text-left font-medium">Document</th>
+                <th className="px-4 py-2.5 text-left font-medium">Type</th>
+                <th className="px-4 py-2.5 text-left font-medium">Location(s)</th>
+                <th className="px-4 py-2.5 text-left font-medium">Qty · Categories</th>
+                <th className="px-4 py-2.5 text-left font-medium">Reference</th>
+                <th className="px-4 py-2.5 text-left font-medium">Date</th>
+                <th className="px-4 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No orders yet</td></tr>
+              ) : orders.map((o) => {
+                const { totalQty, catLabel } = summariseLines(o.lines);
+                return (
+                  <tr key={o.id} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-2.5 font-mono font-semibold text-blue-600 text-xs">{o.orderNumber}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[o.type]}`}>
+                        {TYPE_LABEL[o.type]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-600">
+                      {o.type === "TRANSFER"
+                        ? `${o.fromLocation?.name ?? "?"} → ${o.toLocation?.name ?? "?"}`
+                        : o.type === "GRN" || o.type === "ADJUSTMENT"
+                        ? o.toLocation?.name ?? "—"
+                        : o.fromLocation?.name ?? "—"}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="font-semibold text-gray-900 text-xs">{totalQty} pcs</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{catLabel || "—"}</div>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-400">{o.reference ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-500">
+                      {o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 hover:underline">View</Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {pages > 1 && (

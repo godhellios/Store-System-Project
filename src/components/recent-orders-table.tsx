@@ -63,6 +63,7 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
 
   return (
     <>
+      <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -105,6 +106,7 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
           })}
         </tbody>
       </table>
+      </div>
 
       {/* Modal */}
       {selectedId && (
@@ -169,6 +171,7 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
                     )}
                   </div>
 
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm border-collapse border border-slate-200 rounded-lg overflow-hidden">
                     <thead>
                       <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
@@ -198,6 +201,7 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
                       ))}
                     </tbody>
                   </table>
+                  </div>
                   <p className="text-xs text-slate-500 text-right mt-2">
                     {detail.lines.length} line{detail.lines.length !== 1 ? "s" : ""} · {detail.lines.reduce((s, l) => s + l.quantity, 0)} items total
                   </p>
