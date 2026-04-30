@@ -489,10 +489,10 @@ export function TransactionForm({
                     })),
                   });
                   openWhatsApp(waPhone, message);
+                  // Navigate current tab to print page (one window.open is
+                  // all browsers allow per gesture; WA already used it)
+                  window.location.href = `/orders/${printDialog.orderId}/print`;
                   // ───────────────────────────────────────────────────────
-                  window.open(`/orders/${printDialog.orderId}/print`, "_blank");
-                  router.push("/orders");
-                  router.refresh();
                 }}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
               >

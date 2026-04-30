@@ -17,7 +17,12 @@ export function PrintActions({ orderId }: { orderId: string }) {
         Print / Save PDF
       </button>
       <button
-        onClick={() => window.close()}
+        onClick={() => {
+          window.close();
+          // fallback: if this tab wasn't opened by script, window.close() is a
+          // no-op — navigate to orders instead
+          setTimeout(() => { window.location.href = "/orders"; }, 150);
+        }}
         className="text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-700 transition-colors"
       >
         Close
