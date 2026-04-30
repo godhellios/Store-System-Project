@@ -112,7 +112,7 @@ export function BarcodePrintPanel({
                   <div className="text-xs font-mono text-slate-400">{p.barcode}</div>
                 </div>
                 {selected.has(p.id) && (
-                  <input type="number" min={1} max={100} value={getCopies(p.id)}
+                  <input type="number" inputMode="numeric" min={1} max={100} value={getCopies(p.id)}
                     onChange={(e) => setCopy(p.id, parseInt(e.target.value) || 1)}
                     onClick={(e) => e.preventDefault()}
                     className="w-14 text-center px-2 py-1 border border-slate-300 rounded text-xs"

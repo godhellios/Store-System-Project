@@ -311,7 +311,7 @@ export function ProductForm({
 
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Reorder Point</label>
-          <input type="number" min="0" value={form.reorderPoint} onChange={(e) => set("reorderPoint", e.target.value)}
+          <input type="number" inputMode="numeric" min="0" value={form.reorderPoint} onChange={(e) => set("reorderPoint", e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           <p className="text-xs text-slate-400 mt-1">Alert when total stock falls below this</p>
         </div>
@@ -352,7 +352,7 @@ export function ProductForm({
                       />
                       <span className="text-blue-500 shrink-0">=</span>
                       <input
-                        type="number" min="1" step="any"
+                        type="number" inputMode="decimal" min="1" step="any"
                         value={editFactor}
                         onChange={(e) => setEditFactor(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveEdit(i); } if (e.key === "Escape") setEditingIdx(null); }}
@@ -393,7 +393,7 @@ export function ProductForm({
                 = how many {form.unitId ? baseUnitName : "base units"}
               </label>
               <input
-                type="number" min="1" step="any"
+                type="number" inputMode="decimal" min="1" step="any"
                 value={newConvFactor}
                 onChange={(e) => setNewConvFactor(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addConversion(); } }}

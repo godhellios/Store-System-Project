@@ -108,7 +108,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
                   <td className="px-4 py-2.5 text-center">
                     {isEditable ? (
                       <input
-                        type="number" min="0" value={counts[line.id]}
+                        type="number" inputMode="numeric" min="0" value={counts[line.id]}
                         onChange={(e) => setCount(line.id, e.target.value)}
                         className="w-24 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="—"

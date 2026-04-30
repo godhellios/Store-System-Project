@@ -392,7 +392,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
                       <div className="text-xs font-mono text-slate-400">{line.sku}</div>
                     </td>
                     <td className="px-4 py-2 text-center">
-                      <input type="number" min="1" value={line.quantity}
+                      <input type="number" inputMode="numeric" min="1" value={line.quantity}
                         onChange={(e) => updateLine(line._key, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
                         className="w-20 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </td>

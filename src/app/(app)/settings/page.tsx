@@ -248,7 +248,7 @@ function UnitManager() {
         {newParentId && (
           <div className="w-24">
             <label className="block text-xs text-slate-500 mb-0.5">Factor *</label>
-            <input type="number" min="1" step="any" value={newFactor} onChange={(e) => setNewFactor(e.target.value)}
+            <input type="number" inputMode="decimal" min="1" step="any" value={newFactor} onChange={(e) => setNewFactor(e.target.value)}
               placeholder="e.g. 12"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
@@ -282,7 +282,7 @@ function UnitManager() {
                 {editing.parentUnitId && (
                   <div className="w-20">
                     <label className="block text-xs text-slate-400 mb-0.5">Factor</label>
-                    <input type="number" min="1" step="any" value={editing.conversionFactor}
+                    <input type="number" inputMode="decimal" min="1" step="any" value={editing.conversionFactor}
                       onChange={(e) => setEditing({ ...editing, conversionFactor: e.target.value })}
                       className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none" />
                   </div>
