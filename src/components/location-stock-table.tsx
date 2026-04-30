@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import toast from "react-hot-toast";
 
 type StockRow = {
   id: string;
@@ -24,8 +27,21 @@ type Props = {
 };
 
 export function LocationStockTable({ stock, categories }: Props) {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function deleteStock(stockId: string) {
+    setDeletingId(stockId);
+    const res = await fetch(`/api/stock/${stockId}`, { method: "DELETE" });
+    setDeletingId(null);
+    setConfirmingId(null);
+    if (!res.ok) { toast.error("Failed to remove stock record"); return; }
+    toast.success("Stock record removed");
+    router.refresh();
+  }
 
   const filtered = stock.filter((s) => {
     const matchQ =
@@ -106,6 +122,26 @@ export function LocationStockTable({ stock, categories }: Props) {
                   <span className="text-xs text-slate-400">· reorder at {s.product.reorderPoint}</span>
                 )}
               </div>
+              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
+                <Link href={`/products/${s.product.id}`} className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+                  View Detail
+                </Link>
+                {confirmingId === s.id ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-600">Remove record?</span>
+                    <button onClick={() => setConfirmingId(null)} className="text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">No</button>
+                    <button onClick={() => deleteStock(s.id)} disabled={deletingId === s.id}
+                      className="text-xs px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50">
+                      {deletingId === s.id ? "…" : "Yes, remove"}
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmingId(s.id)}
+                    className="text-xs px-3 py-1.5 border border-red-300 rounded-lg text-red-600 hover:bg-red-50">
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -123,12 +159,13 @@ export function LocationStockTable({ stock, categories }: Props) {
                 <th className="px-4 py-2.5 text-right font-medium">Qty</th>
                 <th className="px-4 py-2.5 text-right font-medium">Reorder Pt</th>
                 <th className="px-4 py-2.5 text-left font-medium">Status</th>
+                <th className="px-4 py-2.5 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-xs text-slate-400">
+                  <td colSpan={7} className="px-4 py-10 text-center text-xs text-slate-400">
                     No items found
                   </td>
                 </tr>
@@ -176,6 +213,29 @@ export function LocationStockTable({ stock, categories }: Props) {
                           <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-600 uppercase tracking-wide">Low</span>
                         ) : (
                           <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 uppercase tracking-wide">OK</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                        {confirmingId === s.id ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="text-xs text-slate-600">Remove?</span>
+                            <button onClick={() => setConfirmingId(null)} className="text-xs px-2 py-1 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">No</button>
+                            <button onClick={() => deleteStock(s.id)} disabled={deletingId === s.id}
+                              className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50">
+                              {deletingId === s.id ? "…" : "Yes"}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Link href={`/products/${s.product.id}`}
+                              className="text-xs px-2.5 py-1 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+                              View
+                            </Link>
+                            <button onClick={() => setConfirmingId(s.id)}
+                              className="text-xs px-2.5 py-1 border border-red-300 rounded-lg text-red-600 hover:bg-red-50">
+                              Delete
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
