@@ -552,6 +552,7 @@ function NotificationsManager() {
         </p>
         <div className="flex gap-2">
           <input
+            type="tel"
             value={waNumber}
             onChange={(e) => setWaNumber(e.target.value)}
             placeholder="6281283118487"
