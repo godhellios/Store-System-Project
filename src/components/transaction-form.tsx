@@ -453,7 +453,8 @@ export function TransactionForm({
             </div>
             <h2 className="text-lg font-bold text-slate-800 mb-1">Order Saved!</h2>
             <p className="text-sm text-slate-500 mb-1 font-mono">{printDialog.orderNumber}</p>
-            <p className="text-sm text-slate-600 mb-6">Would you like to print the Delivery Order?</p>
+            <p className="text-sm text-slate-600 mb-2">Print the DO — WhatsApp will be sent first.</p>
+            <p className="text-xs text-slate-400 mb-4">You will see a WhatsApp button on the next screen.</p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => {
