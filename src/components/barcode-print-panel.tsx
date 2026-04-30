@@ -79,7 +79,7 @@ export function BarcodePrintPanel({
   }
 
   return (
-    <div className="flex gap-5">
+    <div className="flex flex-col md:flex-row gap-5">
       {/* Product list */}
       <div className="flex-1">
         <div className="flex gap-2 mb-3">
@@ -126,8 +126,8 @@ export function BarcodePrintPanel({
       </div>
 
       {/* Preview + print */}
-      <div className="w-72 flex-shrink-0">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 sticky top-4">
+      <div className="md:w-72 md:flex-shrink-0">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 md:sticky md:top-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">
             {selected.size} product{selected.size !== 1 ? "s" : ""} selected
             {selected.size > 0 && <span className="text-slate-400 font-normal"> · {selectedProducts.reduce((s, p) => s + getCopies(p.id), 0)} labels</span>}

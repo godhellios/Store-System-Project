@@ -22,6 +22,11 @@ export async function PUT(req: Request) {
   if (!key || value === undefined)
     return NextResponse.json({ error: "key and value are required" }, { status: 400 });
 
+  if (key === "whatsapp_number" && String(value).trim() !== "") {
+    if (!/^\d{10,15}$/.test(String(value).replace(/\D/g, "")))
+      return NextResponse.json({ error: "WhatsApp number must be 10–15 digits with country code" }, { status: 400 });
+  }
+
   const setting = await prisma.systemSetting.upsert({
     where: { key },
     create: { key, value: String(value) },
