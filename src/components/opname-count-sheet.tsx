@@ -19,6 +19,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
     Object.fromEntries(session.lines.map((l) => [l.id, l.physicalQty?.toString() ?? ""]))
   );
   const [saving, setSaving] = useState(false);
+  const [confirmingApprove, setConfirmingApprove] = useState(false);
 
   function setCount(id: string, v: string) { setCounts((c) => ({ ...c, [id]: v })); }
 
@@ -52,7 +53,6 @@ export function OpnameCountSheet({ session }: { session: Session }) {
   }
 
   async function approve() {
-    if (!confirm("Approve this opname? This will create adjustment orders for all discrepancies and update stock.")) return;
     const res = await fetch(`/api/opname/${session.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -60,6 +60,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
     });
     if (!res.ok) { toast.error("Failed to approve"); return; }
     toast.success("Opname approved and stock adjusted");
+    setConfirmingApprove(false);
     router.push("/opname");
     router.refresh();
   }
@@ -189,12 +190,20 @@ export function OpnameCountSheet({ session }: { session: Session }) {
       )}
 
       {isReviewing && (
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-3 items-center flex-wrap">
           <span className="text-xs text-slate-500">{discrepancies} discrepanc{discrepancies !== 1 ? "ies" : "y"} will generate adjustment orders on approval.</span>
-          <button onClick={approve}
-            className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2 rounded-lg">
-            Approve & Adjust Stock
-          </button>
+          {confirmingApprove ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-600 font-medium">Approve and adjust stock?</span>
+              <button onClick={() => setConfirmingApprove(false)} className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={approve} className="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">Yes, approve</button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmingApprove(true)}
+              className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2 rounded-lg">
+              Approve & Adjust Stock
+            </button>
+          )}
         </div>
       )}
     </div>

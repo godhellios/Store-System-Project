@@ -8,9 +8,9 @@ import toast from "react-hot-toast";
 export function OrderActions({ orderId, userRole }: { orderId: string; userRole: string }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   async function handleDelete() {
-    if (!confirm("Delete this order? All stock movements will be reversed. This cannot be undone.")) return;
     setDeleting(true);
     const res = await fetch(`/api/orders/${orderId}`, { method: "DELETE" });
     const data = await res.json();
@@ -30,7 +30,7 @@ export function OrderActions({ orderId, userRole }: { orderId: string; userRole:
   if (!canEdit && !canDelete) return null;
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 items-center flex-wrap">
       {canEdit && (
         <Link
           href={`/orders/${orderId}/edit`}
@@ -40,13 +40,24 @@ export function OrderActions({ orderId, userRole }: { orderId: string; userRole:
         </Link>
       )}
       {canDelete && (
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="text-xs px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
-        >
-          {deleting ? "Deleting…" : "Delete"}
-        </button>
+        confirming ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600">Delete and reverse stock?</span>
+            <button onClick={() => setConfirming(false)} className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button onClick={handleDelete} disabled={deleting}
+              className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg disabled:opacity-50">
+              {deleting ? "Deleting…" : "Yes, delete"}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirming(true)}
+            disabled={deleting}
+            className="text-xs px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+          >
+            Delete
+          </button>
+        )
       )}
     </div>
   );

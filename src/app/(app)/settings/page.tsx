@@ -30,6 +30,7 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
   const [newType, setNewType] = useState("");
   const [editing, setEditing] = useState<{ id: string; name: string; type: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch(`/api/${endpoint}`);
@@ -81,11 +82,11 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
   }
 
   async function handleDelete(row: Row) {
-    if (!confirm(`Delete "${row.name}"?`)) return;
     const res = await fetch(`/api/${endpoint}/${row.id}`, { method: "DELETE" });
-    if (res.status === 204) { toast.success("Deleted"); load(); return; }
+    if (res.status === 204) { toast.success("Deleted"); setConfirmingId(null); load(); return; }
     const data = await res.json();
     toast.error(data.error);
+    setConfirmingId(null);
   }
 
   return (
@@ -138,8 +139,15 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
                     className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-lg transition-colors border ${row.isActive ? "text-orange-600 border-orange-200 hover:bg-orange-50" : "text-green-600 border-green-200 hover:bg-green-50"}`}>
                     {row.isActive ? "Deactivate" : "Activate"}
                   </button>
-                  <button onClick={() => handleDelete(row)}
-                    className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
+                  {confirmingId === row.id ? (
+                    <>
+                      <button onClick={() => setConfirmingId(null)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">No</button>
+                      <button onClick={() => handleDelete(row)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg">Yes</button>
+                    </>
+                  ) : (
+                    <button onClick={() => setConfirmingId(row.id)}
+                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
+                  )}
                 </div>
               </div>
             )}
@@ -158,6 +166,7 @@ function UnitManager() {
   const [newFactor, setNewFactor] = useState("");
   const [editing, setEditing] = useState<{ id: string; name: string; parentUnitId: string; conversionFactor: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/units");
@@ -217,11 +226,11 @@ function UnitManager() {
   }
 
   async function handleDelete(unit: UnitRow) {
-    if (!confirm(`Delete "${unit.name}"?`)) return;
     const res = await fetch(`/api/units/${unit.id}`, { method: "DELETE" });
-    if (res.status === 204) { toast.success("Deleted"); load(); return; }
+    if (res.status === 204) { toast.success("Deleted"); setConfirmingId(null); load(); return; }
     const data = await res.json();
     toast.error(data.error);
+    setConfirmingId(null);
   }
 
   const activeUnits = units.filter((u) => u.isActive);
@@ -310,8 +319,15 @@ function UnitManager() {
                     className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-lg transition-colors border ${unit.isActive ? "text-orange-600 border-orange-200 hover:bg-orange-50" : "text-green-600 border-green-200 hover:bg-green-50"}`}>
                     {unit.isActive ? "Deactivate" : "Activate"}
                   </button>
-                  <button onClick={() => handleDelete(unit)}
-                    className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
+                  {confirmingId === unit.id ? (
+                    <>
+                      <button onClick={() => setConfirmingId(null)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">No</button>
+                      <button onClick={() => handleDelete(unit)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg">Yes</button>
+                    </>
+                  ) : (
+                    <button onClick={() => setConfirmingId(unit.id)}
+                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
+                  )}
                 </div>
               </div>
             )}
@@ -331,6 +347,8 @@ function LocationManager() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [stockLoading, setStockLoading] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [confirmingStockId, setConfirmingStockId] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/locations");
@@ -380,11 +398,11 @@ function LocationManager() {
   }
 
   async function handleDelete(row: LocationRow) {
-    if (!confirm(`Delete "${row.name}"?`)) return;
     const res = await fetch(`/api/locations/${row.id}`, { method: "DELETE" });
-    if (res.status === 204) { toast.success("Deleted"); load(); return; }
+    if (res.status === 204) { toast.success("Deleted"); setConfirmingId(null); load(); return; }
     const data = await res.json();
     toast.error(data.error);
+    setConfirmingId(null);
   }
 
   async function toggleExpand(id: string) {
@@ -396,14 +414,11 @@ function LocationManager() {
     setStockLoading(false);
   }
 
-  async function deleteStockItem(stockId: string, qty: number) {
-    const msg = qty > 0
-      ? `This item still has ${qty} units in stock. Remove it anyway?`
-      : `Remove this stock record?`;
-    if (!confirm(msg)) return;
+  async function deleteStockItem(stockId: string) {
     const res = await fetch(`/api/stock/${stockId}`, { method: "DELETE" });
-    if (res.status !== 204) { const d = await res.json(); toast.error(d.error); return; }
+    if (res.status !== 204) { const d = await res.json(); toast.error(d.error); setConfirmingStockId(null); return; }
     toast.success("Removed");
+    setConfirmingStockId(null);
     if (expandedId) {
       const r = await fetch(`/api/stock?locationId=${expandedId}&includeInactive=true`);
       if (r.ok) setStockItems(await r.json());
@@ -461,8 +476,15 @@ function LocationManager() {
                       className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-lg transition-colors border ${row.isActive ? "text-orange-600 border-orange-200 hover:bg-orange-50" : "text-green-600 border-green-200 hover:bg-green-50"}`}>
                       {row.isActive ? "Deactivate" : "Activate"}
                     </button>
-                    <button onClick={() => handleDelete(row)}
-                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
+                    {confirmingId === row.id ? (
+                      <>
+                        <button onClick={() => setConfirmingId(null)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">No</button>
+                        <button onClick={() => handleDelete(row)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg">Yes</button>
+                      </>
+                    ) : (
+                      <button onClick={() => setConfirmingId(row.id)}
+                        className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
+                    )}
                   </div>
                 </div>
               )}
@@ -496,10 +518,18 @@ function LocationManager() {
                         <span className={`text-sm font-semibold text-right whitespace-nowrap ${s.quantity === 0 ? "text-slate-300" : "text-slate-800"}`}>
                           {s.quantity} {s.product.unit.name.toLowerCase()}
                         </span>
-                        <button onClick={() => deleteStockItem(s.id, s.quantity)}
-                          className="text-xs text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">
-                          Remove
-                        </button>
+                        {confirmingStockId === s.id ? (
+                          <span className="flex items-center gap-1.5 whitespace-nowrap">
+                            {s.quantity > 0 && <span className="text-[10px] text-orange-600">{s.quantity} in stock</span>}
+                            <button onClick={() => setConfirmingStockId(null)} className="text-xs text-slate-500 hover:underline">No</button>
+                            <button onClick={() => deleteStockItem(s.id)} className="text-xs text-red-600 font-semibold hover:underline">Yes</button>
+                          </span>
+                        ) : (
+                          <button onClick={() => setConfirmingStockId(s.id)}
+                            className="text-xs text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">
+                            Remove
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
