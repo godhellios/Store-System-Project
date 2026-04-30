@@ -32,7 +32,7 @@ export function AppShell({
       {/* Sidebar */}
       <div
         className={[
-          "fixed inset-y-0 left-0 z-30 transition-transform duration-200 ease-in-out",
+          "fixed inset-y-0 left-0 z-30 flex flex-col transition-transform duration-200 ease-in-out",
           "md:relative md:translate-x-0 md:flex-shrink-0",
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
