@@ -132,7 +132,75 @@ export default async function ProductsPage({
         </div>
       </form>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-2">
+        {products.length === 0 ? (
+          <p className="text-center text-slate-400 text-xs py-10">
+            No products found. <Link href="/products/add" className="text-blue-600 hover:underline">Add one?</Link>
+          </p>
+        ) : products.map((p) => {
+          const visibleStock = locationId
+            ? p.stock.filter((s) => s.locationId === locationId)
+            : p.stock;
+          const totalQty = visibleStock.reduce((s, st) => s + st.quantity, 0);
+          const isLow = p.isActive && p.reorderPoint > 0 &&
+            visibleStock.some((s) => s.quantity <= p.reorderPoint);
+          return (
+            <div key={p.id} className={`bg-white rounded-xl border px-4 py-3 ${!p.isActive ? "opacity-60 border-slate-200" : isLow ? "border-red-200 bg-red-50" : "border-slate-200"}`}>
+              {/* Row 1: name + status */}
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  {p.imageUrl && <ProductImageHover src={p.imageUrl} />}
+                  <Link href={`/products/${p.id}`} className={`font-semibold text-sm leading-tight hover:underline ${!p.isActive ? "text-slate-400 line-through" : "text-slate-800"}`}>
+                    {p.name}
+                  </Link>
+                </div>
+                {!p.isActive ? (
+                  <span className="flex-shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Inactive</span>
+                ) : isLow ? (
+                  <span className="flex-shrink-0 text-[10px] font-semibold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Low</span>
+                ) : (
+                  <span className="flex-shrink-0 text-[10px] font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">OK</span>
+                )}
+              </div>
+              {/* Row 2: SKU + category */}
+              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                <span className="font-mono text-xs text-blue-600">{p.sku}</span>
+                {p.barcode && p.barcode !== p.sku && (
+                  <span className="font-mono text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.barcode}</span>
+                )}
+                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${!p.isActive ? "bg-slate-100 text-slate-400" : hashColor(p.category.name)}`}>
+                  {p.category.name}
+                </span>
+              </div>
+              {/* Row 3: stock */}
+              <div className="flex items-baseline gap-1.5 mb-2">
+                <span className={`font-semibold text-sm ${!p.isActive ? "text-slate-400" : isLow ? "text-red-600" : "text-slate-800"}`}>
+                  {totalQty}
+                </span>
+                <span className="text-xs text-slate-500">{p.unit.name.toLowerCase()}</span>
+                {visibleStock.filter((s) => s.quantity > 0).map((s) => {
+                  const locLow = p.isActive && p.reorderPoint > 0 && s.quantity <= p.reorderPoint;
+                  return (
+                    <span key={s.id} className={`text-xs ${locLow ? "text-red-400" : "text-slate-400"}`}>
+                      · {!locationId && `${s.location.name}: `}<span className="font-medium">{s.quantity}</span>
+                    </span>
+                  );
+                })}
+              </div>
+              {/* Row 4: actions */}
+              <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+                <Link href={`/barcodes?productId=${p.id}`} className="text-xs text-violet-600 font-medium hover:underline">▣ Label</Link>
+                <Link href={`/products/${p.id}/edit`} className="text-xs text-blue-600 font-medium hover:underline">Edit</Link>
+                <ProductDeactivateButton productId={p.id} isActive={p.isActive} userRole={userRole} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
