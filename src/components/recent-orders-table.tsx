@@ -61,77 +61,118 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
     return () => window.removeEventListener("keydown", onKey);
   }, [close]);
 
+  if (orders.length === 0) {
+    return <p className="px-4 py-8 text-center text-slate-400 text-xs">No orders yet</p>;
+  }
+
   return (
     <>
-      <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-            <th className="px-4 py-2.5 text-left font-medium">Document</th>
-            <th className="px-4 py-2.5 text-left font-medium">Type</th>
-            <th className="px-4 py-2.5 text-left font-medium">Qty · Categories</th>
-            <th className="px-4 py-2.5 text-left font-medium">Date</th>
-            <th className="px-4 py-2.5"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.length === 0 ? (
-            <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400 text-xs">No orders yet</td></tr>
-          ) : orders.map((order) => {
-            const totalQty = order.lines.reduce((s, l) => s + l.quantity, 0);
-            const cats = [...new Set(order.lines.map((l) => l.product.category.name))];
-            const catLabel = cats.length <= 2 ? cats.join(", ") : `${cats.slice(0, 2).join(", ")} +${cats.length - 2}`;
-            return (
-            <tr key={order.id} className="border-t border-slate-50 hover:bg-slate-50">
-              <td className="px-4 py-2.5 font-mono font-semibold text-blue-600 text-xs">{order.orderNumber}</td>
-              <td className="px-4 py-2.5">
-                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLOR[order.type]}`}>
-                  {TYPE_LABEL[order.type]}
-                </span>
-              </td>
-              <td className="px-4 py-2.5">
-                <div className="font-semibold text-gray-900 text-xs">{totalQty} pcs</div>
-                <div className="text-xs text-slate-400 mt-0.5">{catLabel || "—"}</div>
-              </td>
-              <td className="px-4 py-2.5 text-slate-500 text-xs">
-                {new Date(order.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-              </td>
-              <td className="px-4 py-2.5 text-right">
-                <button onClick={() => setSelectedId(order.id)} className="text-xs text-blue-600 hover:underline">
-                  View
-                </button>
-              </td>
-            </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {/* Mobile card list */}
+      <div className="md:hidden divide-y divide-slate-100">
+        {orders.map((order) => {
+          const totalQty = order.lines.reduce((s, l) => s + l.quantity, 0);
+          const cats = [...new Set(order.lines.map((l) => l.product.category.name))];
+          const catLabel = cats.length <= 2 ? cats.join(", ") : `${cats.slice(0, 2).join(", ")} +${cats.length - 2}`;
+          return (
+            <div key={order.id} className="px-4 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="font-mono font-semibold text-blue-600 text-xs">{order.orderNumber}</span>
+                  <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${TYPE_COLOR[order.type]}`}>
+                    {TYPE_LABEL[order.type]}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  <span className="font-semibold text-gray-900">{totalQty} pcs</span>
+                  {catLabel ? ` · ${catLabel}` : ""}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {new Date(order.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedId(order.id)}
+                className="flex-shrink-0 px-3 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+              >
+                View
+              </button>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Modal */}
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <th className="px-4 py-2.5 text-left font-medium">Document</th>
+              <th className="px-4 py-2.5 text-left font-medium">Type</th>
+              <th className="px-4 py-2.5 text-left font-medium">Qty · Categories</th>
+              <th className="px-4 py-2.5 text-left font-medium">Date</th>
+              <th className="px-4 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order) => {
+              const totalQty = order.lines.reduce((s, l) => s + l.quantity, 0);
+              const cats = [...new Set(order.lines.map((l) => l.product.category.name))];
+              const catLabel = cats.length <= 2 ? cats.join(", ") : `${cats.slice(0, 2).join(", ")} +${cats.length - 2}`;
+              return (
+                <tr key={order.id} className="border-t border-slate-50 hover:bg-slate-50">
+                  <td className="px-4 py-2.5 font-mono font-semibold text-blue-600 text-xs">{order.orderNumber}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLOR[order.type]}`}>
+                      {TYPE_LABEL[order.type]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="font-semibold text-gray-900 text-xs">{totalQty} pcs</div>
+                    <div className="text-xs text-slate-400 mt-0.5">{catLabel || "—"}</div>
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-500 text-xs">
+                    {new Date(order.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <button onClick={() => setSelectedId(order.id)} className="text-xs text-blue-600 hover:underline">
+                      View
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Detail modal */}
       {selectedId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/40" onClick={close} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+          <div className="relative bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[80vh] flex flex-col">
+            {/* Handle bar (mobile) */}
+            <div className="sm:hidden flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-slate-300 rounded-full" />
+            </div>
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
               {detail ? (
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-semibold text-slate-800">{detail.orderNumber}</span>
-                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLOR[detail.type]}`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-mono font-semibold text-slate-800 text-sm truncate">{detail.orderNumber}</span>
+                  <span className={`flex-shrink-0 inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLOR[detail.type]}`}>
                     {TYPE_LABEL[detail.type]}
                   </span>
                 </div>
               ) : (
                 <span className="text-slate-400 text-sm">Loading…</span>
               )}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0">
                 {detail && (
-                  <Link href={`/orders/${detail.id}`} className="text-xs text-blue-600 hover:underline">
-                    Open full page →
+                  <Link href={`/orders/${detail.id}`} className="text-xs text-blue-600 hover:underline whitespace-nowrap">
+                    Open →
                   </Link>
                 )}
-                <button onClick={close} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+                <button onClick={close} className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 text-lg transition-colors">✕</button>
               </div>
             </div>
 
@@ -140,10 +181,10 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
               {loading && <p className="text-center text-slate-400 text-sm py-8">Loading…</p>}
               {detail && (
                 <>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-900 mb-5">
+                  <div className="grid grid-cols-2 gap-3 text-sm text-gray-900 mb-5">
                     <div>
                       <span className="text-xs text-slate-500 block mb-0.5">Date</span>
-                      {new Date(detail.createdAt).toLocaleString("id-ID", { dateStyle: "full", timeStyle: "short" })}
+                      {new Date(detail.createdAt).toLocaleString("id-ID", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Jakarta" })}
                     </div>
                     {detail.fromLocation && (
                       <div>
@@ -171,37 +212,58 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
                     )}
                   </div>
 
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-sm border-collapse border border-slate-200 rounded-lg overflow-hidden">
-                    <thead>
-                      <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                        <th className="px-3 py-2 text-left font-medium">#</th>
-                        <th className="px-3 py-2 text-left font-medium">Product</th>
-                        <th className="px-3 py-2 text-left font-medium">Category</th>
-                        <th className="px-3 py-2 text-right font-medium">Qty</th>
-                        <th className="px-3 py-2 text-left font-medium">Unit</th>
-                        {detail.lines.some((l) => l.notes) && <th className="px-3 py-2 text-left font-medium">Notes</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detail.lines.map((line, i) => (
-                        <tr key={line.id} className="border-t border-slate-100">
-                          <td className="px-3 py-2 text-slate-500 text-xs">{i + 1}</td>
-                          <td className="px-3 py-2">
-                            <div className="font-medium text-gray-900">{line.product.name}</div>
-                            <div className="text-xs font-mono text-slate-500">{line.product.sku}</div>
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-700">{line.product.category.name}</td>
-                          <td className="px-3 py-2 text-right font-semibold text-gray-900">{line.quantity}</td>
-                          <td className="px-3 py-2 text-xs text-gray-700">{line.product.unit.name}</td>
-                          {detail.lines.some((l) => l.notes) && (
-                            <td className="px-3 py-2 text-xs text-gray-700">{line.notes ?? "—"}</td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {/* Mobile line list */}
+                  <div className="md:hidden space-y-2">
+                    {detail.lines.map((line, i) => (
+                      <div key={line.id} className="bg-slate-50 rounded-lg px-3 py-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="text-[10px] text-slate-400 mr-1">#{i + 1}</span>
+                            <span className="font-medium text-gray-900 text-sm">{line.product.name}</span>
+                            <div className="text-xs font-mono text-slate-400">{line.product.sku}</div>
+                          </div>
+                          <span className="flex-shrink-0 font-semibold text-gray-900 text-sm">
+                            {line.quantity} <span className="text-xs font-normal text-slate-500">{line.product.unit.name}</span>
+                          </span>
+                        </div>
+                        {line.notes && <div className="text-xs text-slate-500 mt-1">{line.notes}</div>}
+                      </div>
+                    ))}
                   </div>
+
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-sm border-collapse border border-slate-200 rounded-lg overflow-hidden">
+                      <thead>
+                        <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                          <th className="px-3 py-2 text-left font-medium">#</th>
+                          <th className="px-3 py-2 text-left font-medium">Product</th>
+                          <th className="px-3 py-2 text-left font-medium">Category</th>
+                          <th className="px-3 py-2 text-right font-medium">Qty</th>
+                          <th className="px-3 py-2 text-left font-medium">Unit</th>
+                          {detail.lines.some((l) => l.notes) && <th className="px-3 py-2 text-left font-medium">Notes</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detail.lines.map((line, i) => (
+                          <tr key={line.id} className="border-t border-slate-100">
+                            <td className="px-3 py-2 text-slate-500 text-xs">{i + 1}</td>
+                            <td className="px-3 py-2">
+                              <div className="font-medium text-gray-900">{line.product.name}</div>
+                              <div className="text-xs font-mono text-slate-500">{line.product.sku}</div>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-700">{line.product.category.name}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-gray-900">{line.quantity}</td>
+                            <td className="px-3 py-2 text-xs text-gray-700">{line.product.unit.name}</td>
+                            {detail.lines.some((l) => l.notes) && (
+                              <td className="px-3 py-2 text-xs text-gray-700">{line.notes ?? "—"}</td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
                   <p className="text-xs text-slate-500 text-right mt-2">
                     {detail.lines.length} line{detail.lines.length !== 1 ? "s" : ""} · {detail.lines.reduce((s, l) => s + l.quantity, 0)} items total
                   </p>

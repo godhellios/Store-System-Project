@@ -38,8 +38,18 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-gray-50">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `
+          try {
+            var t = localStorage.getItem('theme');
+            if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches))
+              document.documentElement.classList.add('dark');
+          } catch(e) {}
+        ` }} />
+      </head>
+      <body className="min-h-full flex flex-col bg-gray-50 dark:bg-slate-950">
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -47,6 +47,7 @@ type OrderForEdit = {
   id: string;
   orderNumber: string;
   type: string;
+  customer: string | null;
   reference: string | null;
   notes: string | null;
   fromLocation: { name: string } | null;
@@ -113,6 +114,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [lines, setLines] = useState<LineItem[]>(() => order.lines.map(initLineItem));
+  const [customer, setCustomer] = useState(order.customer ?? "");
   const [reference, setReference] = useState(order.reference ?? "");
   const [notes, setNotes] = useState(order.notes ?? "");
   const [allUnits, setAllUnits] = useState<{ id: string; name: string; conversionFactor: number | null; parentUnitId: string | null }[]>([]);
@@ -244,6 +246,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        customer: customer || null,
         reference: reference || null,
         notes: notes || null,
         lines: lines.map((l) => ({
@@ -277,6 +280,14 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
     <div>
       {/* Metadata */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 grid grid-cols-2 gap-4">
+        {order.type === "GOODS_OUT" && (
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Customer Name</label>
+            <input value={customer} onChange={(e) => setCustomer(e.target.value)}
+              className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Optional" />
+          </div>
+        )}
         <div>
           <label className="block text-xs font-medium text-slate-500 mb-1">Reference / DO#</label>
           <input value={reference} onChange={(e) => setReference(e.target.value)}

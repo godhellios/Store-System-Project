@@ -214,9 +214,9 @@ export default async function ProductDetailPage({
                 return (
                   <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="px-4 py-2.5 text-xs text-slate-500 whitespace-nowrap">
-                      {new Date(m.createdAt).toLocaleDateString("id-ID", {
+                      {new Date(m.createdAt).toLocaleString("id-ID", {
                         day: "numeric", month: "short", year: "numeric",
-                        hour: "2-digit", minute: "2-digit",
+                        hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta",
                       })}
                     </td>
                     <td className="px-4 py-2.5">

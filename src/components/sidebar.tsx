@@ -61,8 +61,8 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const role = session?.user.role ?? "";
 
   return (
-    <div className="w-[230px] bg-slate-800 text-slate-400 flex-shrink-0 flex flex-col min-h-screen">
-      <div className="px-4 py-5 border-b border-slate-700 flex items-center justify-between">
+    <div className="w-[230px] bg-slate-800 dark:bg-slate-950 text-slate-400 flex-shrink-0 flex flex-col min-h-screen">
+      <div className="px-4 py-5 border-b border-slate-700 dark:border-slate-800 flex items-center justify-between">
         <div>
           <div className="text-base font-extrabold text-white tracking-tight">
             MR<span className="text-sky-400">Is</span>
@@ -90,7 +90,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           .filter((s) => s.roles.includes(role))
           .map(({ section, links }) => (
             <div key={section}>
-              <div className="px-4 pt-3.5 pb-1 text-[10px] uppercase tracking-widest text-slate-500">
+              <div className="px-4 pt-3.5 pb-1 text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-300 font-semibold">
                 {section}
               </div>
               {links.map(({ href, label, icon, indent, small }) => {
@@ -105,8 +105,8 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                       indent ? "pl-7" : "pl-4",
                       small ? "text-xs" : "text-[13px]",
                       active
-                        ? "bg-slate-900 text-sky-400 border-sky-400"
-                        : "border-transparent hover:bg-slate-900 hover:text-slate-200",
+                        ? "bg-slate-900 dark:bg-slate-800 text-sky-400 border-sky-400"
+                        : "border-transparent hover:bg-slate-900 dark:hover:bg-slate-800 hover:text-slate-200",
                     ].join(" ")}
                   >
                     <span>{icon}</span>
@@ -120,7 +120,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
 
       <button
         onClick={() => signOut({ callbackUrl: "/login" })}
-        className="mx-4 mb-4 mt-2 text-xs text-slate-500 hover:text-slate-300 text-left py-2 px-3 rounded-lg hover:bg-slate-700 transition-colors"
+        className="mx-4 mb-4 mt-2 text-xs text-slate-500 hover:text-slate-300 text-left py-2 px-3 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-800 transition-colors"
       >
         ⎋ &nbsp;Sign out
       </button>

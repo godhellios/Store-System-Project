@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { Fragment, useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
@@ -16,9 +16,9 @@ type LineItem = {
   baseUnitId: string;
   baseUnitName: string;
   quantity: number;
-  inputUnitId: string;      // which unit the user is entering in
+  inputUnitId: string;
   inputUnitName: string;
-  conversionFactor: number; // 1 inputUnit = conversionFactor baseUnits
+  conversionFactor: number;
   unitConversions: UnitConversion[];
   notes: string;
 };
@@ -34,18 +34,114 @@ type SearchProduct = {
 
 type TransactionType = "GRN" | "GOODS_OUT" | "TRANSFER";
 
-const CONFIG: Record<TransactionType, { title: string; fromLabel?: string; toLabel?: string; movementSign: 1 | -1 | 0 }> = {
-  GRN: { title: "Goods Received (GRN)", toLabel: "Receiving Location", movementSign: 1 },
-  GOODS_OUT: { title: "Goods Out Order", fromLabel: "Issue From", movementSign: -1 },
-  TRANSFER: { title: "Stock Transfer", fromLabel: "Transfer From", toLabel: "Transfer To", movementSign: 0 },
+const CONFIG: Record<TransactionType, { fromLabel?: string; toLabel?: string; movementSign: 1 | -1 | 0 }> = {
+  GRN: { toLabel: "Receiving Location", movementSign: 1 },
+  GOODS_OUT: { fromLabel: "Issue From", movementSign: -1 },
+  TRANSFER: { fromLabel: "Transfer From", toLabel: "Transfer To", movementSign: 0 },
 };
+
+// ── Goods Out flow state ────────────────────────────────────────────────────
+type FlowState =
+  | { step: "idle" }
+  | { step: "confirm" }
+  | { step: "saving" }
+  | { step: "whatsapp"; orderId: string; orderNumber: string; whatsappUrl: string }
+  | { step: "done"; orderNumber: string }
+  | { step: "error"; message: string; onRetry: (() => void) | null };
+
+// Maps flow step to the 0-based progress index (Save=0, WhatsApp=1, Print=2)
+function progressIndex(step: FlowState["step"]): number {
+  if (step === "saving") return 0;
+  if (step === "whatsapp") return 1;
+  if (step === "done") return 3;
+  return -1;
+}
+
+function StepProgress({ step }: { step: FlowState["step"] }) {
+  const current = progressIndex(step);
+  if (current < 0) return null;
+  const labels = ["Save", "WhatsApp", "Print"];
+  return (
+    <div className="flex items-center mb-6 px-1">
+      {labels.map((label, i) => (
+        <Fragment key={label}>
+          {i > 0 && (
+            <div className={`flex-1 h-0.5 mx-2 mb-3.5 ${i <= current ? "bg-green-400" : "bg-slate-200"}`} />
+          )}
+          <div className="flex flex-col items-center">
+            <div className={[
+              "w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold",
+              i < current  ? "bg-green-500 text-white" :
+              i === current ? "bg-blue-600 text-white" :
+              "bg-slate-200 text-slate-400",
+            ].join(" ")}>
+              {i < current ? "✓" : i + 1}
+            </div>
+            <span className={[
+              "text-[9px] font-semibold mt-0.5 uppercase tracking-wide",
+              i < current  ? "text-green-600" :
+              i === current ? "text-blue-600" :
+              "text-slate-400",
+            ].join(" ")}>{label}</span>
+          </div>
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+function buildWhatsAppUrl({
+  orderNumber,
+  customer,
+  fromLocationName,
+  lines,
+  notes,
+  whatsappNumber,
+}: {
+  orderNumber: string;
+  customer: string;
+  fromLocationName: string;
+  lines: LineItem[];
+  notes: string;
+  whatsappNumber: string;
+}): string {
+  const date = new Date().toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const totalBaseUnits = lines.reduce((s, l) => s + Math.round(l.quantity * l.conversionFactor), 0);
+
+  const itemLines = lines.map((l, i) => {
+    const baseQty = Math.round(l.quantity * l.conversionFactor);
+    return l.conversionFactor !== 1
+      ? `${i + 1}. ${l.name} — ${l.quantity} ${l.inputUnitName} (= ${baseQty} ${l.baseUnitName})`
+      : `${i + 1}. ${l.name} — ${l.quantity} ${l.baseUnitName}`;
+  });
+
+  const parts = [
+    `*SURAT JALAN / DELIVERY ORDER*`,
+    `No. DO: *${orderNumber}*`,
+    `Tanggal: ${date}`,
+    ...(customer        ? [`Customer: *${customer}*`]           : []),
+    ...(fromLocationName ? [`Dari: ${fromLocationName}`]         : []),
+    ``,
+    `*DAFTAR BARANG:*`,
+    ...itemLines,
+    ``,
+    `Total: *${lines.length} item* | *${totalBaseUnits} unit*`,
+    ...(notes ? [`Catatan: ${notes}`] : []),
+    ``,
+    `_MRIs – Mitra Ramah Inventory System_`,
+  ];
+
+  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(parts.join("\n"))}`;
+}
 
 export function TransactionForm({
   type,
   locations,
+  whatsappNumber = "6281283118487",
 }: {
   type: TransactionType;
   locations: Location[];
+  whatsappNumber?: string;
 }) {
   const router = useRouter();
   const scanRef = useRef<HTMLInputElement>(null);
@@ -53,34 +149,29 @@ export function TransactionForm({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const cfg = CONFIG[type];
 
-  const [scanInput, setScanInput] = useState("");
-  const [lines, setLines] = useState<LineItem[]>([]);
+  const [scanInput, setScanInput]       = useState("");
+  const [lines, setLines]               = useState<LineItem[]>([]);
   const [fromLocationId, setFromLocationId] = useState("");
-  const [toLocationId, setToLocationId] = useState("");
-  const [reference, setReference] = useState("");
-  const [notes, setNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [scanning, setScanning] = useState(false);
+  const [toLocationId, setToLocationId]     = useState("");
+  const [customer, setCustomer]         = useState("");
+  const [reference, setReference]       = useState("");
+  const [notes, setNotes]               = useState("");
+  const [submitting, setSubmitting]     = useState(false);
+  const [scanning, setScanning]         = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery]     = useState("");
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [showDropdown, setShowDropdown]   = useState(false);
 
-  type FlowState =
-    | { step: "idle" }
-    | { step: "confirm" }
-    | { step: "saving" }
-    | { step: "print"; orderId: string; orderNumber: string }
-    | { step: "error"; message: string };
   const [flowState, setFlowState] = useState<FlowState>({ step: "idle" });
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-          searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+        searchRef.current  && !searchRef.current.contains(e.target as Node)
+      ) setShowDropdown(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -91,11 +182,7 @@ export function TransactionForm({
     setSearchLoading(true);
     const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}`);
     setSearchLoading(false);
-    if (res.ok) {
-      const data = await res.json();
-      setSearchResults(data);
-      setShowDropdown(true);
-    }
+    if (res.ok) { setSearchResults(await res.json()); setShowDropdown(true); }
   }, []);
 
   useEffect(() => {
@@ -128,9 +215,7 @@ export function TransactionForm({
     }
     setLines((prev) => {
       const existing = prev.find((l) => l.productId === product.id);
-      if (existing) {
-        return prev.map((l) => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
-      }
+      if (existing) return prev.map((l) => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
       return [...prev, buildLineItem(product)];
     });
     toast.success(`Added: ${product.name}`, { duration: 1500 });
@@ -144,28 +229,22 @@ export function TransactionForm({
     setScanning(true);
     const res = await fetch(`/api/products/lookup?q=${encodeURIComponent(scanInput.trim())}`);
     setScanning(false);
-
     if (!res.ok) {
       toast.error(`"${scanInput}" — product not found`);
       setScanInput("");
       scanRef.current?.focus();
       return;
     }
-
     const product = await res.json();
     setScanInput("");
     scanRef.current?.focus();
-
     if (!product.isActive && type === "GRN") {
       toast.error(`${product.name} is deactivated — cannot receive`);
       return;
     }
-
     setLines((prev) => {
       const existing = prev.find((l) => l.productId === product.id);
-      if (existing) {
-        return prev.map((l) => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
-      }
+      if (existing) return prev.map((l) => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
       return [...prev, buildLineItem(product)];
     });
     toast.success(`Added: ${product.name}`, { duration: 1500 });
@@ -178,9 +257,7 @@ export function TransactionForm({
   function changeInputUnit(key: string, newUnitId: string) {
     setLines((prev) => prev.map((l) => {
       if (l._key !== key) return l;
-      if (newUnitId === l.baseUnitId) {
-        return { ...l, inputUnitId: l.baseUnitId, inputUnitName: l.baseUnitName, conversionFactor: 1 };
-      }
+      if (newUnitId === l.baseUnitId) return { ...l, inputUnitId: l.baseUnitId, inputUnitName: l.baseUnitName, conversionFactor: 1 };
       const match = l.unitConversions.find((c) => c.id === newUnitId);
       if (!match) return l;
       return { ...l, inputUnitId: match.id, inputUnitName: match.name, conversionFactor: match.conversionFactor };
@@ -192,9 +269,9 @@ export function TransactionForm({
   }
 
   function validate(): boolean {
-    if (lines.length === 0) { toast.error("Add at least one item"); return false; }
-    if (cfg.fromLabel && !fromLocationId) { toast.error("Select source location"); return false; }
-    if (cfg.toLabel && !toLocationId) { toast.error("Select destination location"); return false; }
+    if (lines.length === 0)                          { toast.error("Add at least one item"); return false; }
+    if (cfg.fromLabel && !fromLocationId)            { toast.error("Select source location"); return false; }
+    if (cfg.toLabel   && !toLocationId)              { toast.error("Select destination location"); return false; }
     if (type === "TRANSFER" && fromLocationId === toLocationId) { toast.error("Source and destination must be different"); return false; }
     return true;
   }
@@ -205,7 +282,7 @@ export function TransactionForm({
       setFlowState({ step: "confirm" });
       return;
     }
-    // Non-GOODS_OUT: direct save
+    // GRN / TRANSFER: save directly
     setSubmitting(true);
     const res = await fetch("/api/orders", {
       method: "POST",
@@ -213,15 +290,15 @@ export function TransactionForm({
       body: JSON.stringify({
         type,
         fromLocationId: fromLocationId || undefined,
-        toLocationId: toLocationId || undefined,
-        reference: reference || undefined,
-        notes: notes || undefined,
+        toLocationId:   toLocationId   || undefined,
+        reference:      reference      || undefined,
+        notes:          notes          || undefined,
         lines: lines.map((l) => ({
           productId: l.productId,
-          quantity: Math.round(l.quantity * l.conversionFactor),
-          inputQty: l.conversionFactor !== 1 ? l.quantity : undefined,
-          inputUnit: l.conversionFactor !== 1 ? l.inputUnitName : undefined,
-          notes: l.notes || undefined,
+          quantity:  Math.round(l.quantity * l.conversionFactor),
+          inputQty:  l.conversionFactor !== 1 ? l.quantity        : undefined,
+          inputUnit: l.conversionFactor !== 1 ? l.inputUnitName   : undefined,
+          notes:     l.notes || undefined,
         })),
       }),
     });
@@ -235,6 +312,7 @@ export function TransactionForm({
     router.refresh();
   }
 
+  // ── Goods Out step 1: save ──────────────────────────────────────────────
   async function executeGoodsOutSave() {
     setFlowState({ step: "saving" });
     let res: Response;
@@ -245,33 +323,52 @@ export function TransactionForm({
         body: JSON.stringify({
           type,
           fromLocationId: fromLocationId || undefined,
-          toLocationId: toLocationId || undefined,
-          reference: reference || undefined,
-          notes: notes || undefined,
+          toLocationId:   toLocationId   || undefined,
+          customer:       customer       || undefined,
+          reference:      reference      || undefined,
+          notes:          notes          || undefined,
           lines: lines.map((l) => ({
             productId: l.productId,
-            quantity: Math.round(l.quantity * l.conversionFactor),
-            inputQty: l.conversionFactor !== 1 ? l.quantity : undefined,
+            quantity:  Math.round(l.quantity * l.conversionFactor),
+            inputQty:  l.conversionFactor !== 1 ? l.quantity      : undefined,
             inputUnit: l.conversionFactor !== 1 ? l.inputUnitName : undefined,
-            notes: l.notes || undefined,
+            notes:     l.notes || undefined,
           })),
         }),
       });
     } catch {
-      setFlowState({ step: "error", message: "Network error — check your connection and try again" });
+      setFlowState({ step: "error", message: "Network error — check your connection and try again.", onRetry: executeGoodsOutSave });
       return;
     }
     let data: { error?: string; order?: { id: string; orderNumber: string }; warnings?: string[] } = {};
     try { data = await res.json(); } catch {
-      setFlowState({ step: "error", message: "Server error — please try again" });
+      setFlowState({ step: "error", message: "Server error — please try again.", onRetry: executeGoodsOutSave });
       return;
     }
     if (!res.ok) {
-      setFlowState({ step: "error", message: data.error ?? "Failed to save order" });
+      setFlowState({ step: "error", message: data.error ?? "Order failed to save. Please try again.", onRetry: executeGoodsOutSave });
       return;
     }
     if (data.warnings?.length) data.warnings.forEach((w) => toast(w, { icon: "⚠️", duration: 6000 }));
-    setFlowState({ step: "print", orderId: data.order!.id, orderNumber: data.order!.orderNumber });
+
+    const { id: orderId, orderNumber } = data.order!;
+    const fromLocationName = locations.find((l) => l.id === fromLocationId)?.name ?? "";
+    const whatsappUrl = buildWhatsAppUrl({ orderNumber, customer, fromLocationName, lines, notes, whatsappNumber });
+    setFlowState({ step: "whatsapp", orderId, orderNumber, whatsappUrl });
+  }
+
+  // ── Goods Out step 2: send WhatsApp + auto-print ────────────────────────
+  function handleWhatsApp(orderId: string, orderNumber: string, whatsappUrl: string) {
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    // Auto-open print in a second tab
+    window.open(`/orders/${orderId}/print`, "_blank", "noopener,noreferrer");
+    // Mark whatsappSentAt — fire and forget
+    fetch(`/api/orders/${orderId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ whatsappSentAt: true }),
+    }).catch(() => {});
+    setFlowState({ step: "done", orderNumber });
   }
 
   const totalBaseUnits = lines.reduce((s, l) => s + Math.round(l.quantity * l.conversionFactor), 0);
@@ -279,7 +376,8 @@ export function TransactionForm({
   return (
     <div>
       <div className="bg-white rounded-xl border border-slate-200 mb-4">
-        {/* Header */}
+
+        {/* ── Header fields ── */}
         <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap gap-4 items-end">
           {cfg.fromLabel && (
             <div>
@@ -301,6 +399,14 @@ export function TransactionForm({
               </select>
             </div>
           )}
+          {type === "GOODS_OUT" && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Customer Name</label>
+              <input value={customer} onChange={(e) => setCustomer(e.target.value)}
+                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+                placeholder="Optional" />
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Reference / DO#</label>
             <input value={reference} onChange={(e) => setReference(e.target.value)}
@@ -315,7 +421,7 @@ export function TransactionForm({
           </div>
         </div>
 
-        {/* Scan bar */}
+        {/* ── Scan bar ── */}
         <div className="px-5 py-3 bg-green-50 border-b border-green-100 flex flex-wrap gap-3">
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <span className="text-xl">⬛</span>
@@ -333,7 +439,6 @@ export function TransactionForm({
               />
             </div>
           </div>
-          {/* Name search */}
           <div className="relative w-full sm:w-auto">
             <label className="block text-[10px] font-medium text-slate-500 mb-0.5 uppercase tracking-wide">Search by name</label>
             <input
@@ -352,12 +457,9 @@ export function TransactionForm({
               <div ref={dropdownRef}
                 className="absolute z-50 top-full mt-1 left-0 w-full sm:w-80 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
                 {searchResults.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
+                  <button key={p.id} type="button"
                     onMouseDown={(e) => { e.preventDefault(); addProduct(p); }}
-                    className={`w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-slate-50 last:border-0 transition-colors ${!p.isActive ? "opacity-50" : ""}`}
-                  >
+                    className={`w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-slate-50 last:border-0 transition-colors ${!p.isActive ? "opacity-50" : ""}`}>
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-slate-800 truncate">{p.name}</div>
@@ -382,8 +484,59 @@ export function TransactionForm({
           {scanning && <span className="text-xs text-slate-500 animate-pulse">Looking up…</span>}
         </div>
 
-        {/* Line items */}
-        <div className="overflow-x-auto">
+        {/* ── Line items — mobile cards ── */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {lines.length === 0 ? (
+            <p className="px-4 py-10 text-center text-slate-400 text-xs">
+              Scan a barcode, type a SKU, or search by name above to add items
+            </p>
+          ) : lines.map((line, i) => {
+            const hasPackaging = line.unitConversions.length > 0;
+            const baseQty = Math.round(line.quantity * line.conversionFactor);
+            return (
+              <div key={line._key} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-slate-400 mr-1">#{i + 1}</span>
+                    <span className="font-semibold text-slate-800 text-sm">{line.name}</span>
+                    <div className="text-xs font-mono text-slate-400 mt-0.5">{line.sku}</div>
+                  </div>
+                  <button onClick={() => removeLine(line._key)}
+                    className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 text-lg transition-colors">
+                    ×
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input type="number" min="1" value={line.quantity}
+                    onChange={(e) => updateLine(line._key, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-20 text-center px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  {hasPackaging ? (
+                    <select value={line.inputUnitId} onChange={(e) => changeInputUnit(line._key, e.target.value)}
+                      className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option value={line.baseUnitId}>{line.baseUnitName}</option>
+                      {line.unitConversions.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name} (×{c.conversionFactor})</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-sm text-slate-500 px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">{line.baseUnitName}</span>
+                  )}
+                  {line.conversionFactor !== 1 && (
+                    <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg">
+                      = {baseQty} {line.baseUnitName}
+                    </span>
+                  )}
+                </div>
+                <input value={line.notes} onChange={(e) => updateLine(line._key, "notes", e.target.value)}
+                  className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  placeholder="Notes (optional)" />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Line items — desktop table ── */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
@@ -404,7 +557,6 @@ export function TransactionForm({
               ) : lines.map((line, i) => {
                 const hasPackaging = line.unitConversions.length > 0;
                 const baseQty = Math.round(line.quantity * line.conversionFactor);
-
                 return (
                   <tr key={line._key} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="px-4 py-2 text-slate-400 text-xs">{i + 1}</td>
@@ -413,19 +565,14 @@ export function TransactionForm({
                       <div className="text-xs font-mono text-slate-400">{line.sku}</div>
                     </td>
                     <td className="px-4 py-2 text-center">
-                      <input
-                        type="number" min="1" value={line.quantity}
+                      <input type="number" min="1" value={line.quantity}
                         onChange={(e) => updateLine(line._key, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-20 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                        className="w-20 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </td>
                     <td className="px-4 py-2">
                       {hasPackaging ? (
-                        <select
-                          value={line.inputUnitId}
-                          onChange={(e) => changeInputUnit(line._key, e.target.value)}
-                          className="px-2 py-1 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
+                        <select value={line.inputUnitId} onChange={(e) => changeInputUnit(line._key, e.target.value)}
+                          className="px-2 py-1 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
                           <option value={line.baseUnitId}>{line.baseUnitName}</option>
                           {line.unitConversions.map((c) => (
                             <option key={c.id} value={c.id}>{c.name} (×{c.conversionFactor})</option>
@@ -460,13 +607,14 @@ export function TransactionForm({
           </table>
         </div>
 
-        {/* Footer */}
+        {/* ── Footer ── */}
         <div className="px-5 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-slate-500">
             {lines.length} line{lines.length !== 1 ? "s" : ""} · {totalBaseUnits} base unit{totalBaseUnits !== 1 ? "s" : ""} total
           </span>
           <div className="flex gap-3">
-            <button onClick={() => router.back()} className="px-4 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+            <button onClick={() => router.back()}
+              className="px-4 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
               Cancel
             </button>
             <button
@@ -480,49 +628,52 @@ export function TransactionForm({
         </div>
       </div>
 
-      {/* ── Goods Out flow modal ────────────────────────────────────────────── */}
+      {/* ── Goods Out flow modal ─────────────────────────────────────────────── */}
       {flowState.step !== "idle" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4 text-center">
 
-            {/* confirm step */}
+            {/* ── confirm ── */}
             {flowState.step === "confirm" && (
               <>
                 <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-7 h-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-bold text-slate-800 mb-1">Save Goods Out Order?</h2>
-                <p className="text-sm text-slate-500 mb-1">
+                <h2 className="text-lg font-bold text-slate-800 mb-1">Save this Goods Out order?</h2>
+                <p className="text-sm text-slate-500 mb-0.5">
                   {lines.length} item{lines.length !== 1 ? "s" : ""} · {totalBaseUnits} base unit{totalBaseUnits !== 1 ? "s" : ""}
                 </p>
                 {fromLocationId && (
-                  <p className="text-xs text-slate-400 mb-4">
+                  <p className="text-xs text-slate-400 mb-0.5">
                     From: {locations.find((l) => l.id === fromLocationId)?.name}
                   </p>
                 )}
-                <p className="text-xs text-slate-400 mb-6">After saving, you&apos;ll send a WhatsApp notification and print the DO.</p>
+                {customer && (
+                  <p className="text-xs text-slate-400 mb-0.5">Customer: {customer}</p>
+                )}
+                <p className="text-xs text-amber-600 font-medium mt-3 mb-5">
+                  After saving: Send DO to WhatsApp → Print DO (mandatory)
+                </p>
                 <div className="flex gap-3">
-                  <button
-                    onClick={() => setFlowState({ step: "idle" })}
-                    className="flex-1 px-4 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium"
-                  >
+                  <button onClick={() => setFlowState({ step: "idle" })}
+                    className="flex-1 px-4 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
                     Cancel
                   </button>
-                  <button
-                    onClick={executeGoodsOutSave}
-                    className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors"
-                  >
-                    Yes, Save
+                  <button onClick={executeGoodsOutSave}
+                    className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors">
+                    Yes, Save &amp; Proceed
                   </button>
                 </div>
               </>
             )}
 
-            {/* saving step */}
+            {/* ── saving ── */}
             {flowState.step === "saving" && (
               <>
+                <StepProgress step="saving" />
                 <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-7 h-7 text-slate-500 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -534,26 +685,59 @@ export function TransactionForm({
               </>
             )}
 
-            {/* print step */}
-            {flowState.step === "print" && (
+            {/* ── whatsapp ── */}
+            {flowState.step === "whatsapp" && (() => {
+              const { orderId, orderNumber, whatsappUrl } = flowState;
+              return (
+                <>
+                  <StepProgress step="whatsapp" />
+                  <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-800 mb-1">Order Saved!</h2>
+                  <p className="text-sm font-mono text-slate-500 mb-4">{orderNumber}</p>
+                  <p className="text-sm text-slate-600 mb-5">
+                    Send the Delivery Order to WhatsApp. The print preview will open automatically.
+                  </p>
+                  <button
+                    onClick={() => handleWhatsApp(orderId, orderNumber, whatsappUrl)}
+                    className="w-full py-3 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                    Send to WhatsApp &amp; Print DO
+                  </button>
+                </>
+              );
+            })()}
+
+            {/* ── done ── */}
+            {flowState.step === "done" && (
               <>
+                <StepProgress step="done" />
                 <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-bold text-slate-800 mb-1">Order Saved!</h2>
-                <p className="text-sm text-slate-500 mb-5 font-mono">{flowState.orderNumber}</p>
+                <h2 className="text-lg font-bold text-slate-800 mb-1">Transaction Complete!</h2>
+                <p className="text-sm font-mono text-slate-500 mb-2">{flowState.orderNumber}</p>
+                <p className="text-xs text-slate-400 mb-6">
+                  Order saved, DO sent to WhatsApp, and print preview opened.
+                </p>
                 <button
-                  onClick={() => { window.location.href = `/orders/${flowState.orderId}/print`; }}
-                  className="w-full px-5 py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-xl transition-colors"
+                  onClick={() => { router.push("/orders"); router.refresh(); }}
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-xl transition-colors"
                 >
-                  🖨️ Print Delivery Order
+                  Go to Orders
                 </button>
               </>
             )}
 
-            {/* error step */}
+            {/* ── error ── */}
             {flowState.step === "error" && (
               <>
                 <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -561,21 +745,26 @@ export function TransactionForm({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-bold text-slate-800 mb-1">Save Failed</h2>
+                <h2 className="text-lg font-bold text-slate-800 mb-2">Something went wrong</h2>
                 <p className="text-sm text-red-600 mb-6">{flowState.message}</p>
                 <div className="flex gap-3">
-                  <button
-                    onClick={() => setFlowState({ step: "idle" })}
-                    className="flex-1 px-4 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={executeGoodsOutSave}
-                    className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors"
-                  >
-                    Retry
-                  </button>
+                  {flowState.onRetry ? (
+                    <>
+                      <button onClick={() => setFlowState({ step: "idle" })}
+                        className="flex-1 px-4 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+                        Back to Form
+                      </button>
+                      <button onClick={flowState.onRetry}
+                        className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors">
+                        Retry
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={() => setFlowState({ step: "idle" })}
+                      className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+                      Back to Form
+                    </button>
+                  )}
                 </div>
               </>
             )}

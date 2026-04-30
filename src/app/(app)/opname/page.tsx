@@ -67,10 +67,10 @@ export default async function OpnamePage() {
                 </td>
                 <td className="px-4 py-2.5 text-slate-600">{s._count.lines}</td>
                 <td className="px-4 py-2.5 text-xs text-slate-500">
-                  {s.createdAt.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                  {s.createdAt.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" })}
                 </td>
                 <td className="px-4 py-2.5 text-xs text-slate-500">
-                  {s.approvedAt ? s.approvedAt.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                  {s.approvedAt ? s.approvedAt.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }) : "—"}
                 </td>
                 <td className="px-4 py-2.5 flex gap-3 items-center">
                   <Link href={`/opname/${s.id}`} className="text-xs text-blue-600 hover:underline">

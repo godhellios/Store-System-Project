@@ -38,7 +38,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params;
   const body = await req.json();
-  const { reference, notes, lines } = body as {
+  const { customer, reference, notes, lines } = body as {
+    customer?: string | null;
     reference?: string | null;
     notes?: string | null;
     lines?: Array<{ productId: string; quantity: number; inputQty?: number; inputUnit?: string; notes?: string | null }>;
@@ -93,6 +94,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         await tx.order.update({
           where: { id },
           data: {
+            ...(customer !== undefined ? { customer: customer?.trim() || null } : {}),
             ...(reference !== undefined ? { reference: reference?.trim() || null } : {}),
             ...(notes !== undefined ? { notes: notes?.trim() || null } : {}),
           },
@@ -163,12 +165,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ success: true });
   }
 
-  // Metadata-only update (reference, notes, line notes)
+  // Metadata-only update (customer, reference, notes, line notes)
   const { lineNotes } = body as { lineNotes?: Array<{ id: string; notes: string | null }> };
   const order = await prisma.$transaction(async (tx) => {
     const updated = await tx.order.update({
       where: { id },
       data: {
+        ...(customer !== undefined ? { customer: customer?.trim() || null } : {}),
         ...(reference !== undefined ? { reference: reference?.trim() || null } : {}),
         ...(notes !== undefined ? { notes: notes?.trim() || null } : {}),
       },

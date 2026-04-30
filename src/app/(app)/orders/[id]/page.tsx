@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { blockOperator } from "@/lib/role-guard";
 import { OrderActions } from "@/components/order-actions";
+import { GoodsOutDetailActions } from "@/components/goods-out-detail-actions";
 
 const TYPE_BADGE: Record<string, string> = {
   GRN: "bg-green-100 text-green-700", GOODS_OUT: "bg-orange-100 text-orange-700",
@@ -17,15 +18,19 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const userRole = session.user.role;
 
   const { id } = await params;
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: {
-      fromLocation: true,
-      toLocation: true,
-      lines: { include: { product: { include: { category: true, unit: true } } }, orderBy: { id: "asc" } },
-    },
-  });
+  const [order, waSetting] = await Promise.all([
+    prisma.order.findUnique({
+      where: { id },
+      include: {
+        fromLocation: true,
+        toLocation: true,
+        lines: { include: { product: { include: { category: true, unit: true } } }, orderBy: { id: "asc" } },
+      },
+    }),
+    prisma.systemSetting.findUnique({ where: { key: "whatsapp_number" } }),
+  ]);
   if (!order) notFound();
+  const whatsappNumber = waSetting?.value ?? "6281283118487";
 
   return (
     <div className="max-w-3xl">
@@ -41,19 +46,26 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <div className="flex items-center gap-2 flex-wrap">
           {order.type === "GOODS_OUT" && (
             <>
+              {order.whatsappSentAt && (
+                <span className="text-[10px] px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
+                  WA Sent
+                </span>
+              )}
               {order.printedAt && (
                 <span className="text-[10px] px-2 py-1 bg-slate-100 text-slate-600 rounded-full font-medium">
                   Printed
                 </span>
               )}
-              <a
-                href={`/orders/${id}/print`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors"
-              >
-                Print DO
-              </a>
+              <GoodsOutDetailActions
+                orderId={id}
+                orderNumber={order.orderNumber}
+                customer={order.customer}
+                fromLocationName={order.fromLocation?.name ?? null}
+                lines={order.lines}
+                notes={order.notes}
+                whatsappNumber={whatsappNumber}
+                createdAt={order.createdAt}
+              />
             </>
           )}
           <OrderActions orderId={id} userRole={userRole} />
@@ -63,7 +75,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 grid grid-cols-2 gap-4 text-sm text-gray-900">
         <div>
           <span className="text-xs text-slate-500 block mb-0.5">Date</span>
-          {order.createdAt.toLocaleString("id-ID", { dateStyle: "full", timeStyle: "short" })}
+          {order.createdAt.toLocaleString("id-ID", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Jakarta" })}
         </div>
         {order.fromLocation && (
           <div>
@@ -75,6 +87,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <div>
             <span className="text-xs text-slate-500 block mb-0.5">To</span>
             {order.toLocation.name}
+          </div>
+        )}
+        {order.customer && (
+          <div>
+            <span className="text-xs text-slate-500 block mb-0.5">Customer</span>
+            {order.customer}
           </div>
         )}
         {order.reference && (

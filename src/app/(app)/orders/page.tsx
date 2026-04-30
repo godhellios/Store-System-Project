@@ -85,7 +85,7 @@ export default async function OrdersPage({
               <div className="text-xs text-slate-600 mb-1">{location}</div>
               <div className="flex items-center justify-between text-xs text-slate-500">
                 <span><span className="font-semibold text-gray-900">{totalQty} pcs</span>{catLabel ? ` · ${catLabel}` : ""}</span>
-                <span>{o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                <span>{o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}</span>
               </div>
               {o.reference && <div className="text-xs text-slate-400 mt-1">{o.reference}</div>}
               <div className="mt-2 text-right">
@@ -137,7 +137,7 @@ export default async function OrdersPage({
                     </td>
                     <td className="px-4 py-2.5 text-xs text-slate-400">{o.reference ?? "—"}</td>
                     <td className="px-4 py-2.5 text-xs text-slate-500">
-                      {o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      {o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
                     </td>
                     <td className="px-4 py-2.5">
                       <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 hover:underline">View</Link>

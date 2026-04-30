@@ -19,8 +19,8 @@ export default async function DeliveryOrderPrintPage({ params }: { params: Promi
 
   if (!order || order.type !== "GOODS_OUT") notFound();
 
-  const date = order.createdAt.toLocaleDateString("id-ID", {
-    day: "numeric", month: "long", year: "numeric",
+  const date = order.createdAt.toLocaleString("id-ID", {
+    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta",
   });
 
   const totalBaseQty = order.lines.reduce((s, l) => s + l.quantity, 0);
@@ -72,6 +72,12 @@ export default async function DeliveryOrderPrintPage({ params }: { params: Promi
             <div className="flex gap-2">
               <span className="text-gray-500 w-24 shrink-0">Issued From</span>
               <span className="font-medium">{order.fromLocation.name}</span>
+            </div>
+          )}
+          {order.customer && (
+            <div className="flex gap-2">
+              <span className="text-gray-500 w-24 shrink-0">Customer</span>
+              <span className="font-medium">{order.customer}</span>
             </div>
           )}
           {order.reference && (
