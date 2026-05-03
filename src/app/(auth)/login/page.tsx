@@ -90,7 +90,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-gray-400">
-          © 2026 Mitra Ramah — MRIs v1.0
+          © 2026 Mitra Ramah — MRIs v1.3.1
         </p>
       </div>
     </div>
