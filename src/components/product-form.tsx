@@ -82,7 +82,8 @@ export function ProductForm({
       toast.error(`"${name}" already defined`);
       return;
     }
-    setConversions((prev) => [...prev, { name, conversionFactor: factor, barcode: newConvBarcode.trim() }]);
+    const barcode = newConvBarcode.trim() || generateBarcode();
+    setConversions((prev) => [...prev, { name, conversionFactor: factor, barcode }]);
     setNewConvName("");
     setNewConvFactor("");
     setNewConvBarcode("");
@@ -368,9 +369,13 @@ export function ProductForm({
                         value={editBarcode}
                         onChange={(e) => setEditBarcode(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveEdit(i); } if (e.key === "Escape") setEditingIdx(null); }}
-                        placeholder="Unit barcode (optional)"
+                        placeholder="Unit barcode"
                         className="w-36 px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-mono"
                       />
+                      <button type="button" onClick={() => setEditBarcode(generateBarcode())}
+                        className="px-2 py-1 text-[10px] border border-blue-200 rounded text-blue-500 hover:bg-blue-100 whitespace-nowrap">
+                        Gen
+                      </button>
                       <button type="button" onClick={() => saveEdit(i)} className="text-blue-600 font-semibold hover:underline ml-1">Save</button>
                       <button type="button" onClick={() => setEditingIdx(null)} className="text-slate-400 hover:text-slate-600">Cancel</button>
                     </>
@@ -416,15 +421,22 @@ export function ProductForm({
               />
             </div>
             <div>
-              <label className="block text-[10px] text-slate-400 mb-0.5">Barcode</label>
-              <input
-                value={newConvBarcode}
-                onChange={(e) => setNewConvBarcode(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addConversion(); } }}
-                placeholder="Unit barcode (optional)"
-                disabled={!form.unitId}
-                className="w-40 px-2 py-1.5 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
-              />
+              <label className="block text-[10px] text-slate-400 mb-0.5">Barcode <span className="text-slate-300">(auto if blank)</span></label>
+              <div className="flex gap-1">
+                <input
+                  value={newConvBarcode}
+                  onChange={(e) => setNewConvBarcode(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addConversion(); } }}
+                  placeholder="Auto-generate"
+                  disabled={!form.unitId}
+                  className="w-36 px-2 py-1.5 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
+                />
+                <button type="button" onClick={() => setNewConvBarcode(generateBarcode())}
+                  disabled={!form.unitId}
+                  className="px-2 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-500 hover:bg-slate-50 disabled:opacity-40 whitespace-nowrap">
+                  Gen
+                </button>
+              </div>
             </div>
             <button
               type="button"
