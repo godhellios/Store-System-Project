@@ -7,9 +7,17 @@ export type RawRow = {
   name?: string; sku?: string; barcode?: string;
   category?: string; unit?: string;
   reorderPoint?: string; colorVariant?: string; description?: string;
+  // Format: "Box:12|Crate:144" or "Box:12:BARCODE|Crate:144:BARCODE"
+  packagingUnits?: string;
 };
 
 export type RowAction = "create" | "update" | "link" | "conflict" | "file_duplicate" | "invalid";
+
+export type ParsedUnitConversion = {
+  name: string;
+  conversionFactor: number;
+  barcode: string | null;
+};
 
 export type ClassifiedRow = {
   index: number;
@@ -22,6 +30,7 @@ export type ClassifiedRow = {
   categoryId: string | null;
   unitId: string | null;
   issues: string[];
+  parsedUnitConversions: ParsedUnitConversion[];
 };
 
 export type PreviewSummary = {
@@ -37,6 +46,25 @@ export type PreviewSummary = {
 
 function normSku(s: string) { return s.trim().toLowerCase(); }
 function normName(s: string) { return s.trim().replace(/\s+/g, " ").toLowerCase(); }
+
+function parsePackagingUnits(raw: string | undefined): { parsed: ParsedUnitConversion[]; errors: string[] } {
+  if (!raw?.trim()) return { parsed: [], errors: [] };
+  const errors: string[] = [];
+  const parsed: ParsedUnitConversion[] = [];
+  for (const part of raw.split("|")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const [rawName, rawFactor, rawBarcode] = trimmed.split(":");
+    const name = rawName?.trim();
+    const factor = parseFloat(rawFactor ?? "");
+    if (!name || isNaN(factor) || factor <= 0) {
+      errors.push(`Invalid packaging unit "${trimmed}" — use Name:Factor or Name:Factor:Barcode`);
+      continue;
+    }
+    parsed.push({ name, conversionFactor: factor, barcode: rawBarcode?.trim() || null });
+  }
+  return { parsed, errors };
+}
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -80,7 +108,10 @@ export async function POST(req: Request) {
     if (row.category?.trim() && !cat) issues.push(`Category "${row.category}" not found`);
     if (row.unit?.trim() && !unit) issues.push(`Unit "${row.unit}" not found`);
 
-    const base = { index: i, raw: row, normalizedSku: ns, normalizedName: nn, categoryId, unitId };
+    const { parsed: parsedUnitConversions, errors: unitErrors } = parsePackagingUnits(row.packagingUnits);
+    if (unitErrors.length) issues.push(...unitErrors);
+
+    const base = { index: i, raw: row, normalizedSku: ns, normalizedName: nn, categoryId, unitId, parsedUnitConversions };
 
     // Both empty → invalid
     if (!ns && !nn) {

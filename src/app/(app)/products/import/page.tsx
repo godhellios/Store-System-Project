@@ -40,9 +40,11 @@ export default function BulkImportPage() {
 
   function downloadTemplate() {
     const csv =
-      "name,sku,barcode,category,unit,reorderPoint,colorVariant,description\n" +
-      "Button #12 Black,BTN-12-BLK,MR123456,Button,Pack,50,Black,12mm black button\n" +
-      "Zipper 20cm White,ZIP-20-WHT,,Zipper,Pack,20,White,\n";
+      "name,sku,barcode,category,unit,reorderPoint,colorVariant,description,packagingUnits\n" +
+      "Button #12 Black,BTN-12-BLK,MR123456,Button,Pack,50,Black,12mm black button,\n" +
+      "Zipper 20cm White,ZIP-20-WHT,,Zipper,Pack,20,White,,\n" +
+      "Thread Roll Red,THR-01-RED,,Textile,Roll,100,Red,,Box:12|Crate:144\n" +
+      "Thread Roll Blue,THR-01-BLU,,Textile,Roll,100,Blue,,Box:12:U-THR-BLU-BOX|Crate:144:U-THR-BLU-CRT\n";
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })),
       download: "mris-import-template.csv",
@@ -118,6 +120,11 @@ export default function BulkImportPage() {
           <button onClick={downloadTemplate} className="text-sm text-blue-600 hover:underline">
             ↓ Download CSV template
           </button>
+          <p className="text-xs text-slate-400 mt-1">
+            <span className="font-medium text-slate-500">packagingUnits</span> column format:{" "}
+            <span className="font-mono">Box:12|Crate:144</span> — separate units with <span className="font-mono">|</span>, each unit is{" "}
+            <span className="font-mono">Name:Factor</span> or <span className="font-mono">Name:Factor:Barcode</span>. Barcode is auto-generated if omitted.
+          </p>
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-2">Select CSV file</label>
@@ -130,7 +137,7 @@ export default function BulkImportPage() {
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    {["name", "sku", "barcode", "category", "unit"].map((h) => (
+                    {["name", "sku", "barcode", "category", "unit", "packagingUnits"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left font-medium text-slate-500">{h}</th>
                     ))}
                   </tr>
@@ -143,6 +150,7 @@ export default function BulkImportPage() {
                       <td className="px-3 py-1.5 font-mono text-slate-400">{r.barcode || "(auto)"}</td>
                       <td className="px-3 py-1.5">{r.category}</td>
                       <td className="px-3 py-1.5">{r.unit}</td>
+                      <td className="px-3 py-1.5 font-mono text-slate-400 max-w-[160px] truncate">{r.packagingUnits || "—"}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -2,10 +2,26 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { ClassifiedRow } from "../preview/route";
+import type { ClassifiedRow, ParsedUnitConversion } from "../preview/route";
 
 function genBarcode() {
   return "MR" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
+}
+
+async function upsertUnitConversions(productId: string, units: ParsedUnitConversion[]) {
+  if (!units.length) return;
+  // Delete existing conversions then recreate — same pattern as product edit API
+  await prisma.productUnitConversion.deleteMany({ where: { productId } });
+  for (const uc of units) {
+    await prisma.productUnitConversion.create({
+      data: {
+        productId,
+        name: uc.name,
+        conversionFactor: uc.conversionFactor,
+        barcode: uc.barcode || genBarcode(),
+      },
+    });
+  }
 }
 
 export type ApplyResult = {
@@ -51,6 +67,7 @@ export async function POST(req: Request) {
             description: raw.description?.trim() || null,
           },
         });
+        await upsertUnitConversions(product.id, row.parsedUnitConversions ?? []);
         results.push({ index, action, status: "ok", productId: product.id });
 
       } else if (action === "update" || action === "link") {
@@ -62,6 +79,9 @@ export async function POST(req: Request) {
         if (raw.colorVariant !== undefined) data.colorVariant = raw.colorVariant.trim() || null;
         if (raw.description !== undefined) data.description = raw.description.trim() || null;
         const product = await prisma.product.update({ where: { id: existingProduct!.id }, data });
+        if (row.parsedUnitConversions?.length) {
+          await upsertUnitConversions(product.id, row.parsedUnitConversions);
+        }
         results.push({ index, action, status: "ok", productId: product.id });
 
       } else if (action === "conflict") {
@@ -84,6 +104,7 @@ export async function POST(req: Request) {
               description: raw.description?.trim() || null,
             },
           });
+          await upsertUnitConversions(product.id, row.parsedUnitConversions ?? []);
           results.push({ index, action: "created (conflict resolved)", status: "ok", productId: product.id });
         }
       }
