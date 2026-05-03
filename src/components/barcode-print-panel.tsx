@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-type Product = { id: string; name: string; sku: string; barcode: string; colorVariant: string | null; isActive: boolean; categoryId: string; category: { name: string }; unit: { name: string } };
+type UnitConversion = { id: string; name: string; conversionFactor: number; barcode: string | null };
+type Product = { id: string; name: string; sku: string; barcode: string; colorVariant: string | null; isActive: boolean; categoryId: string; category: { name: string }; unit: { name: string }; unitConversions: UnitConversion[] };
 type Category = { id: string; name: string };
 
 export function BarcodePrintPanel({
@@ -42,16 +43,28 @@ export function BarcodePrintPanel({
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    const labels = selectedProducts.flatMap((p) =>
-      Array.from({ length: getCopies(p.id) }, () => `
+    const labels = selectedProducts.flatMap((p) => {
+      const copies = getCopies(p.id);
+      const baseLabel = `
         <div class="label">
           <img src="/api/barcodes/${encodeURIComponent(p.barcode)}" alt="${p.barcode}" class="barcode-img" />
           <div class="barcode-num">${p.barcode}</div>
           <div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>
           <div class="unit">${p.unit.name} · ${p.sku}</div>
         </div>
-      `)
-    ).join("");
+      `;
+      const unitLabels = (p.unitConversions ?? [])
+        .filter((uc) => uc.barcode)
+        .map((uc) => `
+          <div class="label">
+            <img src="/api/barcodes/${encodeURIComponent(uc.barcode!)}" alt="${uc.barcode}" class="barcode-img" />
+            <div class="barcode-num">${uc.barcode}</div>
+            <div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>
+            <div class="unit">${uc.name} (×${uc.conversionFactor}) · ${p.sku}</div>
+          </div>
+        `);
+      return Array.from({ length: copies }, () => [baseLabel, ...unitLabels]).flat();
+    }).join("");
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -130,21 +143,52 @@ export function BarcodePrintPanel({
         <div className="bg-white rounded-xl border border-slate-200 p-4 md:sticky md:top-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">
             {selected.size} product{selected.size !== 1 ? "s" : ""} selected
-            {selected.size > 0 && <span className="text-slate-400 font-normal"> · {selectedProducts.reduce((s, p) => s + getCopies(p.id), 0)} labels</span>}
+            {selected.size > 0 && <span className="text-slate-400 font-normal"> · {selectedProducts.reduce((s, p) => {
+              const unitBarcodes = (p.unitConversions ?? []).filter((uc) => uc.barcode).length;
+              return s + getCopies(p.id) * (1 + unitBarcodes);
+            }, 0)} labels</span>}
           </div>
 
-          {selectedProducts.slice(0, 4).map((p) => (
-            <div key={p.id} className="flex flex-col items-center border border-dashed border-slate-300 rounded-lg p-3 mb-2 gap-1">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/api/barcodes/${encodeURIComponent(p.barcode)}`} alt={p.barcode} className="w-40 h-auto" />
-              <div className="font-mono text-[10px] text-slate-500">{p.barcode}</div>
-              <div className="text-xs font-semibold text-center">{p.name}</div>
-              <div className="text-[10px] text-slate-400">{p.unit.name} · {p.sku}</div>
-            </div>
-          ))}
-          {selectedProducts.length > 4 && (
-            <p className="text-xs text-slate-400 text-center mb-2">+{selectedProducts.length - 4} more…</p>
-          )}
+          {(() => {
+            const previewLabels: React.ReactNode[] = [];
+            for (const p of selectedProducts) {
+              if (previewLabels.length >= 4) break;
+              previewLabels.push(
+                <div key={`${p.id}-base`} className="flex flex-col items-center border border-dashed border-slate-300 rounded-lg p-3 mb-2 gap-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/barcodes/${encodeURIComponent(p.barcode)}`} alt={p.barcode} className="w-40 h-auto" />
+                  <div className="font-mono text-[10px] text-slate-500">{p.barcode}</div>
+                  <div className="text-xs font-semibold text-center">{p.name}</div>
+                  <div className="text-[10px] text-slate-400">{p.unit.name} · {p.sku}</div>
+                </div>
+              );
+              for (const uc of (p.unitConversions ?? [])) {
+                if (previewLabels.length >= 4) break;
+                if (!uc.barcode) continue;
+                previewLabels.push(
+                  <div key={`${p.id}-uc-${uc.id}`} className="flex flex-col items-center border border-dashed border-slate-300 rounded-lg p-3 mb-2 gap-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/api/barcodes/${encodeURIComponent(uc.barcode)}`} alt={uc.barcode} className="w-40 h-auto" />
+                    <div className="font-mono text-[10px] text-slate-500">{uc.barcode}</div>
+                    <div className="text-xs font-semibold text-center">{p.name}</div>
+                    <div className="text-[10px] text-slate-400">{uc.name} (×{uc.conversionFactor}) · {p.sku}</div>
+                  </div>
+                );
+              }
+            }
+            const totalLabels = selectedProducts.reduce((sum, p) => {
+              const unitBarcodes = (p.unitConversions ?? []).filter((uc) => uc.barcode).length;
+              return sum + 1 + unitBarcodes;
+            }, 0);
+            return (
+              <>
+                {previewLabels}
+                {totalLabels > 4 && (
+                  <p className="text-xs text-slate-400 text-center mb-2">+{totalLabels - 4} more…</p>
+                )}
+              </>
+            );
+          })()}
 
           <button onClick={printLabels} disabled={selected.size === 0}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold py-2 rounded-lg transition-colors mt-2">

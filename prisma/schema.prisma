@@ -121,6 +121,7 @@ model ProductUnitConversion {
   productId        String
   name             String  // e.g., "Box", "Carton", "Lusin"
   conversionFactor Float   // 1 of this unit = conversionFactor base units
+  barcode          String? @unique
 
   @@unique([productId, name])
 }

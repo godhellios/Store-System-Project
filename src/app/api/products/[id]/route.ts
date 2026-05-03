@@ -88,9 +88,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       ...(validConversions !== undefined ? {
         unitConversions: {
           deleteMany: {},
-          create: validConversions.map((c: { name: string; conversionFactor: number }) => ({
+          create: validConversions.map((c: { name: string; conversionFactor: number; barcode?: string | null }) => ({
             name: c.name.trim(),
             conversionFactor: c.conversionFactor,
+            barcode: c.barcode?.trim() || null,
           })),
         },
       } : {}),

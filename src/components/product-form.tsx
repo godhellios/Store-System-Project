@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 
 type Category = { id: string; name: string };
 type Unit = { id: string; name: string };
-type UnitConversion = { id?: string; name: string; conversionFactor: number };
+type UnitConversion = { id?: string; name: string; conversionFactor: number; barcode: string };
 type Product = {
   id: string; name: string; sku: string; barcode: string;
   categoryId: string; unitId: string; reorderPoint: number;
@@ -58,13 +58,15 @@ export function ProductForm({
   const [savedProduct, setSavedProduct] = useState<SavedProduct | null>(null);
 
   const [conversions, setConversions] = useState<UnitConversion[]>(
-    product?.unitConversions ?? []
+    product?.unitConversions?.map((c) => ({ ...c, barcode: c.barcode ?? "" })) ?? []
   );
   const [newConvName, setNewConvName] = useState("");
   const [newConvFactor, setNewConvFactor] = useState("");
+  const [newConvBarcode, setNewConvBarcode] = useState("");
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editFactor, setEditFactor] = useState("");
+  const [editBarcode, setEditBarcode] = useState("");
 
   function set(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -80,9 +82,10 @@ export function ProductForm({
       toast.error(`"${name}" already defined`);
       return;
     }
-    setConversions((prev) => [...prev, { name, conversionFactor: factor }]);
+    setConversions((prev) => [...prev, { name, conversionFactor: factor, barcode: newConvBarcode.trim() }]);
     setNewConvName("");
     setNewConvFactor("");
+    setNewConvBarcode("");
   }
 
   function removeConversion(index: number) {
@@ -94,6 +97,7 @@ export function ProductForm({
     setEditingIdx(index);
     setEditName(conversions[index].name);
     setEditFactor(conversions[index].conversionFactor.toString());
+    setEditBarcode(conversions[index].barcode ?? "");
   }
 
   function saveEdit(index: number) {
@@ -104,7 +108,7 @@ export function ProductForm({
       toast.error(`"${name}" already defined`);
       return;
     }
-    setConversions((prev) => prev.map((c, i) => i === index ? { ...c, name, conversionFactor: factor } : c));
+    setConversions((prev) => prev.map((c, i) => i === index ? { ...c, name, conversionFactor: factor, barcode: editBarcode.trim() } : c));
     setEditingIdx(null);
   }
 
@@ -147,6 +151,7 @@ export function ProductForm({
         unitConversions: conversions.map((c) => ({
           name: c.name,
           conversionFactor: c.conversionFactor,
+          barcode: c.barcode || null,
         })),
       }),
     });
@@ -359,6 +364,13 @@ export function ProductForm({
                         className="w-20 px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                       />
                       <span className="text-blue-500 shrink-0">{baseUnitName}</span>
+                      <input
+                        value={editBarcode}
+                        onChange={(e) => setEditBarcode(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveEdit(i); } if (e.key === "Escape") setEditingIdx(null); }}
+                        placeholder="Unit barcode (optional)"
+                        className="w-36 px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-mono"
+                      />
                       <button type="button" onClick={() => saveEdit(i)} className="text-blue-600 font-semibold hover:underline ml-1">Save</button>
                       <button type="button" onClick={() => setEditingIdx(null)} className="text-slate-400 hover:text-slate-600">Cancel</button>
                     </>
@@ -366,6 +378,7 @@ export function ProductForm({
                     <>
                       <span className="flex-1 text-blue-800 font-medium">
                         1 {c.name} = {c.conversionFactor} {baseUnitName}
+                        {c.barcode && <span className="ml-2 text-slate-400 font-mono font-normal">{c.barcode}</span>}
                       </span>
                       <button type="button" onClick={() => startEdit(i)} className="text-slate-500 hover:text-blue-600 hover:underline">Edit</button>
                       <button type="button" onClick={() => removeConversion(i)} className="text-red-400 hover:text-red-600 leading-none text-sm font-medium">×</button>
@@ -400,6 +413,17 @@ export function ProductForm({
                 placeholder="e.g. 12"
                 disabled={!form.unitId}
                 className="w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-0.5">Barcode</label>
+              <input
+                value={newConvBarcode}
+                onChange={(e) => setNewConvBarcode(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addConversion(); } }}
+                placeholder="Unit barcode (optional)"
+                disabled={!form.unitId}
+                className="w-40 px-2 py-1.5 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
               />
             </div>
             <button

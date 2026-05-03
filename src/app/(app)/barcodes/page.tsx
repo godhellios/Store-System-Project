@@ -14,13 +14,13 @@ export default async function BarcodesPage({
     prisma.product.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
-      include: { category: true, unit: true },
+      include: { category: true, unit: true, unitConversions: true },
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     productId
       ? prisma.product.findUnique({
           where: { id: productId },
-          include: { category: true, unit: true },
+          include: { category: true, unit: true, unitConversions: true },
         })
       : Promise.resolve(null),
   ]);

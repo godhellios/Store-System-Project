@@ -108,9 +108,10 @@ export async function POST(req: Request) {
       imageUrl: imageUrl?.trim() || null,
       ...(validConversions.length > 0 ? {
         unitConversions: {
-          create: validConversions.map((c: { name: string; conversionFactor: number }) => ({
+          create: validConversions.map((c: { name: string; conversionFactor: number; barcode?: string | null }) => ({
             name: c.name.trim(),
             conversionFactor: c.conversionFactor,
+            barcode: c.barcode?.trim() || null,
           })),
         },
       } : {}),

@@ -138,8 +138,13 @@ export async function POST(req: Request) {
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
             include: { product: true },
           });
-          const newQty = (current?.quantity ?? 0) - line.quantity;
-          if (newQty < 0) warnings.push(`⚠ ${current?.product.name ?? line.productId}: stock went negative (${newQty})`);
+          const currentQty = current?.quantity ?? 0;
+          const newQty = currentQty - line.quantity;
+          if (newQty < 0) {
+            throw new Error(
+              `Insufficient stock: "${current?.product.name ?? line.productId}" — needs ${line.quantity}, available ${currentQty}`
+            );
+          }
           await tx.stock.upsert({
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
             create: { productId: line.productId, locationId: fromLocationId!, quantity: -line.quantity },
@@ -150,8 +155,13 @@ export async function POST(req: Request) {
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
             include: { product: true },
           });
-          const newQty = (current?.quantity ?? 0) - line.quantity;
-          if (newQty < 0) warnings.push(`⚠ ${current?.product.name ?? line.productId}: source stock went negative (${newQty})`);
+          const currentQty = current?.quantity ?? 0;
+          const newQty = currentQty - line.quantity;
+          if (newQty < 0) {
+            throw new Error(
+              `Insufficient stock: "${current?.product.name ?? line.productId}" — needs ${line.quantity}, available ${currentQty}`
+            );
+          }
           await tx.stock.upsert({
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
             create: { productId: line.productId, locationId: fromLocationId!, quantity: -line.quantity },
@@ -174,8 +184,9 @@ export async function POST(req: Request) {
       return order;
     });
   } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to create order — please try again";
     console.error("Order creation failed:", err);
-    return NextResponse.json({ error: "Failed to create order — please try again" }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   // ── push-notify module ──────────────────────────────────────────────────

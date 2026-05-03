@@ -21,6 +21,7 @@ type LineItem = {
   conversionFactor: number;
   unitConversions: UnitConversion[];
   notes: string;
+  stockByLocation: Array<{ locationId: string; quantity: number }>;
 };
 
 type SearchProduct = {
@@ -30,7 +31,10 @@ type SearchProduct = {
   unitConversions: UnitConversion[];
   category: { name: string };
   colorVariant: string | null;
+  stock: Array<{ locationId: string; quantity: number }>;
 };
+
+type MatchedUnit = { id: string; name: string; conversionFactor: number } | null;
 
 type TransactionType = "GRN" | "GOODS_OUT" | "TRANSFER";
 
@@ -186,7 +190,7 @@ export function TransactionForm({
       if (saved) {
         const draft = JSON.parse(saved);
         if (draft.lines?.length || draft.fromLocationId || draft.toLocationId || draft.customer || draft.reference || draft.notes) {
-          setLines(draft.lines ?? []);
+          setLines((draft.lines ?? []).map((l: LineItem) => ({ ...l, stockByLocation: l.stockByLocation ?? [] })));
           setFromLocationId(draft.fromLocationId ?? "");
           setToLocationId(draft.toLocationId ?? "");
           setCustomer(draft.customer ?? "");
@@ -233,21 +237,25 @@ export function TransactionForm({
     return () => clearTimeout(t);
   }, [searchQuery, doSearch]);
 
-  function buildLineItem(product: SearchProduct): LineItem {
+  function buildLineItem(product: SearchProduct, matchedUnit?: MatchedUnit): LineItem {
+    const inputUnitId      = matchedUnit?.id             ?? product.unit.id;
+    const inputUnitName    = matchedUnit?.name           ?? product.unit.name;
+    const conversionFactor = matchedUnit?.conversionFactor ?? 1;
     return {
       _key: Math.random().toString(36).slice(2),
-      productId: product.id,
-      name: product.name,
-      sku: product.sku,
-      barcode: product.barcode,
-      baseUnitId: product.unit.id,
-      baseUnitName: product.unit.name,
-      quantity: 1,
-      inputUnitId: product.unit.id,
-      inputUnitName: product.unit.name,
-      conversionFactor: 1,
+      productId:       product.id,
+      name:            product.name,
+      sku:             product.sku,
+      barcode:         product.barcode,
+      baseUnitId:      product.unit.id,
+      baseUnitName:    product.unit.name,
+      quantity:        1,
+      inputUnitId,
+      inputUnitName,
+      conversionFactor,
       unitConversions: product.unitConversions ?? [],
-      notes: "",
+      notes:           "",
+      stockByLocation: product.stock?.map(s => ({ locationId: s.locationId, quantity: s.quantity })) ?? [],
     };
   }
 
@@ -257,9 +265,9 @@ export function TransactionForm({
       return;
     }
     setLines((prev) => {
-      const existing = prev.find((l) => l.productId === product.id);
-      if (existing) return prev.map((l) => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
-      return [...prev, buildLineItem(product)];
+      const existing = prev.find((l) => l.productId === product.id && l.inputUnitId === product.unit.id);
+      if (existing) return prev.map((l) => l.productId === product.id && l.inputUnitId === product.unit.id ? { ...l, quantity: l.quantity + 1 } : l);
+      return [...prev, buildLineItem(product, null)];
     });
     toast.success(`Added: ${product.name}`, { duration: 1500 });
     setSearchQuery("");
@@ -278,17 +286,24 @@ export function TransactionForm({
       scanRef.current?.focus();
       return;
     }
-    const product = await res.json();
+    const { product, matchedUnit }: { product: SearchProduct; matchedUnit: MatchedUnit } = await res.json();
     setScanInput("");
     scanRef.current?.focus();
     if (!product.isActive && type === "GRN") {
       toast.error(`${product.name} is deactivated — cannot receive`);
       return;
     }
+    const incomingUnitId = matchedUnit?.id ?? product.unit.id;
     setLines((prev) => {
-      const existing = prev.find((l) => l.productId === product.id);
-      if (existing) return prev.map((l) => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
-      return [...prev, buildLineItem(product)];
+      const existing = prev.find(
+        (l) => l.productId === product.id && l.inputUnitId === incomingUnitId
+      );
+      if (existing) {
+        return prev.map((l) =>
+          l._key === existing._key ? { ...l, quantity: l.quantity + 1 } : l
+        );
+      }
+      return [...prev, buildLineItem(product, matchedUnit)];
     });
     toast.success(`Added: ${product.name}`, { duration: 1500 });
   }
@@ -417,6 +432,12 @@ export function TransactionForm({
   function handlePrint(orderId: string, orderNumber: string) {
     window.open(`/orders/${orderId}/print`, "_blank", "noopener,noreferrer");
     setFlowState({ step: "done", orderNumber });
+  }
+
+  function availableStock(line: LineItem): number | null {
+    if (!fromLocationId) return null;
+    const s = line.stockByLocation.find((s) => s.locationId === fromLocationId);
+    return s?.quantity ?? 0;
   }
 
   const totalBaseUnits = lines.reduce((s, l) => s + Math.round(l.quantity * l.conversionFactor), 0);
@@ -581,6 +602,17 @@ export function TransactionForm({
                       = {baseQty} {line.baseUnitName}
                     </span>
                   )}
+                  {(() => {
+                    const avail = availableStock(line);
+                    if (avail === null) return null;
+                    const needed = baseQty;
+                    const ok = avail >= needed;
+                    return (
+                      <span className={`text-[10px] font-medium px-2 py-1 rounded ${ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+                        {ok ? `✓ ${avail}` : `✗ ${avail}`}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <input value={line.notes} onChange={(e) => updateLine(line._key, "notes", e.target.value)}
                   className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
@@ -643,6 +675,17 @@ export function TransactionForm({
                       ) : (
                         <span className="text-xs text-slate-400">—</span>
                       )}
+                      {(() => {
+                        const avail = availableStock(line);
+                        if (avail === null) return null;
+                        const needed = baseQty;
+                        const ok = avail >= needed;
+                        return (
+                          <div className={`text-[10px] font-medium mt-0.5 ${ok ? "text-green-600" : "text-red-500"}`}>
+                            {ok ? `✓ ${avail} avail` : `✗ only ${avail} avail`}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-2">
                       <input value={line.notes} onChange={(e) => updateLine(line._key, "notes", e.target.value)}
