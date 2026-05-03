@@ -113,9 +113,9 @@ export function ProductsBulkPanel({
                 const totalQty = visibleStock.reduce((s, st) => s + st.quantity, 0);
                 const isLow = p.isActive && p.reorderPoint > 0 && visibleStock.some((s) => s.quantity <= p.reorderPoint);
                 const isSelected = selected.has(p.id);
-                const rowBg = isSelected ? "bg-blue-50" : !p.isActive ? "bg-slate-50 opacity-60" : isLow ? "bg-red-50 hover:bg-red-50" : "hover:bg-slate-50";
+                const rowBg = isSelected ? "bg-blue-50 dark:bg-blue-900/30 border-l-2 border-l-blue-500 dark:border-l-blue-400" : !p.isActive ? "bg-slate-50 dark:bg-slate-800/40 opacity-60" : isLow ? "bg-red-50 dark:bg-red-950/40 hover:bg-red-50 dark:hover:bg-red-950/40" : "hover:bg-slate-50 dark:hover:bg-slate-800/40";
                 return (
-                  <tr key={p.id} className={`border-t border-slate-100 ${rowBg}`}>
+                  <tr key={p.id} className={`border-t border-slate-100 dark:border-slate-700 ${rowBg}`}>
                     {isAdmin && (
                       <td className="px-3 py-2.5">
                         <input type="checkbox" checked={isSelected} onChange={() => toggleOne(p.id)}
@@ -202,7 +202,7 @@ export function ProductsBulkPanel({
           const isLow = p.isActive && p.reorderPoint > 0 && visibleStock.some((s) => s.quantity <= p.reorderPoint);
           const isSelected = selected.has(p.id);
           return (
-            <div key={p.id} className={`bg-white rounded-xl border px-4 py-3 ${isSelected ? "border-blue-400 bg-blue-50" : !p.isActive ? "opacity-60 border-slate-200" : isLow ? "border-red-200 bg-red-50" : "border-slate-200"}`}>
+            <div key={p.id} className={`rounded-xl border px-4 py-3 ${isSelected ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30" : !p.isActive ? "opacity-60 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800" : isLow ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"}`}>
               <div className="flex items-start justify-between gap-2 mb-1">
                 <div className="flex items-center gap-2 min-w-0">
                   {isAdmin && (
