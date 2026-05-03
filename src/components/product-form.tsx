@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 
 type Category = { id: string; name: string };
 type Unit = { id: string; name: string };
-type UnitConversion = { id?: string; name: string; conversionFactor: number; barcode: string };
+type UnitConversion = { id?: string; name: string; conversionFactor: number; barcode: string | null };
 type Product = {
   id: string; name: string; sku: string; barcode: string;
   categoryId: string; unitId: string; reorderPoint: number;
