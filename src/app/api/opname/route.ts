@@ -41,6 +41,7 @@ export async function POST(req: Request) {
       sessionNumber,
       locationId,
       notes,
+      createdByName: session.user.name ?? null,
       lines: {
         create: currentStock.map((s) => ({
           productId: s.productId,

@@ -2,6 +2,7 @@
 
 import { Fragment, useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 
 type Location = { id: string; name: string; type: string };
@@ -103,6 +104,7 @@ function buildWhatsAppUrl({
   lines,
   notes,
   whatsappNumber,
+  savedBy,
 }: {
   orderNumber: string;
   customer: string;
@@ -110,6 +112,7 @@ function buildWhatsAppUrl({
   lines: LineItem[];
   notes: string;
   whatsappNumber: string;
+  savedBy?: string;
 }): string {
   const date = new Date().toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
   const totalBaseUnits = lines.reduce((s, l) => s + Math.round(l.quantity * l.conversionFactor), 0);
@@ -125,6 +128,7 @@ function buildWhatsAppUrl({
     `*SURAT JALAN / DELIVERY ORDER*`,
     `No. DO: *${orderNumber}*`,
     `Tanggal: ${date}`,
+    ...(savedBy          ? [`Oleh: *${savedBy}*`]               : []),
     ...(customer        ? [`Customer: *${customer}*`]           : []),
     ...(fromLocationName ? [`Dari: ${fromLocationName}`]         : []),
     ``,
@@ -150,6 +154,7 @@ export function TransactionForm({
   whatsappNumber?: string;
 }) {
   const router = useRouter();
+  const { data: session } = useSession();
   const scanRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -412,7 +417,7 @@ export function TransactionForm({
 
     const { id: orderId, orderNumber } = data.order!;
     const fromLocationName = locations.find((l) => l.id === fromLocationId)?.name ?? "";
-    const whatsappUrl = buildWhatsAppUrl({ orderNumber, customer, fromLocationName, lines, notes, whatsappNumber });
+    const whatsappUrl = buildWhatsAppUrl({ orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, savedBy: session?.user?.name ?? undefined });
     localStorage.removeItem(DRAFT_KEY);
     setFlowState({ step: "whatsapp", orderId, orderNumber, whatsappUrl });
   }

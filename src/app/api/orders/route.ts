@@ -86,9 +86,10 @@ export async function POST(req: Request) {
 
   const warnings: string[] = [];
 
-  let result;
+  let result!: { order: { id: string; orderNumber: string; fromLocationId: string | null }; txWarnings: string[] };
   try {
     result = await prisma.$transaction(async (tx) => {
+      const txWarnings: string[] = [];
       const prefix = ORDER_PREFIX[type] ?? "ORD";
       const year = new Date().getFullYear();
       const last = await tx.order.findFirst({
@@ -100,7 +101,7 @@ export async function POST(req: Request) {
       const orderNumber = `${prefix}-${year}-${String(lastNum + 1).padStart(4, "0")}`;
 
       const order = await tx.order.create({
-        data: { orderNumber, type, fromLocationId, toLocationId, customer, reference, notes },
+        data: { orderNumber, type, fromLocationId, toLocationId, customer, reference, notes, createdByName: session.user.name ?? null },
       });
 
       for (const line of lines) {
@@ -141,9 +142,7 @@ export async function POST(req: Request) {
           const currentQty = current?.quantity ?? 0;
           const newQty = currentQty - line.quantity;
           if (newQty < 0) {
-            throw new Error(
-              `Insufficient stock: "${current?.product.name ?? line.productId}" — needs ${line.quantity}, available ${currentQty}`
-            );
+            txWarnings.push(`Stock went negative: "${current?.product.name ?? line.productId}" — was ${currentQty}, now ${newQty}`);
           }
           await tx.stock.upsert({
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
@@ -158,9 +157,7 @@ export async function POST(req: Request) {
           const currentQty = current?.quantity ?? 0;
           const newQty = currentQty - line.quantity;
           if (newQty < 0) {
-            throw new Error(
-              `Insufficient stock: "${current?.product.name ?? line.productId}" — needs ${line.quantity}, available ${currentQty}`
-            );
+            txWarnings.push(`Stock went negative: "${current?.product.name ?? line.productId}" — was ${currentQty}, now ${newQty}`);
           }
           await tx.stock.upsert({
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
@@ -181,7 +178,7 @@ export async function POST(req: Request) {
         }
       }
 
-      return order;
+      return { order, txWarnings };
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to create order — please try again";
@@ -189,21 +186,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
+  warnings.push(...result.txWarnings);
+
   // ── push-notify module ──────────────────────────────────────────────────
   if (type === "GOODS_OUT") {
     const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
-    const fromName = result.fromLocationId
-      ? await prisma.location.findUnique({ where: { id: result.fromLocationId }, select: { name: true } })
+    const fromName = result.order.fromLocationId
+      ? await prisma.location.findUnique({ where: { id: result.order.fromLocationId }, select: { name: true } })
           .then((l) => l?.name ?? "")
           .catch(() => "")
       : "";
     sendPushNotification({
-      title: `🚚 Goods Out — ${result.orderNumber}`,
+      title: `🚚 Goods Out — ${result.order.orderNumber}`,
       body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQty} units dispatched${fromName ? ` from ${fromName}` : ""}`,
-      url: `/orders/${result.id}`,
+      url: `/orders/${result.order.id}`,
     }).catch(() => {});
   }
   // ─────────────────────────────────────────────────────────────────────────
 
-  return NextResponse.json({ order: result, warnings }, { status: 201 });
+  return NextResponse.json({ order: result.order, warnings }, { status: 201 });
 }

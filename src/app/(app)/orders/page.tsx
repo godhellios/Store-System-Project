@@ -88,6 +88,9 @@ export default async function OrdersPage({
                 <span>{o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}</span>
               </div>
               {o.reference && <div className="text-xs text-slate-400 mt-1">{o.reference}</div>}
+              {o.createdByName && (
+                <div className="text-xs text-slate-400 mt-1">Disimpan oleh: <span className="text-slate-600 font-medium">{o.createdByName}</span></div>
+              )}
               <div className="mt-2 text-right">
                 <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 font-medium">View →</Link>
               </div>
@@ -107,13 +110,14 @@ export default async function OrdersPage({
                 <th className="px-4 py-2.5 text-left font-medium">Location(s)</th>
                 <th className="px-4 py-2.5 text-left font-medium">Qty · Categories</th>
                 <th className="px-4 py-2.5 text-left font-medium">Reference</th>
+                <th className="px-4 py-2.5 text-left font-medium">Saved By</th>
                 <th className="px-4 py-2.5 text-left font-medium">Date</th>
                 <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
             <tbody>
               {orders.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No orders yet</td></tr>
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-xs">No orders yet</td></tr>
               ) : orders.map((o) => {
                 const { totalQty, catLabel } = summariseLines(o.lines);
                 return (
@@ -136,6 +140,7 @@ export default async function OrdersPage({
                       <div className="text-xs text-slate-400 mt-0.5">{catLabel || "—"}</div>
                     </td>
                     <td className="px-4 py-2.5 text-xs text-slate-400">{o.reference ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-600">{o.createdByName ?? <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-2.5 text-xs text-slate-500">
                       {o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
                     </td>

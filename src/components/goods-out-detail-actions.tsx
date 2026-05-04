@@ -8,7 +8,7 @@ type OrderLine = {
 };
 
 function buildWhatsAppUrl({
-  orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, createdAt,
+  orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, createdAt, savedBy,
 }: {
   orderNumber: string;
   customer: string | null;
@@ -17,6 +17,7 @@ function buildWhatsAppUrl({
   notes: string | null;
   whatsappNumber: string;
   createdAt: Date;
+  savedBy?: string | null;
 }): string {
   const date = new Date(createdAt).toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
   const totalBaseUnits = lines.reduce((s, l) => s + l.quantity, 0);
@@ -31,6 +32,7 @@ function buildWhatsAppUrl({
     `*SURAT JALAN / DELIVERY ORDER*`,
     `No. DO: *${orderNumber}*`,
     `Tanggal: ${date}`,
+    ...(savedBy          ? [`Oleh: *${savedBy}*`]        : []),
     ...(customer         ? [`Customer: *${customer}*`]   : []),
     ...(fromLocationName ? [`Dari: ${fromLocationName}`] : []),
     ``,
@@ -47,7 +49,7 @@ function buildWhatsAppUrl({
 }
 
 export function GoodsOutDetailActions({
-  orderId, orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, createdAt,
+  orderId, orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, createdAt, savedBy,
 }: {
   orderId: string;
   orderNumber: string;
@@ -57,9 +59,10 @@ export function GoodsOutDetailActions({
   notes: string | null;
   whatsappNumber: string;
   createdAt: Date;
+  savedBy?: string | null;
 }) {
   function handleResendWhatsApp() {
-    const url = buildWhatsAppUrl({ orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, createdAt });
+    const url = buildWhatsAppUrl({ orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, createdAt, savedBy });
     window.open(url, "_blank", "noopener,noreferrer");
     fetch(`/api/orders/${orderId}/status`, {
       method: "PATCH",

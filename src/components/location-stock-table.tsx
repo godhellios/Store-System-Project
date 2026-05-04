@@ -54,8 +54,9 @@ export function LocationStockTable({ stock, categories }: Props) {
   });
 
   const totalQty = filtered.reduce((sum, s) => sum + s.quantity, 0);
+  const negativeCount = filtered.filter((s) => s.product.isActive && s.quantity < 0).length;
   const lowCount = filtered.filter(
-    (s) => s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint
+    (s) => s.product.isActive && s.quantity >= 0 && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint
   ).length;
 
   return (
@@ -82,6 +83,12 @@ export function LocationStockTable({ stock, categories }: Props) {
           <span>{filtered.length} product{filtered.length !== 1 ? "s" : ""}</span>
           <span>·</span>
           <span>{totalQty} units total</span>
+          {negativeCount > 0 && (
+            <>
+              <span>·</span>
+              <span className="text-orange-600 font-medium">{negativeCount} negative</span>
+            </>
+          )}
           {lowCount > 0 && (
             <>
               <span>·</span>
@@ -96,9 +103,10 @@ export function LocationStockTable({ stock, categories }: Props) {
         {filtered.length === 0 ? (
           <p className="text-center text-xs text-slate-400 py-10">No items found</p>
         ) : filtered.map((s) => {
-          const isLow = s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
+          const isNegative = s.product.isActive && s.quantity < 0;
+          const isLow = s.product.isActive && !isNegative && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
           return (
-            <div key={s.id} className={`bg-white dark:bg-slate-800 rounded-xl border px-4 py-3 ${!s.product.isActive ? "opacity-60 border-slate-200 dark:border-slate-700" : isLow ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40" : "border-slate-200 dark:border-slate-700"}`}>
+            <div key={s.id} className={`bg-white dark:bg-slate-800 rounded-xl border px-4 py-3 ${!s.product.isActive ? "opacity-60 border-slate-200 dark:border-slate-700" : isNegative ? "border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950/40" : isLow ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40" : "border-slate-200 dark:border-slate-700"}`}>
               <div className="flex items-start justify-between gap-2 mb-1">
                 <div className="min-w-0">
                   <div className={`font-medium text-sm ${!s.product.isActive ? "text-slate-400 line-through" : "text-slate-800"}`}>
@@ -109,6 +117,8 @@ export function LocationStockTable({ stock, categories }: Props) {
                 </div>
                 {!s.product.isActive ? (
                   <span className="flex-shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Inactive</span>
+                ) : isNegative ? (
+                  <span className="flex-shrink-0 text-[10px] font-semibold bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Negative</span>
                 ) : isLow ? (
                   <span className="flex-shrink-0 text-[10px] font-semibold bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Low</span>
                 ) : (
@@ -116,7 +126,7 @@ export function LocationStockTable({ stock, categories }: Props) {
                 )}
               </div>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className={`font-semibold text-sm ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>{s.quantity}</span>
+                <span className={`font-semibold text-sm ${!s.product.isActive ? "text-slate-400" : isNegative ? "text-orange-600 dark:text-orange-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>{s.quantity}</span>
                 <span className="text-xs text-slate-500">{s.product.unit.name.toLowerCase()}</span>
                 {s.product.reorderPoint > 0 && (
                   <span className="text-xs text-slate-400">· reorder at {s.product.reorderPoint}</span>
@@ -171,12 +181,12 @@ export function LocationStockTable({ stock, categories }: Props) {
                 </tr>
               ) : (
                 filtered.map((s) => {
-                  const isLow =
-                    s.product.isActive &&
-                    s.product.reorderPoint > 0 &&
-                    s.quantity <= s.product.reorderPoint;
+                  const isNegative = s.product.isActive && s.quantity < 0;
+                  const isLow = s.product.isActive && !isNegative && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
                   const rowBg = !s.product.isActive
                     ? "opacity-50"
+                    : isNegative
+                    ? "bg-orange-50 dark:bg-orange-950/40"
                     : isLow
                     ? "bg-red-50 dark:bg-red-950/40"
                     : "hover:bg-slate-50 dark:hover:bg-slate-700/50";
@@ -196,7 +206,7 @@ export function LocationStockTable({ stock, categories }: Props) {
                       </td>
                       <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.category.name}</td>
                       <td className="px-4 py-2.5 text-right">
-                        <span className={`font-semibold ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>
+                        <span className={`font-semibold ${!s.product.isActive ? "text-slate-400" : isNegative ? "text-orange-600 dark:text-orange-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>
                           {s.quantity}
                         </span>
                         <span className="text-xs text-slate-400 ml-1">{s.product.unit.name.toLowerCase()}</span>
@@ -209,6 +219,8 @@ export function LocationStockTable({ stock, categories }: Props) {
                       <td className="px-4 py-2.5">
                         {!s.product.isActive ? (
                           <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-400 uppercase tracking-wide">Inactive</span>
+                        ) : isNegative ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700 uppercase tracking-wide">Negative</span>
                         ) : isLow ? (
                           <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-600 uppercase tracking-wide">Low</span>
                         ) : (

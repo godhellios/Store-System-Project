@@ -48,6 +48,7 @@ export default async function OpnamePage() {
               <th className="px-4 py-2.5 text-left font-medium">Location</th>
               <th className="px-4 py-2.5 text-left font-medium">Status</th>
               <th className="px-4 py-2.5 text-left font-medium">Lines</th>
+              <th className="px-4 py-2.5 text-left font-medium">Done By</th>
               <th className="px-4 py-2.5 text-left font-medium">Created</th>
               <th className="px-4 py-2.5 text-left font-medium">Approved</th>
               <th className="px-4 py-2.5"></th>
@@ -55,7 +56,7 @@ export default async function OpnamePage() {
           </thead>
           <tbody>
             {sessions.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No opname sessions yet</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-xs">No opname sessions yet</td></tr>
             ) : sessions.map((s) => (
               <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
                 <td className="px-4 py-2.5 font-mono font-semibold text-blue-600 text-xs">{s.sessionNumber}</td>
@@ -66,11 +67,17 @@ export default async function OpnamePage() {
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-slate-600">{s._count.lines}</td>
+                <td className="px-4 py-2.5 text-xs text-slate-600">{s.createdByName ?? <span className="text-slate-300">—</span>}</td>
                 <td className="px-4 py-2.5 text-xs text-slate-500">
                   {s.createdAt.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" })}
                 </td>
                 <td className="px-4 py-2.5 text-xs text-slate-500">
-                  {s.approvedAt ? s.approvedAt.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }) : "—"}
+                  {s.approvedAt ? (
+                    <>
+                      <div>{s.approvedAt.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" })}</div>
+                      {s.approvedByName && <div className="text-slate-400">{s.approvedByName}</div>}
+                    </>
+                  ) : "—"}
                 </td>
                 <td className="px-4 py-2.5 flex gap-3 items-center">
                   <Link href={`/opname/${s.id}`} className="text-xs text-blue-600 hover:underline">

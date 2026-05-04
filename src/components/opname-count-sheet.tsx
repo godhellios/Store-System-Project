@@ -8,7 +8,7 @@ type Line = {
   id: string; bookQty: number; physicalQty: number | null; difference: number | null; notes: string | null;
   product: { name: string; sku: string; category: { name: string }; unit: { name: string } };
 };
-type Session = { id: string; sessionNumber: string; status: string; notes: string | null; lines: Line[] };
+type Session = { id: string; sessionNumber: string; status: string; notes: string | null; createdByName?: string | null; approvedByName?: string | null; lines: Line[] };
 
 export function OpnameCountSheet({ session }: { session: Session }) {
   const router = useRouter();
@@ -76,10 +76,28 @@ export function OpnameCountSheet({ session }: { session: Session }) {
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
         <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-500">
           <span>{filledCount}/{session.lines.length} counted · {discrepancies} discrepanc{discrepancies !== 1 ? "ies" : "y"}</span>
-          <span className={`font-medium ${session.status === "APPROVED" ? "text-green-600" : session.status === "REVIEWING" ? "text-blue-600" : "text-yellow-600"}`}>
-            {session.status.replace("_", " ")}
-          </span>
+          <div className="flex items-center gap-2">
+            {session.status === "APPROVED" && session.approvedByName && (
+              <span className="text-slate-400">Disetujui oleh <span className="font-medium text-slate-600">{session.approvedByName}</span></span>
+            )}
+            {session.status !== "APPROVED" && session.createdByName && (
+              <span className="text-slate-400">Oleh <span className="font-medium text-slate-600">{session.createdByName}</span></span>
+            )}
+            <span className={`font-medium ${session.status === "APPROVED" ? "text-green-600" : session.status === "REVIEWING" ? "text-blue-600" : "text-yellow-600"}`}>
+              {session.status.replace("_", " ")}
+            </span>
+          </div>
         </div>
+
+        {/* Done-by banner — visible only when reviewing */}
+        {isReviewing && session.createdByName && (
+          <div className="px-5 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 text-xs text-slate-500">
+            <svg className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+            </svg>
+            <span>Dilakukan oleh: <span className="font-semibold text-slate-700">{session.createdByName}</span></span>
+          </div>
+        )}
 
         {/* Mobile card list */}
         <div className="md:hidden divide-y divide-slate-100">

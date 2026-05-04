@@ -21,7 +21,7 @@ type UnitRow = {
   _count: { products: number };
 };
 
-const TABS = ["Categories", "Units", "Locations", "Notifications"];
+const TABS = ["Categories", "Units", "Locations", "Notifications", "Login History"];
 
 // Generic manager for categories and locations
 function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: string; hasType?: boolean }) {
@@ -619,6 +619,131 @@ function NotificationsManager() {
   );
 }
 
+type LoginLogRow = {
+  id: string;
+  userName: string;
+  email: string;
+  ip: string | null;
+  userAgent: string | null;
+  lat: number | null;
+  lng: number | null;
+  createdAt: string;
+};
+
+function LoginHistoryTab() {
+  const [logs, setLogs] = useState<LoginLogRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  async function load(p: number) {
+    setLoading(true);
+    const res = await fetch(`/api/login-logs?page=${p}`);
+    if (res.ok) {
+      const data = await res.json();
+      setLogs(data.logs);
+      setTotal(data.total);
+      setPage(data.page);
+      setPages(data.pages);
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => { load(1); }, []);
+
+  function formatUA(ua: string | null) {
+    if (!ua) return "—";
+    if (/Mobile|Android|iPhone|iPad/i.test(ua)) {
+      const match = ua.match(/(Android|iPhone|iPad)[^;)]*/) ?? ua.match(/Mobile[^;)]*/);
+      return match ? match[0] : "Mobile";
+    }
+    if (/Chrome\/(\d+)/i.test(ua)) return `Chrome ${ua.match(/Chrome\/(\d+)/i)?.[1]}`;
+    if (/Firefox\/(\d+)/i.test(ua)) return `Firefox ${ua.match(/Firefox\/(\d+)/i)?.[1]}`;
+    if (/Safari\/(\d+)/i.test(ua) && !/Chrome/i.test(ua)) return `Safari`;
+    if (/Edg\/(\d+)/i.test(ua)) return `Edge ${ua.match(/Edg\/(\d+)/i)?.[1]}`;
+    return ua.slice(0, 40);
+  }
+
+  function formatTime(iso: string) {
+    const d = new Date(iso);
+    return d.toLocaleString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) + " WIB";
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-slate-500">{total} login event{total !== 1 ? "s" : ""} recorded</p>
+        <button onClick={() => load(page)} className="text-xs text-blue-600 hover:underline">Refresh</button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                <th className="px-4 py-2.5 text-left font-medium">Time (WIB)</th>
+                <th className="px-4 py-2.5 text-left font-medium">User</th>
+                <th className="px-4 py-2.5 text-left font-medium">IP Address</th>
+                <th className="px-4 py-2.5 text-left font-medium">Device / Browser</th>
+                <th className="px-4 py-2.5 text-left font-medium">Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-xs text-slate-400">Loading…</td></tr>
+              ) : logs.length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-xs text-slate-400">No login history yet</td></tr>
+              ) : logs.map((log) => (
+                <tr key={log.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-2.5 text-xs text-slate-500 whitespace-nowrap">{formatTime(log.createdAt)}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="font-medium text-slate-800 text-sm">{log.userName}</div>
+                    <div className="text-xs text-slate-400">{log.email}</div>
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{log.ip ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500">{formatUA(log.userAgent)}</td>
+                  <td className="px-4 py-2.5 text-xs">
+                    {log.lat != null && log.lng != null ? (
+                      <a
+                        href={`https://www.google.com/maps?q=${log.lat},${log.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        </svg>
+                        Maps
+                      </a>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button onClick={() => load(page - 1)} disabled={page <= 1}
+            className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-40">
+            Previous
+          </button>
+          <span className="text-xs text-slate-500">Page {page} of {pages}</span>
+          <button onClick={() => load(page + 1)} disabled={page >= pages}
+            className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-40">
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -645,6 +770,11 @@ export default function SettingsPage() {
       {tab === 1 && <UnitManager />}
       {tab === 2 && <LocationManager />}
       {tab === 3 && <NotificationsManager />}
+      {tab === 4 && (
+        session?.user.role === "ADMIN"
+          ? <LoginHistoryTab />
+          : <p className="text-sm text-slate-400">Admin access required.</p>
+      )}
     </div>
   );
 }

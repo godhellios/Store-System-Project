@@ -39,14 +39,27 @@ enum UserRole {
 // ─── Models ──────────────────────────────────────────────
 
 model User {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  password        String
+  role            UserRole @default(STAFF)
+  isActive        Boolean  @default(true)
+  activeSessionId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model LoginLog {
   id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      UserRole @default(STAFF)
-  isActive  Boolean  @default(true)
+  userId    String?
+  userName  String
+  email     String
+  ip        String?
+  userAgent String?
+  lat       Float?
+  lng       Float?
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 // User-managed units of measure (editable from Settings)
@@ -151,6 +164,7 @@ model Order {
   customer       String?
   reference      String?
   notes          String?
+  createdByName  String?
   createdAt      DateTime  @default(now())
   whatsappSentAt DateTime?
   printedAt      DateTime?
@@ -200,8 +214,10 @@ model OpnameSession {
   locationId    String
   status        OpnameStatus @default(IN_PROGRESS)
   notes         String?
-  createdAt     DateTime     @default(now())
-  approvedAt    DateTime?
+  createdByName  String?
+  approvedByName String?
+  createdAt      DateTime     @default(now())
+  approvedAt     DateTime?
 
   lines OpnameLine[]
 }

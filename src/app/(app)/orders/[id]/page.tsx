@@ -65,6 +65,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 notes={order.notes}
                 whatsappNumber={whatsappNumber}
                 createdAt={order.createdAt}
+                savedBy={order.createdByName}
               />
             </>
           )}

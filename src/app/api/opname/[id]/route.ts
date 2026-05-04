@@ -117,7 +117,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const updated = await prisma.opnameSession.update({
       where: { id },
-      data: { status: "APPROVED", approvedAt: new Date() },
+      data: { status: "APPROVED", approvedAt: new Date(), approvedByName: session.user.name ?? null },
     });
     return NextResponse.json(updated);
   }

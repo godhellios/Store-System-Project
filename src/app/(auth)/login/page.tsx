@@ -1,8 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+
+function DisplacedBanner() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("reason") !== "displaced") return null;
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm text-amber-700">
+      Sesi Anda telah digantikan oleh login dari perangkat lain. Silakan login kembali.
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,6 +37,8 @@ export default function LoginPage() {
     if (res?.error) {
       setError("Invalid email or password.");
     } else {
+      sessionStorage.setItem("captureLoginGeo", "1");
+      sessionStorage.setItem("session_alive", "1");
       router.push("/dashboard");
       router.refresh();
     }
@@ -42,6 +54,10 @@ export default function LoginPage() {
           </span>
           <p className="mt-1 text-sm text-gray-500">Mitra Ramah Inventory System</p>
         </div>
+
+        <Suspense>
+          <DisplacedBanner />
+        </Suspense>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -90,7 +106,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-gray-400">
-          © 2026 Mitra Ramah — MRIs v1.3.1
+          © 2026 Mitra Ramah — MRIs v1.3.2
         </p>
       </div>
     </div>
