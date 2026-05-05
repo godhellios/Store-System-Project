@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nextOrderNumber } from "@/lib/order-number";
 import { MovementType } from "@/generated/prisma";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -88,6 +89,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             type: "ADJUSTMENT",
             toLocationId: fullSession!.locationId,
             notes: `Stock Opname approval: ${fullSession!.sessionNumber}`,
+            adjustmentStatus: "APPROVED",
+            adjustmentReason: "Stock Opname",
+            reviewedByName: session.user.name ?? null,
+            reviewedAt: new Date(),
           },
         });
 
@@ -119,6 +124,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       where: { id },
       data: { status: "APPROVED", approvedAt: new Date(), approvedByName: session.user.name ?? null },
     });
+
+    writeAuditLog({ session, action: "APPROVE_OPNAME", description: `Approved opname ${fullSession!.sessionNumber} — ${discrepancies.length} adjustment(s)`, entityId: id, entityType: "OPNAME" });
+
     return NextResponse.json(updated);
   }
 

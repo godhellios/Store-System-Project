@@ -6,6 +6,7 @@ import { MovementType, OrderType } from "@/generated/prisma";
 // ── push-notify module ──────────────────────────────────────────────────────
 import { sendPushNotification } from "@/modules/push-notify/send";
 // ────────────────────────────────────────────────────────────────────────────
+import { writeAuditLog } from "@/lib/audit-log";
 
 const ORDER_PREFIX: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "OUT", TRANSFER: "TRF", ADJUSTMENT: "ADJ",
@@ -84,6 +85,32 @@ export async function POST(req: Request) {
     ADJUSTMENT: MovementType.ADJUSTMENT,
   };
 
+  // ── Pre-validate stock for GOODS_OUT and TRANSFER ──────────────────────────
+  if (type === "GOODS_OUT" || type === "TRANSFER") {
+    const locationId = fromLocationId!;
+    const stockRecords = await prisma.stock.findMany({
+      where: { productId: { in: lines.map((l) => l.productId) }, locationId },
+      include: { product: true },
+    });
+    const stockMap = new Map(stockRecords.map((s) => [s.productId, s]));
+    const insufficient: string[] = [];
+    for (const line of lines) {
+      const available = stockMap.get(line.productId)?.quantity ?? 0;
+      if (available < line.quantity) {
+        const name = stockMap.get(line.productId)?.product.name ?? line.productId;
+        insufficient.push(`"${name}" — available: ${available}, requested: ${line.quantity}`);
+      }
+    }
+    if (insufficient.length > 0)
+      return NextResponse.json(
+        { error: `Insufficient stock:\n${insufficient.join("\n")}` },
+        { status: 400 }
+      );
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const { adjustmentReason } = body as { adjustmentReason?: string };
+  const isManualAdjustment = type === "ADJUSTMENT";
   const warnings: string[] = [];
 
   let result!: { order: { id: string; orderNumber: string; fromLocationId: string | null }; txWarnings: string[] };
@@ -101,7 +128,11 @@ export async function POST(req: Request) {
       const orderNumber = `${prefix}-${year}-${String(lastNum + 1).padStart(4, "0")}`;
 
       const order = await tx.order.create({
-        data: { orderNumber, type, fromLocationId, toLocationId, customer, reference, notes, createdByName: session.user.name ?? null },
+        data: {
+          orderNumber, type, fromLocationId, toLocationId, customer, reference, notes,
+          createdByName: session.user.name ?? null,
+          ...(isManualAdjustment ? { adjustmentStatus: "PENDING", adjustmentReason: adjustmentReason ?? null } : {}),
+        },
       });
 
       for (const line of lines) {
@@ -123,7 +154,7 @@ export async function POST(req: Request) {
             productId: line.productId,
             fromLocationId: fromLocationId ?? null,
             toLocationId: toLocationId ?? null,
-            quantity: line.quantity,
+            quantity: Math.abs(line.quantity),
             type: MOVEMENT_TYPE[type],
           },
         });
@@ -135,30 +166,12 @@ export async function POST(req: Request) {
             update: { quantity: { increment: line.quantity } },
           });
         } else if (type === "GOODS_OUT") {
-          const current = await tx.stock.findUnique({
-            where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
-            include: { product: true },
-          });
-          const currentQty = current?.quantity ?? 0;
-          const newQty = currentQty - line.quantity;
-          if (newQty < 0) {
-            txWarnings.push(`Stock went negative: "${current?.product.name ?? line.productId}" — was ${currentQty}, now ${newQty}`);
-          }
           await tx.stock.upsert({
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
             create: { productId: line.productId, locationId: fromLocationId!, quantity: -line.quantity },
             update: { quantity: { decrement: line.quantity } },
           });
         } else if (type === "TRANSFER") {
-          const current = await tx.stock.findUnique({
-            where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
-            include: { product: true },
-          });
-          const currentQty = current?.quantity ?? 0;
-          const newQty = currentQty - line.quantity;
-          if (newQty < 0) {
-            txWarnings.push(`Stock went negative: "${current?.product.name ?? line.productId}" — was ${currentQty}, now ${newQty}`);
-          }
           await tx.stock.upsert({
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
             create: { productId: line.productId, locationId: fromLocationId!, quantity: -line.quantity },
@@ -169,13 +182,8 @@ export async function POST(req: Request) {
             create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
             update: { quantity: { increment: line.quantity } },
           });
-        } else if (type === "ADJUSTMENT") {
-          await tx.stock.upsert({
-            where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
-            create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
-            update: { quantity: { increment: line.quantity } },
-          });
         }
+        // ADJUSTMENT: stock NOT updated here — deferred until admin approves
       }
 
       return { order, txWarnings };
@@ -203,6 +211,17 @@ export async function POST(req: Request) {
     }).catch(() => {});
   }
   // ─────────────────────────────────────────────────────────────────────────
+
+  const actionLabel: Record<string, string> = {
+    GRN: "CREATE_GRN", GOODS_OUT: "CREATE_GOODS_OUT", TRANSFER: "CREATE_TRANSFER", ADJUSTMENT: "CREATE_ADJUSTMENT",
+  };
+  writeAuditLog({
+    session,
+    action: actionLabel[type] ?? "CREATE_ORDER",
+    description: `${result.order.orderNumber} — ${lines.length} line${lines.length !== 1 ? "s" : ""}${isManualAdjustment ? " (pending approval)" : ""}`,
+    entityId: result.order.id,
+    entityType: "ORDER",
+  });
 
   return NextResponse.json({ order: result.order, warnings }, { status: 201 });
 }

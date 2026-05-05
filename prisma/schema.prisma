@@ -164,10 +164,15 @@ model Order {
   customer       String?
   reference      String?
   notes          String?
-  createdByName  String?
-  createdAt      DateTime  @default(now())
-  whatsappSentAt DateTime?
-  printedAt      DateTime?
+  createdByName     String?
+  createdAt         DateTime  @default(now())
+  whatsappSentAt    DateTime?
+  printedAt         DateTime?
+  adjustmentStatus  String?   // PENDING | APPROVED | REJECTED (null for non-ADJUSTMENT orders)
+  adjustmentReason  String?
+  reviewedByName    String?
+  reviewedAt        DateTime?
+  reviewNote        String?
 
   lines     OrderLine[]
   movements Movement[]
@@ -220,6 +225,19 @@ model OpnameSession {
   approvedAt     DateTime?
 
   lines OpnameLine[]
+}
+
+// Append-only record of every significant write action in the system
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  userName    String
+  userRole    String
+  action      String
+  description String
+  entityId    String?
+  entityType  String?
+  createdAt   DateTime @default(now())
 }
 
 // App-wide key-value configuration store

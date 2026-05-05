@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -45,6 +46,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     prisma.stock.deleteMany({ where: { productId: id } }),
     prisma.product.delete({ where: { id } }),
   ]);
+
+  writeAuditLog({ session, action: "DELETE_PRODUCT", description: `Deleted "${product.name}" (${product.sku})`, entityId: id, entityType: "PRODUCT" });
 
   return NextResponse.json({ success: true });
 }
@@ -98,6 +101,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     },
     include: { category: true, unit: true, unitConversions: true },
   });
+
+  writeAuditLog({ session, action: "EDIT_PRODUCT", description: `Edited "${product.name}" (${product.sku})`, entityId: id, entityType: "PRODUCT" });
 
   return NextResponse.json(product);
 }

@@ -24,6 +24,7 @@ const nav = [
       { href: "/transactions/grn", label: "Goods Received (GRN)", icon: "↓" },
       { href: "/transactions/goods-out", label: "Goods Out Order", icon: "↑" },
       { href: "/transactions/transfer", label: "Transfer", icon: "⇄" },
+      { href: "/transactions/adjustment", label: "Stock Adjustment", icon: "±" },
     ],
   },
   {
@@ -51,6 +52,7 @@ const nav = [
     links: [
       { href: "/settings", label: "Settings", icon: "⚙" },
       { href: "/settings/users", label: "User Management", icon: "↳", indent: true, small: true },
+      { href: "/settings/audit-log", label: "Audit Log", icon: "↳", indent: true, small: true, adminOnly: true },
     ],
   },
 ];
@@ -104,7 +106,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
               <div className="px-4 pt-3.5 pb-1 text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-300 font-semibold">
                 {section}
               </div>
-              {links.map(({ href, label, icon, indent, small }) => {
+              {links.filter(({ adminOnly }) => !adminOnly || role === "ADMIN").map(({ href, label, icon, indent, small }) => {
                 const active =
                   pathname === href ||
                   (href !== "/dashboard" && pathname.startsWith(href));

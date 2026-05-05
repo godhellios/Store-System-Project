@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MovementType, OrderType } from "@/generated/prisma";
+import { writeAuditLog } from "@/lib/audit-log";
 
 const MOVEMENT_TYPE: Record<OrderType, MovementType> = {
   GRN: MovementType.IN,
@@ -30,6 +31,51 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   return NextResponse.json(order);
 }
 
+// ── Approve or reject a PENDING manual stock adjustment ────────────────────
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (session.user.role !== "ADMIN")
+    return NextResponse.json({ error: "Only admins can approve or reject adjustments" }, { status: 403 });
+
+  const { id } = await params;
+  const { action, note } = (await req.json()) as { action: "approve" | "reject"; note?: string };
+  if (!["approve", "reject"].includes(action))
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+
+  const order = await prisma.order.findUnique({ where: { id }, include: { lines: true } });
+  if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (order.type !== "ADJUSTMENT" || order.adjustmentStatus !== "PENDING")
+    return NextResponse.json({ error: "Only pending adjustment orders can be reviewed" }, { status: 400 });
+
+  if (action === "approve") {
+    await prisma.$transaction(async (tx) => {
+      for (const line of order.lines) {
+        if (!order.toLocationId) continue;
+        await tx.stock.upsert({
+          where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
+          create: { productId: line.productId, locationId: order.toLocationId, quantity: line.quantity },
+          update: { quantity: { increment: line.quantity } },
+        });
+      }
+      await tx.order.update({
+        where: { id },
+        data: { adjustmentStatus: "APPROVED", reviewedByName: session.user.name ?? null, reviewedAt: new Date(), reviewNote: note ?? null },
+      });
+    });
+    writeAuditLog({ session, action: "APPROVE_ADJUSTMENT", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
+  } else {
+    await prisma.order.update({
+      where: { id },
+      data: { adjustmentStatus: "REJECTED", reviewedByName: session.user.name ?? null, reviewedAt: new Date(), reviewNote: note ?? null },
+    });
+    writeAuditLog({ session, action: "REJECT_ADJUSTMENT", description: `Rejected ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
+  }
+
+  return NextResponse.json({ success: true });
+}
+// ───────────────────────────────────────────────────────────────────────────
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -37,6 +83,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  const existing = await prisma.order.findUnique({ where: { id } });
+  if (existing?.type === "ADJUSTMENT" && existing.adjustmentStatus !== "PENDING")
+    return NextResponse.json({ error: "Approved or rejected adjustments cannot be edited" }, { status: 400 });
+
   const body = await req.json();
   const { customer, reference, notes, lines } = body as {
     customer?: string | null;
@@ -57,8 +107,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         });
         if (!current) throw new Error("Order not found");
 
-        // 1. Reverse stock for all existing lines
+        // 1. Reverse stock for all existing lines (skip PENDING adjustments — stock was never applied)
+        const skipStock = current.type === "ADJUSTMENT" && current.adjustmentStatus === "PENDING";
         for (const old of current.lines) {
+          if (skipStock) continue;
           if (current.type === "GRN" && current.toLocationId) {
             await tx.stock.updateMany({
               where: { productId: old.productId, locationId: current.toLocationId },
@@ -125,35 +177,32 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             },
           });
 
-          if (current.type === "GRN" && current.toLocationId) {
-            await tx.stock.upsert({
-              where: { productId_locationId: { productId: line.productId, locationId: current.toLocationId } },
-              create: { productId: line.productId, locationId: current.toLocationId, quantity: line.quantity },
-              update: { quantity: { increment: line.quantity } },
-            });
-          } else if (current.type === "GOODS_OUT" && current.fromLocationId) {
-            await tx.stock.upsert({
-              where: { productId_locationId: { productId: line.productId, locationId: current.fromLocationId } },
-              create: { productId: line.productId, locationId: current.fromLocationId, quantity: -line.quantity },
-              update: { quantity: { decrement: line.quantity } },
-            });
-          } else if (current.type === "TRANSFER" && current.fromLocationId && current.toLocationId) {
-            await tx.stock.upsert({
-              where: { productId_locationId: { productId: line.productId, locationId: current.fromLocationId } },
-              create: { productId: line.productId, locationId: current.fromLocationId, quantity: -line.quantity },
-              update: { quantity: { decrement: line.quantity } },
-            });
-            await tx.stock.upsert({
-              where: { productId_locationId: { productId: line.productId, locationId: current.toLocationId } },
-              create: { productId: line.productId, locationId: current.toLocationId, quantity: line.quantity },
-              update: { quantity: { increment: line.quantity } },
-            });
-          } else if (current.type === "ADJUSTMENT" && current.toLocationId) {
-            await tx.stock.upsert({
-              where: { productId_locationId: { productId: line.productId, locationId: current.toLocationId } },
-              create: { productId: line.productId, locationId: current.toLocationId, quantity: line.quantity },
-              update: { quantity: { increment: line.quantity } },
-            });
+          if (!skipStock) {
+            if (current.type === "GRN" && current.toLocationId) {
+              await tx.stock.upsert({
+                where: { productId_locationId: { productId: line.productId, locationId: current.toLocationId } },
+                create: { productId: line.productId, locationId: current.toLocationId, quantity: line.quantity },
+                update: { quantity: { increment: line.quantity } },
+              });
+            } else if (current.type === "GOODS_OUT" && current.fromLocationId) {
+              await tx.stock.upsert({
+                where: { productId_locationId: { productId: line.productId, locationId: current.fromLocationId } },
+                create: { productId: line.productId, locationId: current.fromLocationId, quantity: -line.quantity },
+                update: { quantity: { decrement: line.quantity } },
+              });
+            } else if (current.type === "TRANSFER" && current.fromLocationId && current.toLocationId) {
+              await tx.stock.upsert({
+                where: { productId_locationId: { productId: line.productId, locationId: current.fromLocationId } },
+                create: { productId: line.productId, locationId: current.fromLocationId, quantity: -line.quantity },
+                update: { quantity: { decrement: line.quantity } },
+              });
+              await tx.stock.upsert({
+                where: { productId_locationId: { productId: line.productId, locationId: current.toLocationId } },
+                create: { productId: line.productId, locationId: current.toLocationId, quantity: line.quantity },
+                update: { quantity: { increment: line.quantity } },
+              });
+            }
+            // ADJUSTMENT edits on PENDING: stock still not applied — stays deferred to approval
           }
         }
       });
@@ -196,6 +245,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const order = await prisma.order.findUnique({ where: { id }, include: { lines: true } });
   if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (order.type === "ADJUSTMENT" && order.adjustmentStatus === "APPROVED")
+    return NextResponse.json({ error: "Approved adjustments cannot be deleted. Create a corrective adjustment instead." }, { status: 400 });
 
   await prisma.$transaction(async (tx) => {
     for (const line of order.lines) {
@@ -228,6 +279,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     await tx.movement.deleteMany({ where: { orderId: id } });
     await tx.order.delete({ where: { id } });
   });
+
+  writeAuditLog({ session, action: "DELETE_ORDER", description: `Deleted ${order.orderNumber} (${order.type})`, entityId: id, entityType: "ORDER" });
 
   return NextResponse.json({ success: true });
 }
