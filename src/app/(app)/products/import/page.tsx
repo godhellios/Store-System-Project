@@ -40,11 +40,11 @@ export default function BulkImportPage() {
 
   function downloadTemplate() {
     const csv =
-      "name,sku,barcode,category,unit,reorderPoint,colorVariant,description,packagingUnits\n" +
-      "Button #12 Black,BTN-12-BLK,MR123456,Button,Pack,50,Black,12mm black button,\n" +
-      "Zipper 20cm White,ZIP-20-WHT,,Zipper,Pack,20,White,,\n" +
-      "Thread Roll Red,THR-01-RED,,Textile,Roll,100,Red,,Box:12|Crate:144\n" +
-      "Thread Roll Blue,THR-01-BLU,,Textile,Roll,100,Blue,,Box:12:U-THR-BLU-BOX|Crate:144:U-THR-BLU-CRT\n";
+      "name,sku,barcode,category,unit,reorderPoint,colorVariant,description,packagingUnits,imageUrl\n" + // BULK_IMAGE_UPLOAD
+      "Button #12 Black,BTN-12-BLK,MR123456,Button,Pack,50,Black,12mm black button,,\n" +
+      "Zipper 20cm White,ZIP-20-WHT,,Zipper,Pack,20,White,,,\n" +
+      "Thread Roll Red,THR-01-RED,,Textile,Roll,100,Red,,Box:12|Crate:144,\n" +
+      "Thread Roll Blue,THR-01-BLU,,Textile,Roll,100,Blue,,Box:12:U-THR-BLU-BOX|Crate:144:U-THR-BLU-CRT,\n";
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })),
       download: "mris-import-template.csv",

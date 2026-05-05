@@ -9,6 +9,7 @@ export type RawRow = {
   reorderPoint?: string; colorVariant?: string; description?: string;
   // Format: "Box:12|Crate:144" or "Box:12:BARCODE|Crate:144:BARCODE"
   packagingUnits?: string;
+  imageUrl?: string; // BULK_IMAGE_UPLOAD
 };
 
 export type RowAction = "create" | "update" | "link" | "conflict" | "file_duplicate" | "invalid";

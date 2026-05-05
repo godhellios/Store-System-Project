@@ -48,3 +48,4 @@ next-env.d.ts
 *.sqlite
 
 .vercel
+.env*.local

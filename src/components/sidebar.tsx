@@ -13,6 +13,7 @@ const nav = [
       { href: "/products", label: "Products", icon: "⊞" },
       { href: "/products/add", label: "Add Product", icon: "↳", indent: true, small: true },
       { href: "/products/import", label: "Bulk Import", icon: "↳", indent: true, small: true },
+      { href: "/products/images", label: "Bulk Images", icon: "↳", indent: true, small: true }, // BULK_IMAGE_UPLOAD
       { href: "/warehouse", label: "Warehouse", icon: "⊟" },
     ],
   },

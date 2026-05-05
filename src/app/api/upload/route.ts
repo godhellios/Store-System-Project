@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { put } from "@vercel/blob";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -20,10 +19,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "File must be under 5 MB" }, { status: 400 });
   }
 
-  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const dir = join(process.cwd(), "public", "uploads", "products");
-  await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, fileName), Buffer.from(await file.arrayBuffer()));
+  const filename = `products/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const blob = await put(filename, file, { access: "public" });
 
-  return NextResponse.json({ url: `/uploads/products/${fileName}` });
+  return NextResponse.json({ url: blob.url });
 }

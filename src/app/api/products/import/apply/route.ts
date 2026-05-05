@@ -65,6 +65,7 @@ export async function POST(req: Request) {
             reorderPoint: parseInt(raw.reorderPoint ?? "0") || 0,
             colorVariant: raw.colorVariant?.trim() || null,
             description: raw.description?.trim() || null,
+            imageUrl: raw.imageUrl?.trim() || null, // BULK_IMAGE_UPLOAD
           },
         });
         await upsertUnitConversions(product.id, row.parsedUnitConversions ?? []);
@@ -78,6 +79,7 @@ export async function POST(req: Request) {
         if (raw.reorderPoint !== undefined) data.reorderPoint = parseInt(raw.reorderPoint) || 0;
         if (raw.colorVariant !== undefined) data.colorVariant = raw.colorVariant.trim() || null;
         if (raw.description !== undefined) data.description = raw.description.trim() || null;
+        if (raw.imageUrl !== undefined) data.imageUrl = raw.imageUrl.trim() || null; // BULK_IMAGE_UPLOAD
         const product = await prisma.product.update({ where: { id: existingProduct!.id }, data });
         if (row.parsedUnitConversions?.length) {
           await upsertUnitConversions(product.id, row.parsedUnitConversions);
