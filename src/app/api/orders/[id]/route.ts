@@ -277,7 +277,10 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     await tx.order.delete({ where: { id } });
   });
 
-  writeAuditLog({ session, action: "DELETE_ORDER", description: `Deleted ${order.orderNumber} (${order.type})`, entityId: id, entityType: "ORDER" });
+  const deleteDesc = order.type === "ADJUSTMENT"
+    ? `Deleted ${order.orderNumber} (ADJUSTMENT/${order.adjustmentStatus}${order.adjustmentStatus === "APPROVED" ? " — stock reversed" : ""})`
+    : `Deleted ${order.orderNumber} (${order.type})`;
+  writeAuditLog({ session, action: "DELETE_ORDER", description: deleteDesc, entityId: id, entityType: "ORDER" });
 
   return NextResponse.json({ success: true });
 }
