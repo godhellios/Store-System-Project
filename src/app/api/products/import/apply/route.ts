@@ -2,24 +2,20 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { generateSku } from "@/lib/sku";
+import { generateBaseBarcode, generateUnitBarcode } from "@/lib/barcode";
 import type { ClassifiedRow, ParsedUnitConversion } from "../preview/route";
 
-function genBarcode() {
-  return "MR" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
-}
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
-async function upsertUnitConversions(productId: string, units: ParsedUnitConversion[]) {
+async function upsertUnitConversions(productId: string, sku: string, units: ParsedUnitConversion[], tx: TransactionClient) {
   if (!units.length) return;
-  // Delete existing conversions then recreate — same pattern as product edit API
-  await prisma.productUnitConversion.deleteMany({ where: { productId } });
+  await tx.productUnitConversion.deleteMany({ where: { productId } });
   for (const uc of units) {
-    await prisma.productUnitConversion.create({
-      data: {
-        productId,
-        name: uc.name,
-        conversionFactor: uc.conversionFactor,
-        barcode: uc.barcode || genBarcode(),
-      },
+    const barcode = uc.barcode ||
+      generateUnitBarcode(sku, uc.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
+    await tx.productUnitConversion.create({
+      data: { productId, name: uc.name, conversionFactor: uc.conversionFactor, barcode },
     });
   }
 }
@@ -36,9 +32,12 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const isAdmin = session.user.role === "ADMIN";
+  const approvalStatus = isAdmin ? "ACTIVE" : "DRAFT";
+  const submitterName = session.user.name ?? session.user.email ?? null;
+
   const body = await req.json();
   const rows: ClassifiedRow[] = body.rows ?? [];
-  // conflictDecisions: { [index]: "create" | "skip" }
   const decisions: Record<number, "create" | "skip"> = body.conflictDecisions ?? {};
 
   const results: ApplyResult[] = [];
@@ -46,7 +45,6 @@ export async function POST(req: Request) {
   for (const row of rows) {
     const { index, action, blocked, raw, categoryId, unitId, existingProduct } = row;
 
-    // Always skip these
     if (action === "invalid" || action === "file_duplicate" || blocked) {
       results.push({ index, action, status: "skipped", message: row.issues[0] });
       continue;
@@ -54,59 +52,85 @@ export async function POST(req: Request) {
 
     try {
       if (action === "create") {
-        const barcode = raw.barcode?.trim() || genBarcode();
-        const product = await prisma.product.create({
-          data: {
-            name: raw.name!.trim(),
-            sku: raw.sku?.trim() || ("SKU-" + Date.now().toString(36).slice(-6).toUpperCase()),
-            barcode,
-            categoryId: categoryId!,
-            unitId: unitId!,
-            reorderPoint: parseInt(raw.reorderPoint ?? "0") || 0,
-            colorVariant: raw.colorVariant?.trim() || null,
-            description: raw.description?.trim() || null,
-            imageUrl: raw.imageUrl?.trim() || null, // BULK_IMAGE_UPLOAD
-          },
-        });
-        await upsertUnitConversions(product.id, row.parsedUnitConversions ?? []);
-        results.push({ index, action, status: "ok", productId: product.id });
-
-      } else if (action === "update" || action === "link") {
-        const data: Record<string, unknown> = {};
-        if (raw.name?.trim()) data.name = raw.name.trim();
-        if (categoryId) data.categoryId = categoryId;
-        if (unitId) data.unitId = unitId;
-        if (raw.reorderPoint !== undefined) data.reorderPoint = parseInt(raw.reorderPoint) || 0;
-        if (raw.colorVariant !== undefined) data.colorVariant = raw.colorVariant.trim() || null;
-        if (raw.description !== undefined) data.description = raw.description.trim() || null;
-        if (raw.imageUrl !== undefined) data.imageUrl = raw.imageUrl.trim() || null; // BULK_IMAGE_UPLOAD
-        const product = await prisma.product.update({ where: { id: existingProduct!.id }, data });
-        if (row.parsedUnitConversions?.length) {
-          await upsertUnitConversions(product.id, row.parsedUnitConversions);
-        }
-        results.push({ index, action, status: "ok", productId: product.id });
-
-      } else if (action === "conflict") {
-        const decision = decisions[index] ?? "skip";
-        if (decision === "skip") {
-          results.push({ index, action, status: "skipped", message: "Skipped by user" });
-        } else {
-          // User chose to create as new
-          const barcode = raw.barcode?.trim() || genBarcode();
-          const skuBase = raw.sku?.trim() || ("SKU-" + Date.now().toString(36).slice(-6).toUpperCase());
-          const product = await prisma.product.create({
+        const product = await prisma.$transaction(async (tx) => {
+          // Use explicit SKU from file if provided; otherwise auto-generate
+          const sku = raw.sku?.trim() || await generateSku(categoryId!, tx);
+          const barcode = raw.barcode?.trim() || generateBaseBarcode(sku);
+          const p = await tx.product.create({
             data: {
               name: raw.name!.trim(),
-              sku: skuBase,
+              sku,
               barcode,
               categoryId: categoryId!,
               unitId: unitId!,
               reorderPoint: parseInt(raw.reorderPoint ?? "0") || 0,
               colorVariant: raw.colorVariant?.trim() || null,
               description: raw.description?.trim() || null,
+              imageUrl: raw.imageUrl?.trim() || null,
+              approvalStatus,
+              ...(!isAdmin ? { pendingChangedBy: submitterName, pendingChangedAt: new Date() } : {}),
             },
           });
-          await upsertUnitConversions(product.id, row.parsedUnitConversions ?? []);
+          await upsertUnitConversions(p.id, sku, row.parsedUnitConversions ?? [], tx);
+          return p;
+        });
+        results.push({ index, action, status: "ok", productId: product.id });
+
+      } else if (action === "update" || action === "link") {
+        const changes: Record<string, unknown> = {};
+        if (raw.name?.trim()) changes.name = raw.name.trim();
+        if (categoryId) changes.categoryId = categoryId;
+        if (unitId) changes.unitId = unitId;
+        if (raw.reorderPoint !== undefined) changes.reorderPoint = parseInt(raw.reorderPoint) || 0;
+        if (raw.colorVariant !== undefined) changes.colorVariant = raw.colorVariant.trim() || null;
+        if (raw.description !== undefined) changes.description = raw.description.trim() || null;
+        if (raw.imageUrl !== undefined) changes.imageUrl = raw.imageUrl.trim() || null;
+        if (row.parsedUnitConversions?.length) changes.unitConversions = row.parsedUnitConversions;
+
+        if (!isAdmin) {
+          // Store as pending edit — requires admin approval
+          const product = await prisma.product.update({
+            where: { id: existingProduct!.id },
+            data: { pendingChanges: changes, pendingChangedBy: submitterName, pendingChangedAt: new Date() },
+          });
+          results.push({ index, action: action + " (pending)", status: "ok", productId: product.id });
+        } else {
+          const { unitConversions: _, ...directData } = changes;
+          const product = await prisma.$transaction(async (tx) => {
+            const p = await tx.product.update({ where: { id: existingProduct!.id }, data: directData });
+            if (row.parsedUnitConversions?.length) {
+              await upsertUnitConversions(p.id, p.sku, row.parsedUnitConversions, tx);
+            }
+            return p;
+          });
+          results.push({ index, action, status: "ok", productId: product.id });
+        }
+
+      } else if (action === "conflict") {
+        const decision = decisions[index] ?? "skip";
+        if (decision === "skip") {
+          results.push({ index, action, status: "skipped", message: "Skipped by user" });
+        } else {
+          const product = await prisma.$transaction(async (tx) => {
+            const sku = raw.sku?.trim() || await generateSku(categoryId!, tx);
+            const barcode = raw.barcode?.trim() || generateBaseBarcode(sku);
+            const p = await tx.product.create({
+              data: {
+                name: raw.name!.trim(),
+                sku,
+                barcode,
+                categoryId: categoryId!,
+                unitId: unitId!,
+                reorderPoint: parseInt(raw.reorderPoint ?? "0") || 0,
+                colorVariant: raw.colorVariant?.trim() || null,
+                description: raw.description?.trim() || null,
+                approvalStatus,
+                ...(!isAdmin ? { pendingChangedBy: submitterName, pendingChangedAt: new Date() } : {}),
+              },
+            });
+            await upsertUnitConversions(p.id, sku, row.parsedUnitConversions ?? [], tx);
+            return p;
+          });
           results.push({ index, action: "created (conflict resolved)", status: "ok", productId: product.id });
         }
       }

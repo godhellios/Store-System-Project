@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import RecentOrdersTable from "@/components/recent-orders-table";
 import { getT } from "@/modules/i18n";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 async function getDashboardData() {
   const today = new Date();
@@ -60,7 +62,13 @@ const LOC_HEADER: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
-  const [data, t] = await Promise.all([getDashboardData(), getT()]);
+  const [data, t, session] = await Promise.all([getDashboardData(), getT(), getServerSession(authOptions)]);
+  const isAdmin = session?.user.role === "ADMIN";
+  const pendingCount = isAdmin
+    ? await prisma.product.count({
+        where: { OR: [{ approvalStatus: "DRAFT" }, { pendingChangedAt: { not: null } }] },
+      })
+    : 0;
 
   return (
     <div>
@@ -71,6 +79,17 @@ export default async function DashboardPage() {
         <StatCard label={t("dashboard.ordersOutToday", "Orders Out Today")} value={data.ordersOutToday} sub={t("dashboard.issuedToday", "Issued today")} color="border-orange-400" />
         <StatCard label={t("dashboard.lowStockAlerts", "Low Stock Alerts")} value={data.lowStockCount} sub={t("dashboard.belowReorderPoint", "Below reorder point")} color="border-red-400" valueClass={data.lowStockCount > 0 ? "text-red-600 dark:text-red-400" : ""} />
       </div>
+      {isAdmin && pendingCount > 0 && (
+        <Link href="/products/pending" className="block mb-6">
+          <div className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-xl p-4 flex items-center justify-between hover:bg-amber-100 transition-colors">
+            <div>
+              <div className="text-sm font-semibold text-amber-800">{pendingCount} product{pendingCount !== 1 ? "s" : ""} awaiting approval</div>
+              <div className="text-xs text-amber-600 mt-0.5">Click to review and approve pending submissions</div>
+            </div>
+            <span className="text-amber-500 text-lg">⏳</span>
+          </div>
+        </Link>
+      )}
 
       {/* Low stock by location */}
       <div className="flex items-center justify-between mb-3">

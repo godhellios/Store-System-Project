@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { generateSku } from "@/lib/sku";
+import { generateBaseBarcode, generateUnitBarcode, validateBarcodeUniqueness } from "@/lib/barcode";
+import { findSimilarProducts } from "@/lib/duplicate-detect";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -15,13 +18,15 @@ export async function GET(req: Request) {
 
   const where = {
     isActive: true,
-    ...(q ? {
-      OR: [
+    AND: [
+      // Only ACTIVE (or legacy null) products visible in main list — DRAFTs live in /products/pending
+      { OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }] },
+      ...(q ? [{ OR: [
         { name: { contains: q, mode: "insensitive" as const } },
         { sku: { contains: q, mode: "insensitive" as const } },
         { barcode: { contains: q, mode: "insensitive" as const } },
-      ],
-    } : {}),
+      ]}] : []),
+    ],
     ...(categoryId ? { categoryId } : {}),
   };
 
@@ -43,81 +48,95 @@ export async function GET(req: Request) {
   return NextResponse.json({ products, total, page, pages: Math.ceil(total / perPage) });
 }
 
-function genBarcode(): string {
-  return "MR" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
-}
-
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { name, sku, barcode, categoryId, unitId, reorderPoint, colorVariant, description, imageUrl, unitConversions } = body;
+  const { name, categoryId, unitId, reorderPoint, colorVariant, description, imageUrl, unitConversions, force } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 });
   if (!categoryId) return NextResponse.json({ error: "Category is required" }, { status: 400 });
   if (!unitId) return NextResponse.json({ error: "Unit is required" }, { status: 400 });
 
-  // Auto-generate SKU if blank
-  let finalSku = sku?.trim();
-  if (!finalSku) {
-    const cat = await prisma.category.findUnique({ where: { id: categoryId }, select: { name: true } });
-    const prefix = (cat?.name ?? "PRD").slice(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, "X");
-    const total = await prisma.product.count();
-    let candidate = `${prefix}-${String(total + 1).padStart(4, "0")}`;
-    let attempt = 0;
-    while (await prisma.product.findUnique({ where: { sku: candidate } })) {
-      attempt++;
-      candidate = `${prefix}-${String(total + 1 + attempt).padStart(4, "0")}`;
+  // Fuzzy duplicate check — skipped when user explicitly confirms
+  if (!force) {
+    const duplicates = await findSimilarProducts(name.trim());
+    if (duplicates.length > 0) {
+      return NextResponse.json({ error: "Similar products found", duplicates }, { status: 409 });
     }
-    finalSku = candidate;
-  } else {
-    const conflict = await prisma.product.findUnique({ where: { sku: finalSku } });
-    if (conflict) return NextResponse.json({ error: "SKU already exists" }, { status: 409 });
   }
 
-  // Auto-generate barcode if blank
-  let finalBarcode = barcode?.trim();
-  if (!finalBarcode) {
-    let candidate = genBarcode();
-    while (await prisma.product.findUnique({ where: { barcode: candidate } })) {
-      candidate = genBarcode();
-    }
-    finalBarcode = candidate;
-  } else {
-    const conflict = await prisma.product.findUnique({ where: { barcode: finalBarcode } });
-    if (conflict) return NextResponse.json({ error: "Barcode already exists" }, { status: 409 });
-  }
+  const isAdmin = session.user.role === "ADMIN";
+  const approvalStatus = isAdmin ? "ACTIVE" : "DRAFT";
+  const createdByName = session.user.name ?? session.user.email ?? null;
 
   const validConversions = Array.isArray(unitConversions)
-    ? unitConversions.filter((c: { name?: string; conversionFactor?: number }) =>
-        c.name?.trim() && (c.conversionFactor ?? 0) > 0
+    ? unitConversions.filter(
+        (c: { name?: string; conversionFactor?: number }) =>
+          c.name?.trim() && (c.conversionFactor ?? 0) > 0
       )
     : [];
 
-  const product = await prisma.product.create({
-    data: {
-      name: name.trim(),
-      sku: finalSku,
-      barcode: finalBarcode,
-      categoryId,
-      unitId,
-      reorderPoint: parseInt(reorderPoint) || 0,
-      colorVariant: colorVariant?.trim() || null,
-      description: description?.trim() || null,
-      imageUrl: imageUrl?.trim() || null,
-      ...(validConversions.length > 0 ? {
-        unitConversions: {
-          create: validConversions.map((c: { name: string; conversionFactor: number; barcode?: string | null }) => ({
-            name: c.name.trim(),
-            conversionFactor: c.conversionFactor,
-            barcode: c.barcode?.trim() || null,
-          })),
-        },
-      } : {}),
-    },
-    include: { category: true, unit: true, unitConversions: true },
-  });
+  try {
+    const product = await prisma.$transaction(async (tx) => {
+      const sku = await generateSku(categoryId, tx);
+      const baseBarcode = generateBaseBarcode(sku);
 
-  return NextResponse.json(product, { status: 201 });
+      const conversionsWithBarcodes = validConversions.map(
+        (c: { name: string; conversionFactor: number; barcode?: string | null }) => {
+          const explicitBarcode = c.barcode?.trim() || null;
+          if (explicitBarcode) return { ...c, barcode: explicitBarcode };
+          // Derive suffix from conversion name (uppercase alphanumeric, max 5 chars)
+          const suffix = c.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+          return { ...c, barcode: generateUnitBarcode(sku, suffix) };
+        }
+      );
+
+      const allBarcodes = [
+        baseBarcode,
+        ...conversionsWithBarcodes.map((c: { barcode: string | null }) => c.barcode).filter(Boolean),
+      ] as string[];
+      await validateBarcodeUniqueness(allBarcodes, tx);
+
+      return tx.product.create({
+        data: {
+          name: name.trim(),
+          sku,
+          barcode: baseBarcode,
+          categoryId,
+          unitId,
+          reorderPoint: parseInt(reorderPoint) || 0,
+          colorVariant: colorVariant?.trim() || null,
+          description: description?.trim() || null,
+          imageUrl: imageUrl?.trim() || null,
+          approvalStatus,
+          ...(isAdmin ? {} : {
+            pendingChangedBy: createdByName,
+            pendingChangedAt: new Date(),
+          }),
+          ...(conversionsWithBarcodes.length > 0 ? {
+            unitConversions: {
+              create: conversionsWithBarcodes.map(
+                (c: { name: string; conversionFactor: number; barcode: string | null }) => ({
+                  name: c.name.trim(),
+                  conversionFactor: c.conversionFactor,
+                  barcode: c.barcode || null,
+                })
+              ),
+            },
+          } : {}),
+        },
+        include: { category: true, unit: true, unitConversions: true },
+      });
+    });
+
+    return NextResponse.json(product, { status: 201 });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to create product";
+    if (msg.includes("has no code set")) {
+      return NextResponse.json({ error: msg }, { status: 422 });
+    }
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
 }

@@ -10,13 +10,14 @@ import { PushSubscribeButton } from "@/modules/push-notify";
 import { useT } from "@/modules/i18n/provider";
 
 type Row = { id: string; name: string; type?: string; isActive: boolean; _count?: { products?: number; stock?: number } };
+type CategoryRow = { id: string; name: string; code: string | null; isActive: boolean; _count: { products: number } };
 type LocationRow = { id: string; name: string; type: string; isActive: boolean; _count: { stock: number } };
 type StockItem = {
   id: string; quantity: number;
   product: { id: string; name: string; sku: string; colorVariant: string | null; isActive: boolean; category: { name: string }; unit: { name: string } };
 };
 type UnitRow = {
-  id: string; name: string; isActive: boolean;
+  id: string; name: string; suffix: string | null; isActive: boolean;
   parentUnitId: string | null; conversionFactor: number | null;
   parent: { id: string; name: string } | null;
   _count: { products: number };
@@ -29,6 +30,170 @@ const TABS = [
   { key: "settings.tabs.notifications", label: "Notifications" },
   { key: "settings.tabs.loginHistory", label: "Login History" },
 ];
+
+// Dedicated category manager with SKU Code support
+function CategoryManager() {
+  const t = useT();
+  const [rows, setRows] = useState<CategoryRow[]>([]);
+  const [newName, setNewName] = useState("");
+  const [newCode, setNewCode] = useState("");
+  const [editing, setEditing] = useState<{ id: string; name: string; code: string } | null>(null);
+  const [codeError, setCodeError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  async function load() {
+    const res = await fetch("/api/categories");
+    if (res.ok) setRows(await res.json());
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setLoading(true);
+    setCodeError("");
+    const res = await fetch("/api/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim(), code: newCode.trim() || null }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) {
+      if (data.error?.includes("Code")) setCodeError(data.error);
+      else toast.error(data.error);
+      return;
+    }
+    toast.success("Category added");
+    setNewName(""); setNewCode(""); setCodeError("");
+    load();
+  }
+
+  async function handleSave() {
+    if (!editing) return;
+    setLoading(true);
+    setCodeError("");
+    const res = await fetch(`/api/categories/${editing.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editing.name, code: editing.code.trim() || null }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) {
+      if (data.error?.includes("Code")) setCodeError(data.error);
+      else toast.error(data.error);
+      return;
+    }
+    if (data.warning) toast(data.warning, { icon: "⚠️" });
+    toast.success(t("common.save", "Save") + "d");
+    setEditing(null); setCodeError("");
+    load();
+  }
+
+  async function toggleActive(row: CategoryRow) {
+    const res = await fetch(`/api/categories/${row.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !row.isActive }),
+    });
+    if (!res.ok) { toast.error("Failed"); return; }
+    toast.success(row.isActive ? t("common.deactivate", "Deactivate") + "d" : t("common.activate", "Activate") + "d");
+    load();
+  }
+
+  async function handleDelete(row: CategoryRow) {
+    const res = await fetch(`/api/categories/${row.id}`, { method: "DELETE" });
+    if (res.status === 204) { toast.success(t("common.delete", "Delete") + "d"); setConfirmingId(null); load(); return; }
+    const data = await res.json();
+    toast.error(data.error);
+    setConfirmingId(null);
+  }
+
+  return (
+    <div className="max-w-xl">
+      <form onSubmit={handleAdd} className="flex flex-col gap-2 mb-4">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input value={newName} onChange={(e) => setNewName(e.target.value)}
+            placeholder={t("settings.categories.placeholder", "New category name…")}
+            className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <div className="sm:w-36 flex flex-col gap-1">
+            <input
+              value={newCode}
+              onChange={(e) => { setNewCode(e.target.value.toUpperCase()); setCodeError(""); }}
+              maxLength={4}
+              placeholder="e.g. BTN"
+              className={`w-full px-3 py-2.5 border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 ${codeError ? "border-red-400" : "border-slate-300"}`}
+            />
+            <label className="text-xs text-slate-400">SKU Code</label>
+          </div>
+          <button type="submit" disabled={loading || !newName.trim()}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
+            {t("common.add", "Add")}
+          </button>
+        </div>
+        {codeError && <p className="text-xs text-red-500">{codeError}</p>}
+      </form>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+        {rows.length === 0 && <p className="px-4 py-6 text-center text-xs text-slate-400">No categories yet</p>}
+        {rows.map((row) => (
+          <div key={row.id} className={`px-4 py-3 ${!row.isActive ? "opacity-50" : ""}`}>
+            {editing?.id === row.id ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                  <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                    className="flex-1 w-full px-3 py-2 border border-blue-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
+                  <div className="sm:w-36 flex flex-col gap-1">
+                    <input
+                      value={editing.code}
+                      onChange={(e) => { setEditing({ ...editing, code: e.target.value.toUpperCase() }); setCodeError(""); }}
+                      maxLength={4}
+                      placeholder="e.g. BTN"
+                      className={`w-full px-3 py-2 border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 ${codeError ? "border-red-400" : "border-blue-400"}`}
+                    />
+                    <label className="text-xs text-slate-400">SKU Code</label>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={handleSave} className="px-3 py-2 text-xs text-white bg-blue-600 hover:bg-blue-700 font-semibold rounded-lg">{t("common.save", "Save")}</button>
+                    <button onClick={() => { setEditing(null); setCodeError(""); }} className="px-3 py-2 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">{t("common.cancel", "Cancel")}</button>
+                  </div>
+                </div>
+                {codeError && <p className="text-xs text-red-500">{codeError}</p>}
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-slate-800">{row.name}</span>
+                  {row.code && (
+                    <span className="ml-2 text-xs font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{row.code}</span>
+                  )}
+                  <span className="ml-2 text-xs text-slate-400">{row._count.products} product{row._count.products !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="flex gap-1.5">
+                  <button onClick={() => { setCodeError(""); setEditing({ id: row.id, name: row.name, code: row.code ?? "" }); }}
+                    className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">{t("common.edit", "Edit")}</button>
+                  <button onClick={() => toggleActive(row)}
+                    className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-lg transition-colors border ${row.isActive ? "text-orange-600 border-orange-200 hover:bg-orange-50" : "text-green-600 border-green-200 hover:bg-green-50"}`}>
+                    {row.isActive ? t("common.deactivate", "Deactivate") : t("common.activate", "Activate")}
+                  </button>
+                  {confirmingId === row.id ? (
+                    <>
+                      <button onClick={() => setConfirmingId(null)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">{t("common.no", "No")}</button>
+                      <button onClick={() => handleDelete(row)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg">{t("common.yes", "Yes")}</button>
+                    </>
+                  ) : (
+                    <button onClick={() => setConfirmingId(row.id)}
+                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">{t("common.delete", "Delete")}</button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // Generic manager for categories and locations
 function EntityManager({ endpoint, label, hasType, placeholder }: { endpoint: string; label: string; hasType?: boolean; placeholder?: string }) {
@@ -174,7 +339,8 @@ function UnitManager() {
   const [newName, setNewName] = useState("");
   const [newParentId, setNewParentId] = useState("");
   const [newFactor, setNewFactor] = useState("");
-  const [editing, setEditing] = useState<{ id: string; name: string; parentUnitId: string; conversionFactor: string } | null>(null);
+  const [newSuffix, setNewSuffix] = useState("");
+  const [editing, setEditing] = useState<{ id: string; name: string; parentUnitId: string; conversionFactor: string; suffix: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
@@ -195,13 +361,14 @@ function UnitManager() {
         name: newName.trim(),
         parentUnitId: newParentId || null,
         conversionFactor: newFactor ? parseFloat(newFactor) : null,
+        suffix: newSuffix.trim() || null,
       }),
     });
     const data = await res.json();
     setLoading(false);
     if (!res.ok) { toast.error(data.error); return; }
     toast.success("Unit added");
-    setNewName(""); setNewParentId(""); setNewFactor("");
+    setNewName(""); setNewParentId(""); setNewFactor(""); setNewSuffix("");
     load();
   }
 
@@ -215,6 +382,7 @@ function UnitManager() {
         name: editing.name,
         parentUnitId: editing.parentUnitId || null,
         conversionFactor: editing.conversionFactor ? parseFloat(editing.conversionFactor) : null,
+        suffix: editing.suffix.trim() || null,
       }),
     });
     const data = await res.json();
@@ -272,6 +440,12 @@ function UnitManager() {
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         )}
+        <div className="w-28">
+          <label className="block text-xs text-slate-500 mb-0.5">Barcode Suffix</label>
+          <input value={newSuffix} onChange={(e) => setNewSuffix(e.target.value.toUpperCase())} maxLength={5} placeholder="e.g. BOX"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Used for unit barcodes (e.g. BOX → SKU-BOX). Leave blank if not needed.</p>
+        </div>
         <button type="submit" disabled={loading || !newName.trim() || (!!newParentId && !newFactor)}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">
           {t("common.add", "Add")}
@@ -306,6 +480,12 @@ function UnitManager() {
                       className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none" />
                   </div>
                 )}
+                <div className="w-24">
+                  <label className="block text-xs text-slate-400 mb-0.5">Barcode Suffix</label>
+                  <input value={editing.suffix} onChange={(e) => setEditing({ ...editing, suffix: e.target.value.toUpperCase() })}
+                    maxLength={5} placeholder="e.g. BOX"
+                    className="w-full px-2 py-1 border border-blue-400 rounded text-sm font-mono focus:outline-none" />
+                </div>
                 <div className="flex gap-2 items-center">
                   <button onClick={handleSave} className="text-xs text-blue-600 font-medium hover:underline">{t("common.save", "Save")}</button>
                   <button onClick={() => setEditing(null)} className="text-xs text-slate-400 hover:underline">{t("common.cancel", "Cancel")}</button>
@@ -315,6 +495,9 @@ function UnitManager() {
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <div className="flex-1 min-w-0">
                   <span className="text-sm text-slate-800">{unit.name}</span>
+                  {unit.suffix && (
+                    <span className="ml-2 text-xs font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{unit.suffix}</span>
+                  )}
                   {unit.parent && (
                     <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
                       1 {unit.name} = {unit.conversionFactor} {unit.parent.name}
@@ -323,7 +506,7 @@ function UnitManager() {
                   <span className="ml-2 text-xs text-slate-400">{unit._count.products} product{unit._count.products !== 1 ? "s" : ""}</span>
                 </div>
                 <div className="flex gap-1.5">
-                  <button onClick={() => setEditing({ id: unit.id, name: unit.name, parentUnitId: unit.parentUnitId ?? "", conversionFactor: unit.conversionFactor?.toString() ?? "" })}
+                  <button onClick={() => setEditing({ id: unit.id, name: unit.name, parentUnitId: unit.parentUnitId ?? "", conversionFactor: unit.conversionFactor?.toString() ?? "", suffix: unit.suffix ?? "" })}
                     className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">{t("common.edit", "Edit")}</button>
                   <button onClick={() => toggleActive(unit)}
                     className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-lg transition-colors border ${unit.isActive ? "text-orange-600 border-orange-200 hover:bg-orange-50" : "text-green-600 border-green-200 hover:bg-green-50"}`}>
@@ -766,7 +949,7 @@ export default function SettingsPage() {
   const { data: session } = useSession();
   const router = useRouter();
   useEffect(() => {
-    if (session?.user.role === "OPERATOR") router.replace("/transactions/grn");
+    if (session?.user.role !== "ADMIN") router.replace("/dashboard");
   }, [session, router]);
 
   const [tab, setTab] = useState(0);
@@ -784,7 +967,7 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {tab === 0 && <EntityManager endpoint="categories" label="Category" placeholder={t("settings.categories.placeholder", "New category name…")} />}
+      {tab === 0 && <CategoryManager />}
       {tab === 1 && <UnitManager />}
       {tab === 2 && <LocationManager />}
       {tab === 3 && <NotificationsManager />}

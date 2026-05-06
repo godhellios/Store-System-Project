@@ -92,7 +92,7 @@ export default function AuditLogPage() {
   useEffect(() => {
     if (status === "loading") return;
     if (!session || session.user.role !== "ADMIN") {
-      router.replace("/settings");
+      router.replace("/dashboard");
       return;
     }
     fetchLogs(1);

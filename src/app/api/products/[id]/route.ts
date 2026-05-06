@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { Prisma } from "@/generated/prisma";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -59,7 +60,39 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
   const body = await req.json();
   const { name, sku, barcode, categoryId, unitId, reorderPoint, colorVariant, description, imageUrl, isActive, unitConversions } = body;
+  const isAdmin = session.user.role === "ADMIN";
 
+  const existing = await prisma.product.findUnique({ where: { id } });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Non-admin edits are stored as pending changes and require admin approval.
+  // isActive changes (deactivate/activate) are allowed directly for any role.
+  if (!isAdmin && isActive === undefined) {
+    const submitterName = session.user.name ?? session.user.email ?? null;
+    const changes = {
+      ...(name !== undefined ? { name: name.trim() } : {}),
+      ...(categoryId !== undefined ? { categoryId } : {}),
+      ...(unitId !== undefined ? { unitId } : {}),
+      ...(reorderPoint !== undefined ? { reorderPoint: parseInt(reorderPoint) || 0 } : {}),
+      ...(colorVariant !== undefined ? { colorVariant: colorVariant?.trim() || null } : {}),
+      ...(description !== undefined ? { description: description?.trim() || null } : {}),
+      ...(imageUrl !== undefined ? { imageUrl: imageUrl?.trim() || null } : {}),
+      ...(Array.isArray(unitConversions) ? { unitConversions } : {}),
+    };
+
+    const updated = await prisma.product.update({
+      where: { id },
+      data: {
+        pendingChanges: changes,
+        pendingChangedBy: submitterName,
+        pendingChangedAt: new Date(),
+      },
+    });
+
+    return NextResponse.json({ ...updated, _pendingSubmitted: true });
+  }
+
+  // Admin: apply directly (also clears any pending edits)
   if (sku) {
     const c = await prisma.product.findFirst({ where: { sku: sku.trim(), NOT: { id } } });
     if (c) return NextResponse.json({ error: "SKU already in use" }, { status: 409 });
@@ -88,6 +121,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       ...(description !== undefined ? { description: description?.trim() || null } : {}),
       ...(imageUrl !== undefined ? { imageUrl: imageUrl?.trim() || null } : {}),
       ...(isActive !== undefined ? { isActive } : {}),
+      // Clear any pending edits when admin saves directly
+      pendingChanges: Prisma.DbNull,
+      pendingChangedBy: null,
+      pendingChangedAt: null,
       ...(validConversions !== undefined ? {
         unitConversions: {
           deleteMany: {},

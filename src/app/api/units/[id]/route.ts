@@ -8,7 +8,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { name, isActive, parentUnitId, conversionFactor } = await req.json();
+  const { name, isActive, parentUnitId, conversionFactor, suffix: rawSuffix } = await req.json();
 
   if (name !== undefined) {
     const conflict = await prisma.unit.findFirst({ where: { name: name.trim(), NOT: { id } } });
@@ -19,6 +19,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (parentUnitId === id)
     return NextResponse.json({ error: "A unit cannot be its own parent" }, { status: 400 });
 
+  const suffix = rawSuffix !== undefined ? (rawSuffix ? rawSuffix.toUpperCase().trim() : null) : undefined;
+  if (suffix !== undefined && suffix !== null && !/^[A-Z]{1,5}$/.test(suffix))
+    return NextResponse.json({ error: "Barcode Suffix must be 1–5 uppercase letters (e.g. BOX)" }, { status: 400 });
+
   const unit = await prisma.unit.update({
     where: { id },
     data: {
@@ -26,6 +30,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       ...(isActive !== undefined ? { isActive } : {}),
       ...(parentUnitId !== undefined ? { parentUnitId: parentUnitId || null } : {}),
       ...(conversionFactor !== undefined ? { conversionFactor: conversionFactor ? parseFloat(conversionFactor) : null } : {}),
+      ...(suffix !== undefined ? { suffix } : {}),
     },
     include: { parent: { select: { id: true, name: true } } },
   });

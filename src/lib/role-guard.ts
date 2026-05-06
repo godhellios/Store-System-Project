@@ -26,3 +26,10 @@ export async function blockOperator() {
   if (session.user.role === "OPERATOR") redirect("/transactions/grn");
   return session;
 }
+
+export async function requireAdmin() {
+  const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
+  if (session.user.role !== "ADMIN") redirect("/dashboard");
+  return session;
+}

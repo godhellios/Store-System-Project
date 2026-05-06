@@ -64,7 +64,7 @@ export default function UsersPage() {
   const t = useT();
 
   useEffect(() => {
-    if (session?.user.role === "OPERATOR") router.replace("/transactions/grn");
+    if (session?.user.role !== "ADMIN") router.replace("/dashboard");
   }, [session, router]);
 
   const [users, setUsers] = useState<User[]>([]);

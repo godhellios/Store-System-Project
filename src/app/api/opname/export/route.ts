@@ -38,6 +38,7 @@ export async function GET(req: Request) {
     prisma.product.findMany({
       where: {
         isActive: true,
+        OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }],
         ...(locationProductIds !== undefined ? { id: { in: locationProductIds } } : {}),
       },
       include: { category: true, unit: true },

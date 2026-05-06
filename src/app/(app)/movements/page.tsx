@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { blockOperator } from "@/lib/role-guard";
+import { requireAdmin } from "@/lib/role-guard";
 import { getT } from "@/modules/i18n";
 
 const TYPE_BADGE: Record<string, string> = {
@@ -13,7 +13,7 @@ export default async function MovementsPage({
 }: {
   searchParams: Promise<{ locationId?: string; from?: string; to?: string; page?: string }>;
 }) {
-  await blockOperator();
+  await requireAdmin();
   const [params, t] = await Promise.all([searchParams, getT()]);
   const locationId = params.locationId ?? "";
   const from = params.from ?? "";

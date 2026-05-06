@@ -18,12 +18,25 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name } = await req.json();
+  const { name, code: rawCode } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 });
+
+  const code = rawCode ? rawCode.toUpperCase().trim() : null;
+  if (code && !/^[A-Z]{2,4}$/.test(code))
+    return NextResponse.json({ error: "SKU Code must be 2–4 uppercase letters (e.g. BTN)" }, { status: 400 });
+
+  if (code) {
+    const codeConflict = await prisma.category.findUnique({ where: { code } });
+    if (codeConflict)
+      return NextResponse.json(
+        { error: `Code '${code}' is already used by category '${codeConflict.name}'. Please choose a different code.` },
+        { status: 400 }
+      );
+  }
 
   const existing = await prisma.category.findUnique({ where: { name: name.trim() } });
   if (existing) return NextResponse.json({ error: "Category already exists" }, { status: 409 });
 
-  const category = await prisma.category.create({ data: { name: name.trim() } });
+  const category = await prisma.category.create({ data: { name: name.trim(), code } });
   return NextResponse.json(category, { status: 201 });
 }

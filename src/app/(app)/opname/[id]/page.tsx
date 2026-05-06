@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { OpnameCountSheet } from "@/components/opname-count-sheet";
+import { blockOperator } from "@/lib/role-guard";
 
 export default async function OpnameDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await blockOperator();
   const { id } = await params;
   const session = await prisma.opnameSession.findUnique({
     where: { id },

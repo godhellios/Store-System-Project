@@ -39,14 +39,16 @@ export default async function ProductsPage({
 
   const where = {
     ...(showInactive ? {} : { isActive: true }),
-    ...(lowStockIds !== null ? { id: { in: lowStockIds } } : {}),
-    ...(q ? {
-      OR: [
+    AND: [
+      // Exclude DRAFT products from the main list — visible in /products/pending
+      { OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }] },
+      ...(q ? [{ OR: [
         { name: { contains: q, mode: "insensitive" as const } },
         { sku: { contains: q, mode: "insensitive" as const } },
         { barcode: { contains: q, mode: "insensitive" as const } },
-      ],
-    } : {}),
+      ]}] : []),
+    ],
+    ...(lowStockIds !== null ? { id: { in: lowStockIds } } : {}),
     ...(categoryId ? { categoryId } : {}),
     ...(unitId ? { unitId } : {}),
     ...(locationId ? { stock: { some: { locationId, quantity: { gt: 0 } } } } : {}),

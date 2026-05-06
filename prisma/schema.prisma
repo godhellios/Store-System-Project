@@ -66,6 +66,7 @@ model LoginLog {
 model Unit {
   id               String   @id @default(cuid())
   name             String   @unique
+  suffix           String?  // barcode suffix e.g. "BOX", "CRT" — max 5 chars
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
   parentUnitId     String?
@@ -81,6 +82,7 @@ model Unit {
 model Category {
   id        String   @id @default(cuid())
   name      String   @unique
+  code      String?  @unique   // 3-4 letter SKU prefix e.g. "BTN", "ZIP"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -115,9 +117,16 @@ model Product {
   imageUrl     String?
   colorVariant String?
   description  String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive          Boolean   @default(true)
+  approvalStatus    String?   // DRAFT | ACTIVE | REJECTED  (null = legacy active)
+  pendingChanges    Json?     // proposed edit fields as JSON object
+  pendingChangedBy  String?   // name of staff who submitted edit
+  pendingChangedAt  DateTime? // when edit was submitted
+  reviewedByName    String?   // admin who reviewed
+  reviewedAt        DateTime? // when reviewed
+  reviewNote        String?   // rejection reason shown to staff
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   stock           Stock[]
   orderLines      OrderLine[]

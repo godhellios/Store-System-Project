@@ -22,10 +22,14 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, parentUnitId, conversionFactor } = await req.json();
+  const { name, parentUnitId, conversionFactor, suffix: rawSuffix } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 });
   if (parentUnitId && !conversionFactor)
     return NextResponse.json({ error: "Conversion factor is required when setting a parent unit" }, { status: 400 });
+
+  const suffix = rawSuffix ? rawSuffix.toUpperCase().trim() : null;
+  if (suffix && !/^[A-Z]{1,5}$/.test(suffix))
+    return NextResponse.json({ error: "Barcode Suffix must be 1–5 uppercase letters (e.g. BOX)" }, { status: 400 });
 
   const existing = await prisma.unit.findUnique({ where: { name: name.trim() } });
   if (existing) return NextResponse.json({ error: "Unit already exists" }, { status: 409 });
@@ -35,6 +39,7 @@ export async function POST(req: Request) {
       name: name.trim(),
       parentUnitId: parentUnitId || null,
       conversionFactor: parentUnitId ? parseFloat(conversionFactor) : null,
+      suffix,
     },
     include: { parent: { select: { id: true, name: true } } },
   });

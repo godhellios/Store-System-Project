@@ -9,7 +9,7 @@ export default async function BulkImageUploadPage() {
   await blockOperator();
 
   const products = await prisma.product.findMany({
-    where: { isActive: true },
+    where: { isActive: true, OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }] },
     select: { id: true, sku: true, name: true, imageUrl: true },
     orderBy: { name: "asc" },
   });

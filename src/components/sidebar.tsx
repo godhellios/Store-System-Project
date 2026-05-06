@@ -33,6 +33,7 @@ const NAV: NavSection[] = [
       { href: "/products/add", label: "Add Product", labelKey: "nav.links.addProduct", icon: "↳", indent: true, small: true },
       { href: "/products/import", label: "Bulk Import", labelKey: "nav.links.bulkImport", icon: "↳", indent: true, small: true },
       { href: "/products/images", label: "Bulk Images", labelKey: "nav.links.bulkImages", icon: "↳", indent: true, small: true }, // BULK_IMAGE_UPLOAD
+      { href: "/products/pending", label: "Pending Approval", labelKey: "nav.links.pendingApproval", icon: "⏳", indent: true, small: true, adminOnly: true },
       { href: "/warehouse", label: "Warehouse", labelKey: "nav.links.warehouse", icon: "⊟" },
     ],
   },
@@ -59,24 +60,24 @@ const NAV: NavSection[] = [
     roles: ["ADMIN", "STAFF", "VIEWER"],
     links: [
       { href: "/orders", label: "Order History", labelKey: "nav.links.orderHistory", icon: "📋" },
-      { href: "/movements", label: "Movement Log", labelKey: "nav.links.movementLog", icon: "≡" },
+      { href: "/movements", label: "Movement Log", labelKey: "nav.links.movementLog", icon: "≡", adminOnly: true },
       { href: "/reports", label: "Reports", labelKey: "nav.links.reports", icon: "⊙" },
     ],
   },
   {
     section: "Operations",
     sectionKey: "nav.sections.operations",
-    roles: ["ADMIN", "STAFF", "VIEWER"],
+    roles: ["ADMIN", "STAFF"],
     links: [{ href: "/opname", label: "Stock Opname", labelKey: "nav.links.stockOpname", icon: "⊘" }],
   },
   {
     section: "Settings",
     sectionKey: "nav.sections.settings",
-    roles: ["ADMIN", "STAFF"],
+    roles: ["ADMIN"],
     links: [
       { href: "/settings", label: "Settings", labelKey: "nav.links.settings", icon: "⚙" },
       { href: "/settings/users", label: "User Management", labelKey: "nav.links.userManagement", icon: "↳", indent: true, small: true },
-      { href: "/settings/audit-log", label: "Audit Log", labelKey: "nav.links.auditLog", icon: "↳", indent: true, small: true, adminOnly: true },
+      { href: "/settings/audit-log", label: "Audit Log", labelKey: "nav.links.auditLog", icon: "↳", indent: true, small: true },
     ],
   },
 ];

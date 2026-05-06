@@ -318,7 +318,11 @@ export function TransactionForm({
       }
       return [...prev, buildLineItem(product, matchedUnit)];
     });
-    toast.success(`Added: ${product.name}`, { duration: 1500 });
+    if (matchedUnit) {
+      toast.success(`Added: ${product.name} — entering in ${matchedUnit.name} (1 ${matchedUnit.name} = ${matchedUnit.conversionFactor} ${product.unit.name})`, { duration: 2500 });
+    } else {
+      toast.success(`Added: ${product.name}`, { duration: 1500 });
+    }
   }
 
   function updateLine(key: string, field: keyof LineItem, value: string | number) {
