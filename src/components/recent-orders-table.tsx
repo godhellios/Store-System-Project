@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useT } from "@/modules/i18n/provider";
 
 type RecentOrder = {
   id: string;
@@ -34,11 +35,17 @@ const TYPE_COLOR: Record<string, string> = {
   TRANSFER: "bg-blue-100 text-blue-700",
   ADJUSTMENT: "bg-gray-100 text-gray-600",
 };
-const TYPE_LABEL: Record<string, string> = {
-  GRN: "GRN", GOODS_OUT: "Goods Out", TRANSFER: "Transfer", ADJUSTMENT: "Adjustment",
-};
 
 export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] }) {
+  const t = useT();
+
+  const TYPE_LABEL: Record<string, string> = {
+    GRN: "GRN",
+    GOODS_OUT: t("transactions.goodsOut", "Goods Out"),
+    TRANSFER: t("transactions.transfer", "Transfer"),
+    ADJUSTMENT: t("transactions.adjustment", "Adjustment"),
+  };
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,7 +69,7 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
   }, [close]);
 
   if (orders.length === 0) {
-    return <p className="px-4 py-8 text-center text-slate-400 text-xs">No orders yet</p>;
+    return <p className="px-4 py-8 text-center text-slate-400 text-xs">{t("orders.empty", "No orders yet")}</p>;
   }
 
   return (
@@ -94,7 +101,7 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
                 onClick={() => setSelectedId(order.id)}
                 className="flex-shrink-0 px-3 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
               >
-                View
+                {t("common.view", "View")}
               </button>
             </div>
           );
@@ -106,10 +113,10 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <th className="px-4 py-2.5 text-left font-medium">Document</th>
-              <th className="px-4 py-2.5 text-left font-medium">Type</th>
-              <th className="px-4 py-2.5 text-left font-medium">Qty · Categories</th>
-              <th className="px-4 py-2.5 text-left font-medium">Date</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.document", "Document")}</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.type", "Type")}</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.qty", "Qty · Categories")}</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.date", "Date")}</th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>
@@ -135,7 +142,7 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <button onClick={() => setSelectedId(order.id)} className="text-xs text-blue-600 hover:underline">
-                      View
+                      {t("common.view", "View")}
                     </button>
                   </td>
                 </tr>
@@ -164,12 +171,12 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
                   </span>
                 </div>
               ) : (
-                <span className="text-slate-400 text-sm">Loading…</span>
+                <span className="text-slate-400 text-sm">{t("common.loading", "Loading…")}</span>
               )}
               <div className="flex items-center gap-3 flex-shrink-0">
                 {detail && (
                   <Link href={`/orders/${detail.id}`} className="text-xs text-blue-600 hover:underline whitespace-nowrap">
-                    Open →
+                    {t("orders.openLink", "Open →")}
                   </Link>
                 )}
                 <button onClick={close} className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 text-lg transition-colors">✕</button>
@@ -178,35 +185,35 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
 
             {/* Body */}
             <div className="overflow-y-auto p-5 flex-1">
-              {loading && <p className="text-center text-slate-400 text-sm py-8">Loading…</p>}
+              {loading && <p className="text-center text-slate-400 text-sm py-8">{t("common.loading", "Loading…")}</p>}
               {detail && (
                 <>
                   <div className="grid grid-cols-2 gap-3 text-sm text-gray-900 mb-5">
                     <div>
-                      <span className="text-xs text-slate-500 block mb-0.5">Date</span>
+                      <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.date", "Date")}</span>
                       {new Date(detail.createdAt).toLocaleString("id-ID", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Jakarta" })}
                     </div>
                     {detail.fromLocation && (
                       <div>
-                        <span className="text-xs text-slate-500 block mb-0.5">From</span>
+                        <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.from", "From")}</span>
                         {detail.fromLocation.name}
                       </div>
                     )}
                     {detail.toLocation && (
                       <div>
-                        <span className="text-xs text-slate-500 block mb-0.5">To</span>
+                        <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.to", "To")}</span>
                         {detail.toLocation.name}
                       </div>
                     )}
                     {detail.reference && (
                       <div>
-                        <span className="text-xs text-slate-500 block mb-0.5">Reference</span>
+                        <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.reference", "Reference")}</span>
                         {detail.reference}
                       </div>
                     )}
                     {detail.notes && (
                       <div className="col-span-2">
-                        <span className="text-xs text-slate-500 block mb-0.5">Notes</span>
+                        <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.notes", "Notes")}</span>
                         {detail.notes}
                       </div>
                     )}
@@ -236,12 +243,12 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
                     <table className="w-full text-sm border-collapse border border-slate-200 rounded-lg overflow-hidden">
                       <thead>
                         <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                          <th className="px-3 py-2 text-left font-medium">#</th>
-                          <th className="px-3 py-2 text-left font-medium">Product</th>
-                          <th className="px-3 py-2 text-left font-medium">Category</th>
-                          <th className="px-3 py-2 text-right font-medium">Qty</th>
-                          <th className="px-3 py-2 text-left font-medium">Unit</th>
-                          {detail.lines.some((l) => l.notes) && <th className="px-3 py-2 text-left font-medium">Notes</th>}
+                          <th className="px-3 py-2 text-left font-medium">{t("orderDetail.cols.no", "#")}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t("orderDetail.cols.product", "Product")}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t("orderDetail.cols.category", "Category")}</th>
+                          <th className="px-3 py-2 text-right font-medium">{t("orderDetail.cols.qty", "Qty")}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t("orderDetail.cols.unit", "Unit")}</th>
+                          {detail.lines.some((l) => l.notes) && <th className="px-3 py-2 text-left font-medium">{t("orderDetail.cols.notes", "Notes")}</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -265,7 +272,7 @@ export default function RecentOrdersTable({ orders }: { orders: RecentOrder[] })
                   </div>
 
                   <p className="text-xs text-slate-500 text-right mt-2">
-                    {detail.lines.length} line{detail.lines.length !== 1 ? "s" : ""} · {detail.lines.reduce((s, l) => s + l.quantity, 0)} items total
+                    {detail.lines.length} {detail.lines.length !== 1 ? t("orderDetail.linesLabel", "lines") : t("orderDetail.lineLabel", "line")} · {detail.lines.reduce((s, l) => s + l.quantity, 0)} {t("orderDetail.itemsTotal", "items total")}
                   </p>
                 </>
               )}

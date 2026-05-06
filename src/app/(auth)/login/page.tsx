@@ -3,19 +3,22 @@
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useT } from "@/modules/i18n/provider";
 
 function DisplacedBanner() {
   const searchParams = useSearchParams();
+  const t = useT();
   if (searchParams.get("reason") !== "displaced") return null;
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm text-amber-700">
-      Sesi Anda telah digantikan oleh login dari perangkat lain. Silakan login kembali.
+      {t("login.displaced", "Your session was replaced by a login from another device. Please sign in again.")}
     </div>
   );
 }
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -35,7 +38,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (res?.error) {
-      setError("Invalid email or password.");
+      setError(t("login.invalidCredentials", "Invalid email or password."));
     } else {
       sessionStorage.setItem("captureLoginGeo", "1");
       sessionStorage.setItem("session_alive", "1");
@@ -52,7 +55,7 @@ export default function LoginPage() {
           <span className="text-3xl font-extrabold text-gray-800 tracking-tight">
             MR<span className="text-blue-600">Is</span>
           </span>
-          <p className="mt-1 text-sm text-gray-500">Mitra Ramah Inventory System</p>
+          <p className="mt-1 text-sm text-gray-500">{t("login.subtitle", "Mitra Ramah Inventory System")}</p>
         </div>
 
         <Suspense>
@@ -62,7 +65,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              {t("login.email", "Email")}
             </label>
             <input
               type="email"
@@ -77,7 +80,7 @@ export default function LoginPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
+              {t("login.password", "Password")}
             </label>
             <input
               type="password"
@@ -101,12 +104,12 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2 rounded-lg text-sm transition-colors"
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? t("login.signingIn", "Signing in…") : t("login.signIn", "Sign in")}
           </button>
         </form>
 
         <p className="text-center text-xs text-gray-400">
-          © 2026 Mitra Ramah — MRIs v1.3.5
+          {t("login.footer", "© 2026 Mitra Ramah — MRIs v1.3.5")}
         </p>
       </div>
     </div>
