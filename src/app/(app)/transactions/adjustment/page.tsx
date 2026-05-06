@@ -3,12 +3,13 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { AdjustmentClient } from "./_client";
+import { getT } from "@/modules/i18n";
 
 export default async function AdjustmentPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const [locations, pendingOrders] = await Promise.all([
+  const [locations, pendingOrders, t] = await Promise.all([
     prisma.location.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.order.findMany({
       where: { type: "ADJUSTMENT", adjustmentStatus: "PENDING" },
@@ -18,12 +19,13 @@ export default async function AdjustmentPage() {
         lines: { include: { product: { select: { name: true, sku: true } } } },
       },
     }),
+    getT(),
   ]);
 
   return (
     <div>
       <h1 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-5">
-        Stock Adjustment
+        {t("transactions.adjustment", "Stock Adjustment")}
       </h1>
       <AdjustmentClient
         locations={locations}

@@ -4,20 +4,27 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { useT } from "@/modules/i18n/provider";
 
 type Location = { id: string; name: string };
 type Category = { id: string; name: string };
 type StockRow = { id: string; quantity: number; product: { name: string; sku: string; reorderPoint: number; category: { name: string }; unit: { name: string } }; location: { name: string } };
 type MovementRow = { id: string; quantity: number; type: string; createdAt: string; product: { name: string; unit: { name: string } }; fromLocation: { name: string } | null; toLocation: { name: string } | null; order: { orderNumber: string } | null; orderId: string };
 
-const TABS = ["Stock On Hand", "Movement Log", "Low Stock"];
-
 export default function ReportsPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
+
   useEffect(() => {
     if (session?.user.role === "OPERATOR") router.replace("/transactions/grn");
   }, [session, router]);
+
+  const TABS = [
+    t("reports.tabs.stockOnHand", "Stock On Hand"),
+    t("reports.tabs.movementLog", "Movement Log"),
+    t("reports.tabs.lowStock", "Low Stock"),
+  ];
 
   const [tab, setTab] = useState(0);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -67,18 +74,18 @@ export default function ReportsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-base font-semibold text-slate-800">Reports</h1>
+        <h1 className="text-base font-semibold text-slate-800">{t("reports.title", "Reports")}</h1>
         <button onClick={exportExcel} className="text-xs px-3 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
-          ↓ Export Excel
+          {t("common.exportExcel", "↓ Export Excel")}
         </button>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 border-b border-slate-200">
-        {TABS.map((t, i) => (
-          <button key={t} onClick={() => { setTab(i); setData([]); }}
+        {TABS.map((tabLabel, i) => (
+          <button key={tabLabel} onClick={() => { setTab(i); setData([]); }}
             className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${i === tab ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
-            {t}
+            {tabLabel}
           </button>
         ))}
       </div>
@@ -86,48 +93,48 @@ export default function ReportsPage() {
       {/* Filters */}
       <div className="flex gap-2 mb-4 flex-wrap items-end">
         <div>
-          <label className="text-xs text-slate-500 block mb-1">Location</label>
+          <label className="text-xs text-slate-500 block mb-1">{t("reports.filters.location", "Location")}</label>
           <select value={locationId} onChange={(e) => setLocationId(e.target.value)}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">All Locations</option>
+            <option value="">{t("products.allLocations", "All Locations")}</option>
             {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-xs text-slate-500 block mb-1">Category</label>
+          <label className="text-xs text-slate-500 block mb-1">{t("reports.filters.category", "Category")}</label>
           <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">All Categories</option>
+            <option value="">{t("products.allCategories", "All Categories")}</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         {tab === 1 && <>
           <div>
-            <label className="text-xs text-slate-500 block mb-1">From</label>
+            <label className="text-xs text-slate-500 block mb-1">{t("reports.filters.from", "From")}</label>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
               className="px-3 py-2 border border-slate-300 rounded-lg text-sm" />
           </div>
           <div>
-            <label className="text-xs text-slate-500 block mb-1">To</label>
+            <label className="text-xs text-slate-500 block mb-1">{t("reports.filters.to", "To")}</label>
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
               className="px-3 py-2 border border-slate-300 rounded-lg text-sm" />
           </div>
         </>}
         <button onClick={fetchData}
           className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 self-end">
-          Apply
+          {t("reports.filters.apply", "Apply")}
         </button>
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-slate-400 text-sm">Loading…</div>
+        <div className="text-center py-12 text-slate-400 text-sm">{t("common.loading", "Loading…")}</div>
       ) : (
         <>
           {/* Mobile card lists */}
           <div className="md:hidden space-y-2">
             {tab !== 1 && (
               stockData.length === 0 ? (
-                <p className="text-center text-xs text-slate-400 py-10">No data</p>
+                <p className="text-center text-xs text-slate-400 py-10">{t("reports.noData", "No data")}</p>
               ) : stockData.map((s) => {
                 const isLow = s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
                 return (
@@ -143,8 +150,8 @@ export default function ReportsPage() {
                     </div>
                     <div className="text-xs text-slate-500 flex gap-3 mt-1">
                       <span>{s.location.name}</span>
-                      {s.product.reorderPoint > 0 && tab === 0 && <span className="text-slate-400">reorder at {s.product.reorderPoint}</span>}
-                      {tab === 2 && <span className="text-red-600 dark:text-red-400 font-medium">shortfall: {s.product.reorderPoint - s.quantity}</span>}
+                      {s.product.reorderPoint > 0 && tab === 0 && <span className="text-slate-400">{t("reports.reorderAt", "reorder at")} {s.product.reorderPoint}</span>}
+                      {tab === 2 && <span className="text-red-600 dark:text-red-400 font-medium">{t("reports.shortfall", "shortfall")}: {s.product.reorderPoint - s.quantity}</span>}
                     </div>
                   </div>
                 );
@@ -152,7 +159,7 @@ export default function ReportsPage() {
             )}
             {tab === 1 && (
               movData.length === 0 ? (
-                <p className="text-center text-xs text-slate-400 py-10">No movements in range</p>
+                <p className="text-center text-xs text-slate-400 py-10">{t("reports.noMovements", "No movements in range")}</p>
               ) : movData.map((m) => (
                 <div key={m.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
                   <div className="flex items-center justify-between gap-2 mb-1">
@@ -179,26 +186,26 @@ export default function ReportsPage() {
                 <thead>
                   <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
                     {tab === 0 ? <>
-                      <th className="px-4 py-2.5 text-left font-medium">Location</th>
-                      <th className="px-4 py-2.5 text-left font-medium">Product</th>
-                      <th className="px-4 py-2.5 text-left font-medium">SKU</th>
-                      <th className="px-4 py-2.5 text-left font-medium">Category</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Qty</th>
-                      <th className="px-4 py-2.5 text-left font-medium">Unit</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Reorder Pt</th>
+                      <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.location", "Location")}</th>
+                      <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.product", "Product")}</th>
+                      <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.sku", "SKU")}</th>
+                      <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.category", "Category")}</th>
+                      <th className="px-4 py-2.5 text-right font-medium">{t("reports.cols.qty", "Qty")}</th>
+                      <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.unit", "Unit")}</th>
+                      <th className="px-4 py-2.5 text-right font-medium">{t("reports.cols.reorderPt", "Reorder Pt")}</th>
                     </> : <>
-                      <th className="px-4 py-2.5 text-left font-medium">Product</th>
-                      <th className="px-4 py-2.5 text-left font-medium">Location</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Current Qty</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Reorder Pt</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Shortfall</th>
-                      <th className="px-4 py-2.5 text-left font-medium">Unit</th>
+                      <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.product", "Product")}</th>
+                      <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.location", "Location")}</th>
+                      <th className="px-4 py-2.5 text-right font-medium">{t("reports.cols.currentQty", "Current Qty")}</th>
+                      <th className="px-4 py-2.5 text-right font-medium">{t("reports.cols.reorderPt", "Reorder Pt")}</th>
+                      <th className="px-4 py-2.5 text-right font-medium">{t("reports.cols.shortfall", "Shortfall")}</th>
+                      <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.unit", "Unit")}</th>
                     </>}
                   </tr>
                 </thead>
                 <tbody>
                   {stockData.length === 0 ? (
-                    <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No data</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">{t("reports.noData", "No data")}</td></tr>
                   ) : stockData.map((s) => {
                     const isLow = s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
                     return (
@@ -231,18 +238,18 @@ export default function ReportsPage() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                    <th className="px-4 py-2.5 text-left font-medium">Date</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Order</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Type</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Product</th>
-                    <th className="px-4 py-2.5 text-left font-medium">From</th>
-                    <th className="px-4 py-2.5 text-left font-medium">To</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                    <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.date", "Date")}</th>
+                    <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.order", "Order")}</th>
+                    <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.type", "Type")}</th>
+                    <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.product", "Product")}</th>
+                    <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.from", "From")}</th>
+                    <th className="px-4 py-2.5 text-left font-medium">{t("reports.cols.to", "To")}</th>
+                    <th className="px-4 py-2.5 text-right font-medium">{t("reports.cols.qty", "Qty")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {movData.length === 0 ? (
-                    <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No movements in range</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">{t("reports.noMovements", "No movements in range")}</td></tr>
                   ) : movData.map((m) => (
                     <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
                       <td className="px-4 py-2.5 text-xs text-slate-500">{new Date(m.createdAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}</td>

@@ -14,7 +14,7 @@
     "clear": "Hapus Filter",
     "view": "Lihat",
     "refresh": "Perbarui",
-    "exportExcel": "↓ Ekspor Excel",
+    "exportExcel": "↓ Export Excel",
     "remove": "Hapus",
     "saving": "Menyimpan…",
     "signOut": "Keluar",
@@ -35,27 +35,27 @@
       "dashboard": "Dasbor",
       "products": "Produk",
       "addProduct": "Tambah Produk",
-      "bulkImport": "Impor Massal",
-      "bulkImages": "Gambar Massal",
+      "bulkImport": "Import Massal",
+      "bulkImages": "Upload Foto Produk",
       "warehouse": "Gudang",
       "grn": "Barang Masuk (GRN)",
-      "goodsOut": "Surat Jalan Keluar",
-      "transfer": "Transfer",
+      "goodsOut": "Barang Keluar",
+      "transfer": "Pindah Stok",
       "adjustment": "Penyesuaian Stok",
       "barcodeLabels": "Label Barcode",
       "orderHistory": "Riwayat Pesanan",
-      "movementLog": "Log Mutasi",
+      "movementLog": "Riwayat Mutasi",
       "reports": "Laporan",
-      "stockOpname": "Opname Stok",
+      "stockOpname": "Stock Opname",
       "settings": "Pengaturan",
       "userManagement": "Manajemen Pengguna",
-      "auditLog": "Log Audit"
+      "auditLog": "Riwayat Perubahan"
     }
   },
   "app": {
     "title": "MRIs — Mitra Ramah Inventory System",
     "footer": "© 2026 Mitra Ramah — Semua hak dilindungi | MRIs v1.3.5",
-    "openNav": "Buka navigasi",
+    "openNav": "Buka Menu",
     "closeMenu": "Tutup menu",
     "geo": {
       "title": "Akses Lokasi Diperlukan",
@@ -70,22 +70,23 @@
   },
   "dashboard": {
     "totalProducts": "Total Produk",
-    "allLocations": "Semua lokasi",
-    "grnsToday": "GRN Hari Ini",
+    "allLocations": "Semua Lokasi",
+    "grnsToday": "Barang Masuk Hari Ini",
     "receivedToday": "Diterima hari ini",
-    "ordersOutToday": "Keluar Hari Ini",
+    "ordersOutToday": "Barang Keluar Hari Ini",
     "issuedToday": "Dikeluarkan hari ini",
     "lowStockAlerts": "Stok Menipis",
-    "belowReorderPoint": "Di bawah titik reorder",
+    "belowReorderPoint": "Stok sudah di bawah batas minimal",
     "lowStockByLocation": "Stok Menipis per Lokasi",
     "viewAllLowStock": "Lihat semua stok menipis →",
-    "allStockAbove": "Semua stok di atas titik reorder",
-    "reorderAt": "reorder di",
-    "recentOrders": "Pesanan Terbaru",
+    "allStockAbove": "Semua stok aman",
+    "reorderAt": "min. stok:",
+    "recentOrders": "Transaksi Terbaru",
     "viewAll": "Lihat semua →"
   },
   "orders": {
     "title": "Riwayat Pesanan",
+    "breadcrumb": "Pesanan",
     "empty": "Belum ada pesanan",
     "all": "Semua",
     "view": "Lihat",
@@ -100,10 +101,10 @@
     }
   },
   "movements": {
-    "title": "Log Mutasi",
-    "exportExcel": "↓ Ekspor Excel",
+    "title": "Riwayat Mutasi Stok",
+    "exportExcel": "↓ Export Excel",
     "allLocations": "Semua Lokasi",
-    "noMovements": "Tidak ada mutasi",
+    "noMovements": "Belum ada mutasi stok",
     "cols": {
       "date": "Tanggal",
       "order": "Pesanan",
@@ -123,10 +124,10 @@
       "notifications": "Notifikasi",
       "loginHistory": "Riwayat Login"
     },
-    "adminOnly": "Diperlukan akses admin.",
+    "adminOnly": "Hanya untuk Admin.",
     "loginHistory": {
-      "eventsRecorded": "kejadian login tercatat",
-      "eventRecorded": "kejadian login tercatat",
+      "eventsRecorded": "riwayat login tercatat",
+      "eventRecorded": "riwayat login tercatat",
       "timeHeader": "Waktu (WIB)",
       "user": "Pengguna",
       "ip": "Alamat IP",
@@ -136,10 +137,10 @@
       "of": "dari"
     },
     "notifications": {
-      "waTitle": "Nomor WhatsApp DO",
-      "waDesc": "Surat Jalan dari Barang Keluar akan dikirim ke nomor ini. Masukkan hanya digit, dengan kode negara (mis. 6281283118487).",
-      "pushTitle": "Notifikasi Push HP",
-      "pushDesc": "Dapatkan notifikasi instan di perangkat ini setiap kali Surat Jalan dikonfirmasi. Gratis — tanpa layanan tambahan. Aktifkan di setiap perangkat yang ingin menerima notifikasi."
+      "waTitle": "Nomor WhatsApp Surat Jalan",
+      "waDesc": "Surat Jalan dari Barang Keluar akan dikirim ke nomor ini. Isi dengan angka saja, termasuk kode negara (contoh: 6281283118487).",
+      "pushTitle": "Notifikasi di HP",
+      "pushDesc": "Terima notifikasi langsung di HP ini setiap kali Surat Jalan dikonfirmasi. Gratis, tanpa aplikasi tambahan. Aktifkan di setiap HP yang ingin menerima notifikasi."
     },
     "units": {
       "help": "Tentukan satuan lebih besar dengan memilih satuan induk. Contoh:",
@@ -161,10 +162,245 @@
     "locations": {
       "placeholder": "Nama lokasi baru…",
       "typePlaceholder": "Tipe (mis. Gudang)",
-      "noStock": "Tidak ada catatan stok untuk lokasi ini.",
+      "noStock": "Belum ada stok di lokasi ini.",
       "colProduct": "Produk",
       "colCategory": "Kategori",
       "colQty": "Qty"
+    }
+  },
+  "products": {
+    "title": "Produk",
+    "bulkImport": "↑ Import Massal",
+    "allCategories": "Semua Kategori",
+    "allUnits": "Semua Satuan",
+    "allLocations": "Semua Lokasi",
+    "showInactive": "Tampilkan yang Nonaktif",
+    "lowStockOnly": "⚠ Stok menipis saja",
+    "search": "Cari",
+    "searchPlaceholder": "Cari nama, kode, barcode…",
+    "of": "dari",
+    "label": "produk"
+  },
+  "warehouse": {
+    "title": "Data Gudang",
+    "products": "produk",
+    "unitsTotal": "total unit",
+    "selectPrompt": "Pilih lokasi di atas untuk melihat isi stok.",
+    "deselect": "✕ Batal Pilih"
+  },
+  "reports": {
+    "title": "Laporan",
+    "tabs": {
+      "stockOnHand": "Stok Saat Ini",
+      "movementLog": "Riwayat Mutasi",
+      "lowStock": "Stok Menipis"
+    },
+    "filters": {
+      "location": "Lokasi",
+      "category": "Kategori",
+      "from": "Dari",
+      "to": "Hingga",
+      "apply": "Tampilkan"
+    },
+    "noData": "Data tidak ditemukan",
+    "noMovements": "Tidak ada mutasi stok pada periode ini",
+    "reorderAt": "min. stok:",
+    "shortfall": "kekurangan",
+    "cols": {
+      "location": "Lokasi",
+      "product": "Produk",
+      "sku": "SKU",
+      "category": "Kategori",
+      "qty": "Qty",
+      "unit": "Satuan",
+      "reorderPt": "Batas Min. Stok",
+      "currentQty": "Qty Saat Ini",
+      "shortfall": "Kekurangan",
+      "date": "Tanggal",
+      "order": "Pesanan",
+      "type": "Tipe",
+      "from": "Dari",
+      "to": "Ke"
+    }
+  },
+  "opname": {
+    "title": "Stock Opname",
+    "noSessions": "Belum ada sesi opname",
+    "count": "Hitung Stok",
+    "cols": {
+      "session": "Sesi #",
+      "location": "Lokasi",
+      "status": "Status",
+      "lines": "Jumlah Item",
+      "doneBy": "Dilakukan Oleh",
+      "created": "Dibuat",
+      "approved": "Disetujui"
+    }
+  },
+  "barcodes": {
+    "title": "Label Barcode"
+  },
+  "auditLog": {
+    "title": "Riwayat Perubahan",
+    "subtitle": "Catatan semua perubahan penting dalam sistem",
+    "entries": "entri",
+    "filterAction": "Aksi",
+    "filterEntityType": "Jenis Data",
+    "filterUser": "Pengguna",
+    "allActions": "Semua aksi",
+    "allTypes": "Semua Jenis",
+    "searchByName": "Cari nama…",
+    "noEntries": "Tidak ada data",
+    "page": "Halaman",
+    "of": "dari"
+  },
+  "users": {
+    "title": "Manajemen Pengguna",
+    "addUser": "+ Tambah Pengguna",
+    "noUsers": "Tidak ada pengguna ditemukan",
+    "active": "Aktif",
+    "you": "Anda",
+    "cols": {
+      "name": "Nama",
+      "email": "Email",
+      "role": "Hak Akses",
+      "status": "Status",
+      "created": "Dibuat",
+      "actions": "Aksi"
+    },
+    "modal": {
+      "addTitle": "Tambah Pengguna",
+      "fullName": "Nama Lengkap *",
+      "email": "Email *",
+      "role": "Hak Akses *",
+      "password": "Kata Sandi *",
+      "newPassword": "Kata Sandi Baru",
+      "keepBlank": "(kosongkan jika tidak diubah)",
+      "minChars": "Min. 6 karakter",
+      "confirmPassword": "Konfirmasi Kata Sandi *",
+      "reEnter": "Masukkan ulang kata sandi",
+      "createUser": "Tambah Pengguna",
+      "saveChanges": "Simpan Perubahan"
+    }
+  },
+  "orderDetail": {
+    "waSent": "WA Terkirim",
+    "printed": "Dicetak",
+    "fields": {
+      "date": "Tanggal",
+      "from": "Dari",
+      "to": "Ke",
+      "customer": "Pelanggan",
+      "reference": "Referensi",
+      "notes": "Catatan"
+    },
+    "cols": {
+      "no": "#",
+      "product": "Produk",
+      "category": "Kategori",
+      "qtyInput": "Qty (input)",
+      "baseQty": "Qty dasar",
+      "notes": "Catatan"
+    },
+    "linesTotal": "total item"
+  },
+  "transactions": {
+    "grn": "Barang Masuk (GRN)",
+    "goodsOut": "Barang Keluar",
+    "transfer": "Pindah Stok",
+    "adjustment": "Penyesuaian Stok"
+  },
+  "transactionForm": {
+    "draftRestored": "Data belum selesai ditemukan. Cek kembali sebelum menyimpan.",
+    "clearDraft": "Hapus",
+    "scanLabel": "Scan / SKU",
+    "scanPlaceholder": "Scan barcode atau ketik SKU…",
+    "searchByName": "Cari nama",
+    "searchPlaceholder": "Ketik nama produk…",
+    "lookingUp": "Mencari…",
+    "noProductsFound": "Produk tidak ditemukan:",
+    "emptyPrompt": "Scan barcode atau cari produk di atas untuk menambah barang",
+    "notesOptional": "Catatan (opsional)",
+    "optional": "Opsional",
+    "customerName": "Nama Pelanggan",
+    "referenceNo": "Referensi / No. DO",
+    "notes": "Catatan",
+    "selectLocation": "Pilih…",
+    "avail": "tersedia",
+    "onlyAvail": "hanya",
+    "saveOrder": "Simpan Pesanan",
+    "cols": {
+      "no": "#",
+      "product": "Produk",
+      "qty": "Qty",
+      "unit": "Satuan",
+      "baseQty": "= Qty dasar",
+      "notes": "Catatan"
+    },
+    "footer": {
+      "line": "baris",
+      "lines": "baris",
+      "baseUnit": "unit dasar",
+      "baseUnits": "unit dasar",
+      "total": "total"
+    },
+    "locationLabels": {
+      "receivingLocation": "Lokasi Penerimaan",
+      "issueFrom": "Keluarkan Dari",
+      "transferFrom": "Pindah Dari",
+      "transferTo": "Pindah Ke"
+    },
+    "steps": {
+      "save": "Simpan",
+      "whatsapp": "WhatsApp",
+      "print": "Cetak"
+    },
+    "flow": {
+      "confirmTitle": "Yakin simpan Barang Keluar ini?",
+      "afterSaving": "Setelah disimpan: Kirim Surat Jalan ke WhatsApp → Cetak (wajib)",
+      "saveAndProceed": "Ya, Simpan & Lanjutkan",
+      "savingTitle": "Sedang menyimpan…",
+      "pleaseWait": "Mohon tunggu sebentar",
+      "savedTitle": "Pesanan Tersimpan!",
+      "sendWADesc": "Kirim Surat Jalan ke WhatsApp dulu, lalu cetak.",
+      "sendWA": "Kirim ke WhatsApp",
+      "waSentTitle": "WhatsApp Terkirim!",
+      "printDesc": "Cetak Surat Jalan sekarang.",
+      "printDO": "Cetak Surat Jalan",
+      "doneTitle": "Transaksi Selesai!",
+      "doneSub": "Barang keluar berhasil disimpan. Surat Jalan sudah dikirim dan dicetak.",
+      "goToOrders": "Lihat Daftar Pesanan",
+      "errorTitle": "Terjadi kesalahan",
+      "backToForm": "Kembali",
+      "retry": "Coba Lagi"
+    }
+  },
+  "adjustment": {
+    "submitTitle": "Form Penyesuaian Stok",
+    "location": "Lokasi",
+    "searchProduct": "Cari produk berdasarkan nama atau SKU…",
+    "addToStock": "+ Tambah stok",
+    "removeFromStock": "- Kurangi stok",
+    "notesOptional": "Catatan (opsional)",
+    "contextPlaceholder": "Keterangan tambahan (opsional)…",
+    "reviewNotice": "Pengajuan ini perlu disetujui Admin. Stok belum berubah sampai disetujui.",
+    "submitting": "Mengajukan…",
+    "submitBtn": "Kirim untuk Disetujui",
+    "pendingTitle": "Menunggu Persetujuan",
+    "awaitingReview": "— menunggu persetujuan Admin",
+    "reviewPlaceholder": "Catatan tinjauan (opsional)…",
+    "approve": "Setujui",
+    "reject": "Tolak",
+    "noPending": "Tidak ada pengajuan yang menunggu",
+    "addAnotherProduct": "+ Tambah produk lain",
+    "reasons": {
+      "damage": "Kerusakan",
+      "loss": "Kehilangan / Hilang",
+      "countCorrection": "Koreksi Stok",
+      "returnCustomer": "Retur dari Pelanggan",
+      "returnSupplier": "Retur ke Supplier",
+      "openingStock": "Stok Awal",
+      "other": "Lainnya"
     }
   }
 }

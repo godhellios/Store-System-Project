@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { blockOperator } from "@/lib/role-guard";
 import { WarehouseStockTable } from "./stock-table";
+import { getT } from "@/modules/i18n";
 
 export default async function WarehousePage({
   searchParams,
@@ -9,6 +10,7 @@ export default async function WarehousePage({
   searchParams: Promise<{ locationId?: string }>;
 }) {
   await blockOperator();
+  const t = await getT();
   const { locationId } = await searchParams;
 
   const [locations, categories] = await Promise.all([
@@ -34,7 +36,7 @@ export default async function WarehousePage({
 
   return (
     <div>
-      <h1 className="text-base font-semibold text-slate-800 mb-5">Warehouse Locations</h1>
+      <h1 className="text-base font-semibold text-slate-800 mb-5">{t("warehouse.title", "Warehouse Locations")}</h1>
 
       {/* Location cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
@@ -62,7 +64,7 @@ export default async function WarehousePage({
                 </div>
                 {!loc.isActive && (
                   <span className="flex-shrink-0 text-[9px] font-semibold bg-slate-200 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                    Inactive
+                    {t("common.inactive", "Inactive")}
                   </span>
                 )}
               </div>
@@ -71,13 +73,13 @@ export default async function WarehousePage({
                   <div className={`text-2xl font-bold ${isSelected ? "text-blue-600" : "text-slate-700"}`}>
                     {loc._count.stock}
                   </div>
-                  <div className="text-[10px] text-slate-400 uppercase tracking-wide">products</div>
+                  <div className="text-[10px] text-slate-400 uppercase tracking-wide">{t("warehouse.products", "products")}</div>
                 </div>
                 <div>
                   <div className={`text-2xl font-bold ${isSelected ? "text-blue-600" : "text-slate-700"}`}>
                     {totalQty}
                   </div>
-                  <div className="text-[10px] text-slate-400 uppercase tracking-wide">units total</div>
+                  <div className="text-[10px] text-slate-400 uppercase tracking-wide">{t("warehouse.unitsTotal", "units total")}</div>
                 </div>
               </div>
             </Link>
@@ -94,14 +96,14 @@ export default async function WarehousePage({
               <p className="text-xs text-slate-400 mt-0.5">{selectedLocation.type}</p>
             </div>
             <Link href="/warehouse" className="text-xs text-slate-400 hover:text-slate-600 hover:underline">
-              ✕ Deselect
+              {t("warehouse.deselect", "✕ Deselect")}
             </Link>
           </div>
           <WarehouseStockTable stock={stock} categories={categories} />
         </div>
       ) : (
         <p className="text-sm text-slate-400 text-center py-10">
-          Select a location above to view its inventory.
+          {t("warehouse.selectPrompt", "Select a location above to view its inventory.")}
         </p>
       )}
     </div>

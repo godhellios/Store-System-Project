@@ -58,14 +58,14 @@
     "openNav": "Open navigation",
     "closeMenu": "Close menu",
     "geo": {
-      "title": "Akses Lokasi Diperlukan",
-      "body": "Aplikasi ini memerlukan akses lokasi untuk keamanan dan audit login. Izinkan akses lokasi di browser Anda untuk melanjutkan.",
-      "howTo": "Cara mengaktifkan:",
-      "chrome": "klik ikon kunci di address bar → Lokasi → Izinkan",
-      "firefox": "klik ikon kunci → Izinkan Lokasi",
-      "safari": "Pengaturan → Safari → Lokasi → Izinkan",
-      "android": "Pengaturan → Aplikasi → Browser → Izin → Lokasi",
-      "retry": "Coba Lagi"
+      "title": "Location Access Required",
+      "body": "This app requires location access for security and login auditing. Please allow location access in your browser to continue.",
+      "howTo": "How to enable:",
+      "chrome": "click the lock icon in the address bar → Location → Allow",
+      "firefox": "click the lock icon → Allow Location",
+      "safari": "Settings → Safari → Location → Allow",
+      "android": "Settings → Apps → Browser → Permissions → Location",
+      "retry": "Try Again"
     }
   },
   "dashboard": {
@@ -86,6 +86,7 @@
   },
   "orders": {
     "title": "Order History",
+    "breadcrumb": "Orders",
     "empty": "No orders yet",
     "all": "All",
     "view": "View",
@@ -165,6 +166,241 @@
       "colProduct": "Product",
       "colCategory": "Category",
       "colQty": "Qty"
+    }
+  },
+  "products": {
+    "title": "Products",
+    "bulkImport": "↑ Bulk Import",
+    "allCategories": "All Categories",
+    "allUnits": "All Units",
+    "allLocations": "All Locations",
+    "showInactive": "Show inactive",
+    "lowStockOnly": "⚠ Low stock only",
+    "search": "Search",
+    "searchPlaceholder": "Search name, code, barcode…",
+    "of": "of",
+    "label": "products"
+  },
+  "warehouse": {
+    "title": "Warehouse Locations",
+    "products": "products",
+    "unitsTotal": "units total",
+    "selectPrompt": "Select a location above to view its inventory.",
+    "deselect": "✕ Deselect"
+  },
+  "reports": {
+    "title": "Reports",
+    "tabs": {
+      "stockOnHand": "Stock On Hand",
+      "movementLog": "Movement Log",
+      "lowStock": "Low Stock"
+    },
+    "filters": {
+      "location": "Location",
+      "category": "Category",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply"
+    },
+    "noData": "No data",
+    "noMovements": "No movements in range",
+    "reorderAt": "reorder at",
+    "shortfall": "shortfall",
+    "cols": {
+      "location": "Location",
+      "product": "Product",
+      "sku": "SKU",
+      "category": "Category",
+      "qty": "Qty",
+      "unit": "Unit",
+      "reorderPt": "Reorder Pt",
+      "currentQty": "Current Qty",
+      "shortfall": "Shortfall",
+      "date": "Date",
+      "order": "Order",
+      "type": "Type",
+      "from": "From",
+      "to": "To"
+    }
+  },
+  "opname": {
+    "title": "Stock Opname",
+    "noSessions": "No opname sessions yet",
+    "count": "Count",
+    "cols": {
+      "session": "Session #",
+      "location": "Location",
+      "status": "Status",
+      "lines": "Lines",
+      "doneBy": "Done By",
+      "created": "Created",
+      "approved": "Approved"
+    }
+  },
+  "barcodes": {
+    "title": "Barcode Labels"
+  },
+  "auditLog": {
+    "title": "Audit Log",
+    "subtitle": "Record of all significant write actions in the system",
+    "entries": "entries",
+    "filterAction": "Action",
+    "filterEntityType": "Entity type",
+    "filterUser": "User",
+    "allActions": "All actions",
+    "allTypes": "All types",
+    "searchByName": "Search by name…",
+    "noEntries": "No entries found",
+    "page": "Page",
+    "of": "of"
+  },
+  "users": {
+    "title": "User Management",
+    "addUser": "+ Add User",
+    "noUsers": "No users found",
+    "active": "Active",
+    "you": "You",
+    "cols": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "modal": {
+      "addTitle": "Add User",
+      "fullName": "Full Name *",
+      "email": "Email *",
+      "role": "Role *",
+      "password": "Password *",
+      "newPassword": "New Password",
+      "keepBlank": "(leave blank to keep current)",
+      "minChars": "Min. 6 characters",
+      "confirmPassword": "Confirm Password *",
+      "reEnter": "Re-enter password",
+      "createUser": "Create User",
+      "saveChanges": "Save Changes"
+    }
+  },
+  "orderDetail": {
+    "waSent": "WA Sent",
+    "printed": "Printed",
+    "fields": {
+      "date": "Date",
+      "from": "From",
+      "to": "To",
+      "customer": "Customer",
+      "reference": "Reference",
+      "notes": "Notes"
+    },
+    "cols": {
+      "no": "#",
+      "product": "Product",
+      "category": "Category",
+      "qtyInput": "Qty (input)",
+      "baseQty": "Base qty",
+      "notes": "Notes"
+    },
+    "linesTotal": "items total"
+  },
+  "transactions": {
+    "grn": "Goods Received (GRN)",
+    "goodsOut": "Goods Out",
+    "transfer": "Stock Transfer",
+    "adjustment": "Stock Adjustment"
+  },
+  "transactionForm": {
+    "draftRestored": "Draft restored from your last session — please review the items.",
+    "clearDraft": "Clear",
+    "scanLabel": "Scan / SKU",
+    "scanPlaceholder": "Scan barcode or type SKU…",
+    "searchByName": "Search by name",
+    "searchPlaceholder": "Type product name…",
+    "lookingUp": "Looking up…",
+    "noProductsFound": "No products found for",
+    "emptyPrompt": "Scan a barcode, type a SKU, or search by name above to add items",
+    "notesOptional": "Notes (optional)",
+    "optional": "Optional",
+    "customerName": "Customer Name",
+    "referenceNo": "Reference / DO#",
+    "notes": "Notes",
+    "selectLocation": "Select…",
+    "avail": "avail",
+    "onlyAvail": "only",
+    "saveOrder": "Save Order",
+    "cols": {
+      "no": "#",
+      "product": "Product",
+      "qty": "Qty",
+      "unit": "Unit",
+      "baseQty": "= Base qty",
+      "notes": "Notes"
+    },
+    "footer": {
+      "line": "line",
+      "lines": "lines",
+      "baseUnit": "base unit",
+      "baseUnits": "base units",
+      "total": "total"
+    },
+    "locationLabels": {
+      "receivingLocation": "Receiving Location",
+      "issueFrom": "Issue From",
+      "transferFrom": "Transfer From",
+      "transferTo": "Transfer To"
+    },
+    "steps": {
+      "save": "Save",
+      "whatsapp": "WhatsApp",
+      "print": "Print"
+    },
+    "flow": {
+      "confirmTitle": "Save this Goods Out order?",
+      "afterSaving": "After saving: Send DO to WhatsApp → Print DO (mandatory)",
+      "saveAndProceed": "Yes, Save & Proceed",
+      "savingTitle": "Saving order…",
+      "pleaseWait": "Please wait",
+      "savedTitle": "Order Saved!",
+      "sendWADesc": "Send the Delivery Order to WhatsApp. The print preview will open automatically.",
+      "sendWA": "Send to WhatsApp",
+      "waSentTitle": "WhatsApp Sent!",
+      "printDesc": "Open the print preview to print or save the Delivery Order.",
+      "printDO": "Print DO",
+      "doneTitle": "Transaction Complete!",
+      "doneSub": "Order saved, DO sent to WhatsApp, and print preview opened.",
+      "goToOrders": "Go to Orders",
+      "errorTitle": "Something went wrong",
+      "backToForm": "Back to Form",
+      "retry": "Retry"
+    }
+  },
+  "adjustment": {
+    "submitTitle": "Submit Adjustment Request",
+    "location": "Location",
+    "searchProduct": "Search product by name or SKU…",
+    "addToStock": "+ Add to stock",
+    "removeFromStock": "- Remove from stock",
+    "notesOptional": "Notes (optional)",
+    "contextPlaceholder": "Additional context for the reviewer…",
+    "reviewNotice": "This request will be sent to admin for review. Stock will only change after approval.",
+    "submitting": "Submitting…",
+    "submitBtn": "Submit for Approval",
+    "pendingTitle": "Pending Approval",
+    "awaitingReview": "— awaiting admin review",
+    "reviewPlaceholder": "Review note (optional)…",
+    "approve": "Approve",
+    "reject": "Reject",
+    "noPending": "No pending adjustments",
+    "addAnotherProduct": "+ Add another product",
+    "reasons": {
+      "damage": "Damage",
+      "loss": "Loss / Missing",
+      "countCorrection": "Count Correction",
+      "returnCustomer": "Return from Customer",
+      "returnSupplier": "Return to Supplier",
+      "openingStock": "Opening Stock",
+      "other": "Other"
     }
   }
 }

@@ -3,16 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-
-const REASONS = [
-  "Damage",
-  "Loss / Missing",
-  "Count Correction",
-  "Return from Customer",
-  "Return to Supplier",
-  "Opening Stock",
-  "Other",
-];
+import { useT } from "@/modules/i18n/provider";
 
 type Location = { id: string; name: string };
 type ProductResult = { id: string; sku: string; name: string };
@@ -33,7 +24,18 @@ export function AdjustmentClient({
   userName: string;
 }) {
   const router = useRouter();
+  const t = useT();
   const isAdmin = role === "ADMIN";
+
+  const REASONS = [
+    t("adjustment.reasons.damage", "Damage"),
+    t("adjustment.reasons.loss", "Loss / Missing"),
+    t("adjustment.reasons.countCorrection", "Count Correction"),
+    t("adjustment.reasons.returnCustomer", "Return from Customer"),
+    t("adjustment.reasons.returnSupplier", "Return to Supplier"),
+    t("adjustment.reasons.openingStock", "Opening Stock"),
+    t("adjustment.reasons.other", "Other"),
+  ];
 
   // ── Form state ────────────────────────────────────────────────────────────
   const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
@@ -138,10 +140,10 @@ export function AdjustmentClient({
 
       {/* ── Submission form ─────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-5">
-        <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Submit Adjustment Request</div>
+        <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t("adjustment.submitTitle", "Submit Adjustment Request")}</div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Location</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("adjustment.location", "Location")}</label>
           <select
             value={locationId}
             onChange={(e) => setLocationId(e.target.value)}
@@ -158,7 +160,7 @@ export function AdjustmentClient({
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search product by name or SKU…"
+                  placeholder={t("adjustment.searchProduct", "Search product by name or SKU…")}
                   value={search[idx]?.q ?? (line.productId ? `${line.productSku} — ${line.productName}` : "")}
                   onChange={(e) => searchProducts(idx, e.target.value)}
                   onBlur={() => { blurTimers[idx] = setTimeout(() => setSearch((s) => ({ ...s, [idx]: { ...s[idx], open: false } })), 200); }}
@@ -184,8 +186,8 @@ export function AdjustmentClient({
                   onChange={(e) => updateLine(idx, "direction", e.target.value as "add" | "remove")}
                   className="px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="add">+ Add to stock</option>
-                  <option value="remove">- Remove from stock</option>
+                  <option value="add">{t("adjustment.addToStock", "+ Add to stock")}</option>
+                  <option value="remove">{t("adjustment.removeFromStock", "- Remove from stock")}</option>
                 </select>
 
                 {/* Quantity */}
@@ -216,23 +218,23 @@ export function AdjustmentClient({
 
           <button type="button" onClick={addLine}
             className="text-xs text-blue-600 hover:text-blue-800 font-medium">
-            + Add another product
+            {t("adjustment.addAnotherProduct", "+ Add another product")}
           </button>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes (optional)</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("adjustment.notesOptional", "Notes (optional)")}</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            placeholder="Additional context for the reviewer…"
+            placeholder={t("adjustment.contextPlaceholder", "Additional context for the reviewer…")}
             className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-200"
           />
         </div>
 
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-3 text-xs text-amber-800 dark:text-amber-300">
-          This request will be sent to admin for review. Stock will only change after approval.
+          {t("adjustment.reviewNotice", "This request will be sent to admin for review. Stock will only change after approval.")}
         </div>
 
         <button
@@ -240,7 +242,7 @@ export function AdjustmentClient({
           disabled={saving}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg"
         >
-          {saving ? "Submitting…" : "Submit for Approval"}
+          {saving ? t("adjustment.submitting", "Submitting…") : t("adjustment.submitBtn", "Submit for Approval")}
         </button>
       </div>
 
@@ -248,8 +250,8 @@ export function AdjustmentClient({
       {pendingOrders.length > 0 && (
         <div className="space-y-3">
           <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-            Pending Approval ({pendingOrders.length})
-            {!isAdmin && <span className="ml-2 text-xs font-normal text-slate-400">— awaiting admin review</span>}
+            {t("adjustment.pendingTitle", "Pending Approval")} ({pendingOrders.length})
+            {!isAdmin && <span className="ml-2 text-xs font-normal text-slate-400">{t("adjustment.awaitingReview", "— awaiting admin review")}</span>}
           </div>
 
           {pendingOrders.map((order) => (
@@ -260,7 +262,7 @@ export function AdjustmentClient({
                   <div className="text-xs text-slate-400 mt-0.5">
                     {new Date(order.createdAt).toLocaleString()} · {order.createdByName ?? "Unknown"} · {order.toLocation?.name}
                   </div>
-                  {order.notes && <div className="text-xs text-slate-500 mt-1 italic">"{order.notes}"</div>}
+                  {order.notes && <div className="text-xs text-slate-500 mt-1 italic">&quot;{order.notes}&quot;</div>}
                 </div>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">PENDING</span>
               </div>
@@ -273,9 +275,6 @@ export function AdjustmentClient({
                     </span>
                     <span>{line.product.name}</span>
                     <span className="font-mono text-slate-400">{line.product.sku}</span>
-                    {line.quantity < 0
-                      ? null
-                      : null}
                   </div>
                 ))}
               </div>
@@ -284,7 +283,7 @@ export function AdjustmentClient({
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-700 space-y-2">
                   <input
                     type="text"
-                    placeholder="Review note (optional)…"
+                    placeholder={t("adjustment.reviewPlaceholder", "Review note (optional)…")}
                     value={reviewNote[order.id] ?? ""}
                     onChange={(e) => setReviewNote((r) => ({ ...r, [order.id]: e.target.value }))}
                     className="w-full px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-200"
@@ -295,14 +294,14 @@ export function AdjustmentClient({
                       disabled={reviewing === order.id}
                       className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 rounded-lg"
                     >
-                      {reviewing === order.id ? "…" : "Approve"}
+                      {reviewing === order.id ? "…" : t("adjustment.approve", "Approve")}
                     </button>
                     <button
                       onClick={() => handleReview(order.id, "reject")}
                       disabled={reviewing === order.id}
                       className="bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 rounded-lg"
                     >
-                      Reject
+                      {t("adjustment.reject", "Reject")}
                     </button>
                   </div>
                 </div>
@@ -313,7 +312,7 @@ export function AdjustmentClient({
       )}
 
       {pendingOrders.length === 0 && (
-        <div className="text-xs text-slate-400 text-center py-4">No pending adjustments</div>
+        <div className="text-xs text-slate-400 text-center py-4">{t("adjustment.noPending", "No pending adjustments")}</div>
       )}
     </div>
   );

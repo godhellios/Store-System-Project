@@ -4,6 +4,7 @@ import { Fragment, useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { useT } from "@/modules/i18n/provider";
 
 type Location = { id: string; name: string; type: string };
 type UnitConversion = { id: string; name: string; conversionFactor: number };
@@ -39,11 +40,6 @@ type MatchedUnit = { id: string; name: string; conversionFactor: number } | null
 
 type TransactionType = "GRN" | "GOODS_OUT" | "TRANSFER";
 
-const CONFIG: Record<TransactionType, { fromLabel?: string; toLabel?: string; movementSign: 1 | -1 | 0 }> = {
-  GRN: { toLabel: "Receiving Location", movementSign: 1 },
-  GOODS_OUT: { fromLabel: "Issue From", movementSign: -1 },
-  TRANSFER: { fromLabel: "Transfer From", toLabel: "Transfer To", movementSign: 0 },
-};
 
 // ── Goods Out flow state ────────────────────────────────────────────────────
 type FlowState =
@@ -65,9 +61,14 @@ function progressIndex(step: FlowState["step"]): number {
 }
 
 function StepProgress({ step }: { step: FlowState["step"] }) {
+  const t = useT();
   const current = progressIndex(step);
   if (current < 0) return null;
-  const labels = ["Save", "WhatsApp", "Print"];
+  const labels = [
+    t("transactionForm.steps.save", "Save"),
+    t("transactionForm.steps.whatsapp", "WhatsApp"),
+    t("transactionForm.steps.print", "Print"),
+  ];
   return (
     <div className="flex items-center mb-6 px-1">
       {labels.map((label, i) => (
@@ -155,9 +156,16 @@ export function TransactionForm({
 }) {
   const router = useRouter();
   const { data: session } = useSession();
+  const t = useT();
   const scanRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const CONFIG: Record<TransactionType, { fromLabel?: string; toLabel?: string; movementSign: 1 | -1 | 0 }> = {
+    GRN: { toLabel: t("transactionForm.locationLabels.receivingLocation", "Receiving Location"), movementSign: 1 },
+    GOODS_OUT: { fromLabel: t("transactionForm.locationLabels.issueFrom", "Issue From"), movementSign: -1 },
+    TRANSFER: { fromLabel: t("transactionForm.locationLabels.transferFrom", "Transfer From"), toLabel: t("transactionForm.locationLabels.transferTo", "Transfer To"), movementSign: 0 },
+  };
   const cfg = CONFIG[type];
 
   const [scanInput, setScanInput]       = useState("");
@@ -454,8 +462,8 @@ export function TransactionForm({
         {/* ── Draft restored banner ── */}
         {draftRestored && (
           <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100 flex items-center justify-between gap-3 text-xs text-amber-700 rounded-t-xl">
-            <span>Draft restored from your last session — please review the items.</span>
-            <button onClick={clearDraft} className="flex-shrink-0 font-semibold underline hover:text-amber-900">Clear</button>
+            <span>{t("transactionForm.draftRestored", "Draft restored from your last session — please review the items.")}</span>
+            <button onClick={clearDraft} className="flex-shrink-0 font-semibold underline hover:text-amber-900">{t("transactionForm.clearDraft", "Clear")}</button>
           </div>
         )}
 
@@ -466,7 +474,7 @@ export function TransactionForm({
               <label className="block text-xs font-medium text-slate-500 mb-1">{cfg.fromLabel} *</label>
               <select value={fromLocationId} onChange={(e) => setFromLocationId(e.target.value)}
                 className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Select…</option>
+                <option value="">{t("transactionForm.selectLocation", "Select…")}</option>
                 {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </div>
@@ -476,30 +484,30 @@ export function TransactionForm({
               <label className="block text-xs font-medium text-slate-500 mb-1">{cfg.toLabel} *</label>
               <select value={toLocationId} onChange={(e) => setToLocationId(e.target.value)}
                 className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Select…</option>
+                <option value="">{t("transactionForm.selectLocation", "Select…")}</option>
                 {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </div>
           )}
           {type === "GOODS_OUT" && (
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Customer Name</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.customerName", "Customer Name")}</label>
               <input value={customer} onChange={(e) => setCustomer(e.target.value)}
                 className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
-                placeholder="Optional" />
+                placeholder={t("transactionForm.optional", "Optional")} />
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Reference / DO#</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.referenceNo", "Reference / DO#")}</label>
             <input value={reference} onChange={(e) => setReference(e.target.value)}
               className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
-              placeholder="Optional" />
+              placeholder={t("transactionForm.optional", "Optional")} />
           </div>
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Notes</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.notes", "Notes")}</label>
             <input value={notes} onChange={(e) => setNotes(e.target.value)}
               className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Optional" />
+              placeholder={t("transactionForm.optional", "Optional")} />
           </div>
         </div>
 
@@ -508,27 +516,27 @@ export function TransactionForm({
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <span className="text-xl">⬛</span>
             <div className="flex-1 sm:flex-none">
-              <label className="block text-[10px] font-medium text-green-700 mb-0.5 uppercase tracking-wide">Scan / SKU</label>
+              <label className="block text-[10px] font-medium text-green-700 mb-0.5 uppercase tracking-wide">{t("transactionForm.scanLabel", "Scan / SKU")}</label>
               <input
                 ref={scanRef}
                 value={scanInput}
                 onChange={(e) => setScanInput(e.target.value)}
                 onKeyDown={handleScan}
                 className="w-full sm:w-56 px-3 py-2 border-2 border-green-500 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
-                placeholder="Scan barcode or type SKU…"
+                placeholder={t("transactionForm.scanPlaceholder", "Scan barcode or type SKU…")}
                 disabled={scanning}
               />
             </div>
           </div>
           <div className="relative w-full sm:w-auto">
-            <label className="block text-[10px] font-medium text-slate-500 mb-0.5 uppercase tracking-wide">Search by name</label>
+            <label className="block text-[10px] font-medium text-slate-500 mb-0.5 uppercase tracking-wide">{t("transactionForm.searchByName", "Search by name")}</label>
             <input
               ref={searchRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery && setShowDropdown(true)}
               className="w-full sm:w-64 px-3 py-2 border-2 border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-              placeholder="Type product name…"
+              placeholder={t("transactionForm.searchPlaceholder", "Type product name…")}
               autoComplete="off"
             />
             {searchLoading && (
@@ -558,18 +566,18 @@ export function TransactionForm({
             )}
             {showDropdown && searchQuery && searchResults.length === 0 && !searchLoading && (
               <div className="absolute z-50 top-full mt-1 left-0 w-full sm:w-64 bg-white border border-slate-200 rounded-xl shadow-xl px-4 py-3 text-xs text-slate-400">
-                No products found for &quot;{searchQuery}&quot;
+                {t("transactionForm.noProductsFound", "No products found for")} &quot;{searchQuery}&quot;
               </div>
             )}
           </div>
-          {scanning && <span className="text-xs text-slate-500 animate-pulse">Looking up…</span>}
+          {scanning && <span className="text-xs text-slate-500 animate-pulse">{t("transactionForm.lookingUp", "Looking up…")}</span>}
         </div>
 
         {/* ── Line items — mobile cards ── */}
         <div className="md:hidden divide-y divide-slate-100">
           {lines.length === 0 ? (
             <p className="px-4 py-10 text-center text-slate-400 text-xs">
-              Scan a barcode, type a SKU, or search by name above to add items
+              {t("transactionForm.emptyPrompt", "Scan a barcode, type a SKU, or search by name above to add items")}
             </p>
           ) : lines.map((line, i) => {
             const hasPackaging = line.unitConversions.length > 0;
@@ -621,7 +629,7 @@ export function TransactionForm({
                 </div>
                 <input value={line.notes} onChange={(e) => updateLine(line._key, "notes", e.target.value)}
                   className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  placeholder="Notes (optional)" />
+                  placeholder={t("transactionForm.notesOptional", "Notes (optional)")} />
               </div>
             );
           })}
@@ -632,19 +640,19 @@ export function TransactionForm({
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                <th className="px-4 py-2.5 text-left font-medium">#</th>
-                <th className="px-4 py-2.5 text-left font-medium">Product</th>
-                <th className="px-4 py-2.5 text-center font-medium">Qty</th>
-                <th className="px-4 py-2.5 text-left font-medium">Unit</th>
-                <th className="px-4 py-2.5 text-right font-medium">= Base qty</th>
-                <th className="px-4 py-2.5 text-left font-medium">Notes</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("transactionForm.cols.no", "#")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("transactionForm.cols.product", "Product")}</th>
+                <th className="px-4 py-2.5 text-center font-medium">{t("transactionForm.cols.qty", "Qty")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("transactionForm.cols.unit", "Unit")}</th>
+                <th className="px-4 py-2.5 text-right font-medium">{t("transactionForm.cols.baseQty", "= Base qty")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("transactionForm.cols.notes", "Notes")}</th>
                 <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
             <tbody>
               {lines.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">
-                  Scan a barcode, type a SKU, or search by product name above to add items
+                  {t("transactionForm.emptyPrompt", "Scan a barcode, type a SKU, or search by name above to add items")}
                 </td></tr>
               ) : lines.map((line, i) => {
                 const hasPackaging = line.unitConversions.length > 0;
@@ -687,7 +695,7 @@ export function TransactionForm({
                         const ok = avail >= needed;
                         return (
                           <div className={`text-[10px] font-medium mt-0.5 ${ok ? "text-green-600" : "text-red-500"}`}>
-                            {ok ? `✓ ${avail} avail` : `✗ only ${avail} avail`}
+                            {ok ? `✓ ${avail} ${t("transactionForm.avail", "avail")}` : `✗ ${t("transactionForm.onlyAvail", "only")} ${avail} ${t("transactionForm.avail", "avail")}`}
                           </div>
                         );
                       })()}
@@ -695,7 +703,7 @@ export function TransactionForm({
                     <td className="px-4 py-2">
                       <input value={line.notes} onChange={(e) => updateLine(line._key, "notes", e.target.value)}
                         className="w-full px-2 py-1 border border-slate-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        placeholder="Optional" />
+                        placeholder={t("transactionForm.optional", "Optional")} />
                     </td>
                     <td className="px-4 py-2">
                       <button onClick={() => removeLine(line._key)}
@@ -713,19 +721,19 @@ export function TransactionForm({
         {/* ── Footer ── */}
         <div className="px-5 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-slate-500">
-            {lines.length} line{lines.length !== 1 ? "s" : ""} · {totalBaseUnits} base unit{totalBaseUnits !== 1 ? "s" : ""} total
+            {lines.length} {lines.length !== 1 ? t("transactionForm.footer.lines", "lines") : t("transactionForm.footer.line", "line")} · {totalBaseUnits} {totalBaseUnits !== 1 ? t("transactionForm.footer.baseUnits", "base units") : t("transactionForm.footer.baseUnit", "base unit")} {t("transactionForm.footer.total", "total")}
           </span>
           <div className="flex gap-3">
             <button onClick={() => router.back()}
               className="px-4 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
-              Cancel
+              {t("common.cancel", "Cancel")}
             </button>
             <button
               onClick={handleSubmit}
               disabled={submitting || lines.length === 0 || flowState.step !== "idle"}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
             >
-              {submitting ? "Saving…" : "Save Order"}
+              {submitting ? t("common.saving", "Saving…") : t("transactionForm.saveOrder", "Save Order")}
             </button>
           </div>
         </div>
@@ -745,7 +753,7 @@ export function TransactionForm({
                       d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-bold text-slate-800 mb-1">Save this Goods Out order?</h2>
+                <h2 className="text-lg font-bold text-slate-800 mb-1">{t("transactionForm.flow.confirmTitle", "Save this Goods Out order?")}</h2>
                 <p className="text-sm text-slate-500 mb-0.5">
                   {lines.length} item{lines.length !== 1 ? "s" : ""} · {totalBaseUnits} base unit{totalBaseUnits !== 1 ? "s" : ""}
                 </p>
@@ -758,16 +766,16 @@ export function TransactionForm({
                   <p className="text-xs text-slate-400 mb-0.5">Customer: {customer}</p>
                 )}
                 <p className="text-xs text-amber-600 font-medium mt-3 mb-5">
-                  After saving: Send DO to WhatsApp → Print DO (mandatory)
+                  {t("transactionForm.flow.afterSaving", "After saving: Send DO to WhatsApp → Print DO (mandatory)")}
                 </p>
                 <div className="flex gap-3">
                   <button onClick={() => setFlowState({ step: "idle" })}
                     className="flex-1 px-4 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
-                    Cancel
+                    {t("common.cancel", "Cancel")}
                   </button>
                   <button onClick={executeGoodsOutSave}
                     className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors">
-                    Yes, Save &amp; Proceed
+                    {t("transactionForm.flow.saveAndProceed", "Yes, Save & Proceed")}
                   </button>
                 </div>
               </>
@@ -783,8 +791,8 @@ export function TransactionForm({
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-bold text-slate-800 mb-1">Saving order…</h2>
-                <p className="text-sm text-slate-400">Please wait</p>
+                <h2 className="text-lg font-bold text-slate-800 mb-1">{t("transactionForm.flow.savingTitle", "Saving order…")}</h2>
+                <p className="text-sm text-slate-400">{t("transactionForm.flow.pleaseWait", "Please wait")}</p>
               </>
             )}
 
@@ -799,10 +807,10 @@ export function TransactionForm({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <h2 className="text-lg font-bold text-slate-800 mb-1">Order Saved!</h2>
+                  <h2 className="text-lg font-bold text-slate-800 mb-1">{t("transactionForm.flow.savedTitle", "Order Saved!")}</h2>
                   <p className="text-sm font-mono text-slate-500 mb-4">{orderNumber}</p>
                   <p className="text-sm text-slate-600 mb-5">
-                    Send the Delivery Order to WhatsApp. The print preview will open automatically.
+                    {t("transactionForm.flow.sendWADesc", "Send the Delivery Order to WhatsApp. The print preview will open automatically.")}
                   </p>
                   <button
                     onClick={() => handleWhatsApp(orderId, orderNumber, whatsappUrl)}
@@ -811,7 +819,7 @@ export function TransactionForm({
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                     </svg>
-                    Send to WhatsApp
+                    {t("transactionForm.flow.sendWA", "Send to WhatsApp")}
                   </button>
                 </>
               );
@@ -828,10 +836,10 @@ export function TransactionForm({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <h2 className="text-lg font-bold text-slate-800 mb-1">WhatsApp Sent!</h2>
+                  <h2 className="text-lg font-bold text-slate-800 mb-1">{t("transactionForm.flow.waSentTitle", "WhatsApp Sent!")}</h2>
                   <p className="text-sm font-mono text-slate-500 mb-4">{orderNumber}</p>
                   <p className="text-sm text-slate-600 mb-5">
-                    Open the print preview to print or save the Delivery Order.
+                    {t("transactionForm.flow.printDesc", "Open the print preview to print or save the Delivery Order.")}
                   </p>
                   <button
                     onClick={() => handlePrint(orderId, orderNumber)}
@@ -840,7 +848,7 @@ export function TransactionForm({
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                     </svg>
-                    Print DO
+                    {t("transactionForm.flow.printDO", "Print DO")}
                   </button>
                 </>
               );
@@ -855,16 +863,16 @@ export function TransactionForm({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-bold text-slate-800 mb-1">Transaction Complete!</h2>
+                <h2 className="text-lg font-bold text-slate-800 mb-1">{t("transactionForm.flow.doneTitle", "Transaction Complete!")}</h2>
                 <p className="text-sm font-mono text-slate-500 mb-2">{flowState.orderNumber}</p>
                 <p className="text-xs text-slate-400 mb-6">
-                  Order saved, DO sent to WhatsApp, and print preview opened.
+                  {t("transactionForm.flow.doneSub", "Order saved, DO sent to WhatsApp, and print preview opened.")}
                 </p>
                 <button
                   onClick={() => { router.push("/orders"); router.refresh(); }}
                   className="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-xl transition-colors"
                 >
-                  Go to Orders
+                  {t("transactionForm.flow.goToOrders", "Go to Orders")}
                 </button>
               </>
             )}
@@ -877,24 +885,24 @@ export function TransactionForm({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-bold text-slate-800 mb-2">Something went wrong</h2>
+                <h2 className="text-lg font-bold text-slate-800 mb-2">{t("transactionForm.flow.errorTitle", "Something went wrong")}</h2>
                 <p className="text-sm text-red-600 mb-6">{flowState.message}</p>
                 <div className="flex gap-3">
                   {flowState.onRetry ? (
                     <>
                       <button onClick={() => setFlowState({ step: "idle" })}
                         className="flex-1 px-4 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
-                        Back to Form
+                        {t("transactionForm.flow.backToForm", "Back to Form")}
                       </button>
                       <button onClick={flowState.onRetry}
                         className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors">
-                        Retry
+                        {t("transactionForm.flow.retry", "Retry")}
                       </button>
                     </>
                   ) : (
                     <button onClick={() => setFlowState({ step: "idle" })}
                       className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
-                      Back to Form
+                      {t("transactionForm.flow.backToForm", "Back to Form")}
                     </button>
                   )}
                 </div>

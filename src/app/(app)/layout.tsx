@@ -28,7 +28,7 @@ export default async function AppLayout({
   }
 
   const cookieStore = await cookies();
-  const locale = (cookieStore.get("locale")?.value ?? "id") as Locale;
+  const locale = (cookieStore.get("locale")?.value ?? "en") as Locale;
 
   return (
     <I18nProvider locale={locale}>

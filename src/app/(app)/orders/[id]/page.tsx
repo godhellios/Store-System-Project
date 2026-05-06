@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { blockOperator } from "@/lib/role-guard";
 import { OrderActions } from "@/components/order-actions";
 import { GoodsOutDetailActions } from "@/components/goods-out-detail-actions";
+import { getT } from "@/modules/i18n";
 
 const TYPE_BADGE: Record<string, string> = {
   GRN: "bg-green-100 text-green-700", GOODS_OUT: "bg-orange-100 text-orange-700",
@@ -18,7 +19,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const userRole = session.user.role;
 
   const { id } = await params;
-  const [order, waSetting] = await Promise.all([
+  const [order, waSetting, t] = await Promise.all([
     prisma.order.findUnique({
       where: { id },
       include: {
@@ -28,6 +29,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       },
     }),
     prisma.systemSetting.findUnique({ where: { key: "whatsapp_number" } }),
+    getT(),
   ]);
   if (!order) notFound();
   const whatsappNumber = waSetting?.value ?? "6281283118487";
@@ -36,7 +38,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     <div className="max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
         <div className="flex items-center gap-2 text-sm text-slate-500">
-          <Link href="/orders" className="hover:text-slate-800">Orders</Link>
+          <Link href="/orders" className="hover:text-slate-800">{t("orders.breadcrumb", "Orders")}</Link>
           <span>/</span>
           <span className="text-slate-800 font-medium font-mono">{order.orderNumber}</span>
           <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[order.type]}`}>
@@ -48,12 +50,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <>
               {order.whatsappSentAt && (
                 <span className="text-[10px] px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
-                  WA Sent
+                  {t("orderDetail.waSent", "WA Sent")}
                 </span>
               )}
               {order.printedAt && (
                 <span className="text-[10px] px-2 py-1 bg-slate-100 text-slate-600 rounded-full font-medium">
-                  Printed
+                  {t("orderDetail.printed", "Printed")}
                 </span>
               )}
               <GoodsOutDetailActions
@@ -75,36 +77,36 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 grid grid-cols-2 gap-4 text-sm text-gray-900">
         <div>
-          <span className="text-xs text-slate-500 block mb-0.5">Date</span>
+          <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.date", "Date")}</span>
           {order.createdAt.toLocaleString("id-ID", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Jakarta" })}
         </div>
         {order.fromLocation && (
           <div>
-            <span className="text-xs text-slate-500 block mb-0.5">From</span>
+            <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.from", "From")}</span>
             {order.fromLocation.name}
           </div>
         )}
         {order.toLocation && (
           <div>
-            <span className="text-xs text-slate-500 block mb-0.5">To</span>
+            <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.to", "To")}</span>
             {order.toLocation.name}
           </div>
         )}
         {order.customer && (
           <div>
-            <span className="text-xs text-slate-500 block mb-0.5">Customer</span>
+            <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.customer", "Customer")}</span>
             {order.customer}
           </div>
         )}
         {order.reference && (
           <div>
-            <span className="text-xs text-slate-500 block mb-0.5">Reference</span>
+            <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.reference", "Reference")}</span>
             {order.reference}
           </div>
         )}
         {order.notes && (
           <div className="col-span-2">
-            <span className="text-xs text-slate-500 block mb-0.5">Notes</span>
+            <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.notes", "Notes")}</span>
             {order.notes}
           </div>
         )}
@@ -115,12 +117,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                <th className="px-4 py-2.5 text-left font-medium">#</th>
-                <th className="px-4 py-2.5 text-left font-medium">Product</th>
-                <th className="px-4 py-2.5 text-left font-medium">Category</th>
-                <th className="px-4 py-2.5 text-right font-medium">Qty (input)</th>
-                <th className="px-4 py-2.5 text-right font-medium">Base qty</th>
-                <th className="px-4 py-2.5 text-left font-medium">Notes</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orderDetail.cols.no", "#")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orderDetail.cols.product", "Product")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orderDetail.cols.category", "Category")}</th>
+                <th className="px-4 py-2.5 text-right font-medium">{t("orderDetail.cols.qtyInput", "Qty (input)")}</th>
+                <th className="px-4 py-2.5 text-right font-medium">{t("orderDetail.cols.baseQty", "Base qty")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orderDetail.cols.notes", "Notes")}</th>
               </tr>
             </thead>
             <tbody>
@@ -152,7 +154,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </table>
         </div>
         <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-600 text-right">
-          {order.lines.length} line{order.lines.length !== 1 ? "s" : ""} · {order.lines.reduce((s, l) => s + l.quantity, 0)} items total
+          {order.lines.length} {order.lines.length !== 1 ? t("transactionForm.footer.lines", "lines") : t("transactionForm.footer.line", "line")} · {order.lines.reduce((s, l) => s + l.quantity, 0)} {t("orderDetail.linesTotal", "items total")}
         </div>
       </div>
     </div>

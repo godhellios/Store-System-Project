@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { useT } from "@/modules/i18n/provider";
 
 type AuditLog = {
   id: string;
@@ -54,6 +55,7 @@ const ALL_ENTITY_TYPES = ["ORDER", "PRODUCT", "OPNAME"];
 export default function AuditLogPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const t = useT();
 
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
@@ -106,47 +108,47 @@ export default function AuditLogPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-white">Audit Log</h1>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white">{t("auditLog.title", "Audit Log")}</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Record of all significant write actions in the system — {total.toLocaleString()} entries
+          {t("auditLog.subtitle", "Record of all significant write actions in the system")} — {total.toLocaleString()} {t("auditLog.entries", "entries")}
         </p>
       </div>
 
       {/* Filters */}
       <form onSubmit={handleFilterSubmit} className="flex flex-wrap gap-3 items-end">
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Action</label>
+          <label className="block text-xs text-slate-500 mb-1">{t("auditLog.filterAction", "Action")}</label>
           <select
             value={filterAction}
             onChange={(e) => setFilterAction(e.target.value)}
             className="text-sm border border-slate-200 rounded-lg px-3 py-2 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
           >
-            <option value="">All actions</option>
+            <option value="">{t("auditLog.allActions", "All actions")}</option>
             {ALL_ACTIONS.map((a) => (
               <option key={a} value={a}>{a.replace(/_/g, " ")}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Entity type</label>
+          <label className="block text-xs text-slate-500 mb-1">{t("auditLog.filterEntityType", "Entity type")}</label>
           <select
             value={filterEntityType}
             onChange={(e) => setFilterEntityType(e.target.value)}
             className="text-sm border border-slate-200 rounded-lg px-3 py-2 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
           >
-            <option value="">All types</option>
-            {ALL_ENTITY_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
+            <option value="">{t("auditLog.allTypes", "All types")}</option>
+            {ALL_ENTITY_TYPES.map((tp) => (
+              <option key={tp} value={tp}>{tp}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">User</label>
+          <label className="block text-xs text-slate-500 mb-1">{t("auditLog.filterUser", "User")}</label>
           <input
             type="text"
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
-            placeholder="Search by name…"
+            placeholder={t("auditLog.searchByName", "Search by name…")}
             className="text-sm border border-slate-200 rounded-lg px-3 py-2 dark:bg-slate-800 dark:border-slate-700 dark:text-white w-44"
           />
         </div>
@@ -154,7 +156,7 @@ export default function AuditLogPage() {
           type="submit"
           className="text-sm bg-sky-600 text-white rounded-lg px-4 py-2 hover:bg-sky-700"
         >
-          Filter
+          {t("common.filter", "Filter")}
         </button>
         {(filterAction || filterEntityType || filterUser) && (
           <button
@@ -162,7 +164,7 @@ export default function AuditLogPage() {
             onClick={() => { setFilterAction(""); setFilterEntityType(""); setFilterUser(""); setUserInput(""); }}
             className="text-sm text-slate-500 hover:text-slate-700 py-2"
           >
-            Clear
+            {t("common.clear", "Clear")}
           </button>
         )}
       </form>
@@ -170,10 +172,10 @@ export default function AuditLogPage() {
       {/* Log entries */}
       <div className="space-y-2">
         {loading && (
-          <div className="text-sm text-slate-500 py-8 text-center">Loading…</div>
+          <div className="text-sm text-slate-500 py-8 text-center">{t("common.loading", "Loading…")}</div>
         )}
         {!loading && logs.length === 0 && (
-          <div className="text-sm text-slate-500 py-8 text-center">No entries found</div>
+          <div className="text-sm text-slate-500 py-8 text-center">{t("auditLog.noEntries", "No entries found")}</div>
         )}
         {!loading && logs.map((log) => {
           const entityLink = log.entityId && log.entityType ? ENTITY_LINK[log.entityType]?.(log.entityId) : null;
@@ -223,17 +225,17 @@ export default function AuditLogPage() {
             disabled={page <= 1 || loading}
             className="text-sm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-700"
           >
-            ← Prev
+            ← {t("common.previous", "Prev")}
           </button>
           <span className="text-sm text-slate-500 py-1.5 px-2">
-            Page {page} of {pages}
+            {t("auditLog.page", "Page")} {page} {t("auditLog.of", "of")} {pages}
           </span>
           <button
             onClick={() => fetchLogs(page + 1)}
             disabled={page >= pages || loading}
             className="text-sm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-700"
           >
-            Next →
+            {t("common.next", "Next")} →
           </button>
         </div>
       )}
