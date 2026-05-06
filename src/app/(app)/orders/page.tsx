@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { OrderType } from "@/generated/prisma";
 import { blockOperator } from "@/lib/role-guard";
+import { getT } from "@/modules/i18n";
 
 const TYPE_BADGE: Record<string, string> = {
   GRN: "bg-green-100 text-green-700",
@@ -26,7 +27,7 @@ export default async function OrdersPage({
   searchParams: Promise<{ type?: string; page?: string }>;
 }) {
   await blockOperator();
-  const params = await searchParams;
+  const [params, t] = await Promise.all([searchParams, getT()]);
   const typeFilter = params.type as OrderType | undefined;
   const page = Math.max(1, parseInt(params.page ?? "1"));
   const perPage = 25;
@@ -52,13 +53,13 @@ export default async function OrdersPage({
 
   return (
     <div>
-      <h1 className="text-base font-semibold text-slate-800 mb-5">Order History</h1>
+      <h1 className="text-base font-semibold text-slate-800 mb-5">{t("orders.title", "Order History")}</h1>
 
       <div className="flex gap-2 mb-4 flex-wrap">
-        {[undefined, "GRN", "GOODS_OUT", "TRANSFER", "ADJUSTMENT"].map((t) => (
-          <Link key={t ?? "all"} href={t ? `/orders?type=${t}` : "/orders"}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === t || (!typeFilter && !t) ? "bg-blue-600 text-white" : "border border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
-            {t ? TYPE_LABEL[t] : "All"}
+        {[undefined, "GRN", "GOODS_OUT", "TRANSFER", "ADJUSTMENT"].map((tp) => (
+          <Link key={tp ?? "all"} href={tp ? `/orders?type=${tp}` : "/orders"}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === tp || (!typeFilter && !tp) ? "bg-blue-600 text-white" : "border border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+            {tp ? TYPE_LABEL[tp] : t("orders.all", "All")}
           </Link>
         ))}
       </div>
@@ -66,7 +67,7 @@ export default async function OrdersPage({
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
         {orders.length === 0 ? (
-          <p className="text-center text-slate-400 text-xs py-10">No orders yet</p>
+          <p className="text-center text-slate-400 text-xs py-10">{t("orders.empty", "No orders yet")}</p>
         ) : orders.map((o) => {
           const { totalQty, catLabel } = summariseLines(o.lines);
           const location = o.type === "TRANSFER"
@@ -92,7 +93,7 @@ export default async function OrdersPage({
                 <div className="text-xs text-slate-400 mt-1">Disimpan oleh: <span className="text-slate-600 font-medium">{o.createdByName}</span></div>
               )}
               <div className="mt-2 text-right">
-                <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 font-medium">View →</Link>
+                <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 font-medium">{t("orders.view", "View")} →</Link>
               </div>
             </div>
           );
@@ -105,19 +106,19 @@ export default async function OrdersPage({
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                <th className="px-4 py-2.5 text-left font-medium">Document</th>
-                <th className="px-4 py-2.5 text-left font-medium">Type</th>
-                <th className="px-4 py-2.5 text-left font-medium">Location(s)</th>
-                <th className="px-4 py-2.5 text-left font-medium">Qty · Categories</th>
-                <th className="px-4 py-2.5 text-left font-medium">Reference</th>
-                <th className="px-4 py-2.5 text-left font-medium">Saved By</th>
-                <th className="px-4 py-2.5 text-left font-medium">Date</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.document", "Document")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.type", "Type")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.locations", "Location(s)")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.qty", "Qty · Categories")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.reference", "Reference")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.savedBy", "Saved By")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("orders.cols.date", "Date")}</th>
                 <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
             <tbody>
               {orders.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-xs">No orders yet</td></tr>
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-xs">{t("orders.empty", "No orders yet")}</td></tr>
               ) : orders.map((o) => {
                 const { totalQty, catLabel } = summariseLines(o.lines);
                 return (
@@ -145,7 +146,7 @@ export default async function OrdersPage({
                       {o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
                     </td>
                     <td className="px-4 py-2.5">
-                      <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 hover:underline">View</Link>
+                      <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 hover:underline">{t("orders.view", "View")}</Link>
                     </td>
                   </tr>
                 );

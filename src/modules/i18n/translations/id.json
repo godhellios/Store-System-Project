@@ -1,0 +1,170 @@
+{
+  "common": {
+    "add": "Tambah",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "edit": "Ubah",
+    "delete": "Hapus",
+    "yes": "Ya",
+    "no": "Tidak",
+    "activate": "Aktifkan",
+    "deactivate": "Nonaktifkan",
+    "loading": "Memuat…",
+    "filter": "Filter",
+    "clear": "Hapus Filter",
+    "view": "Lihat",
+    "refresh": "Perbarui",
+    "exportExcel": "↓ Ekspor Excel",
+    "remove": "Hapus",
+    "saving": "Menyimpan…",
+    "signOut": "Keluar",
+    "previous": "Sebelumnya",
+    "next": "Berikutnya",
+    "inactive": "Nonaktif"
+  },
+  "nav": {
+    "sections": {
+      "main": "Utama",
+      "transactions": "Transaksi",
+      "barcodes": "Barcode",
+      "history": "Riwayat",
+      "operations": "Operasi",
+      "settings": "Pengaturan"
+    },
+    "links": {
+      "dashboard": "Dasbor",
+      "products": "Produk",
+      "addProduct": "Tambah Produk",
+      "bulkImport": "Impor Massal",
+      "bulkImages": "Gambar Massal",
+      "warehouse": "Gudang",
+      "grn": "Barang Masuk (GRN)",
+      "goodsOut": "Surat Jalan Keluar",
+      "transfer": "Transfer",
+      "adjustment": "Penyesuaian Stok",
+      "barcodeLabels": "Label Barcode",
+      "orderHistory": "Riwayat Pesanan",
+      "movementLog": "Log Mutasi",
+      "reports": "Laporan",
+      "stockOpname": "Opname Stok",
+      "settings": "Pengaturan",
+      "userManagement": "Manajemen Pengguna",
+      "auditLog": "Log Audit"
+    }
+  },
+  "app": {
+    "title": "MRIs — Mitra Ramah Inventory System",
+    "footer": "© 2026 Mitra Ramah — Semua hak dilindungi | MRIs v1.3.5",
+    "openNav": "Buka navigasi",
+    "closeMenu": "Tutup menu",
+    "geo": {
+      "title": "Akses Lokasi Diperlukan",
+      "body": "Aplikasi ini memerlukan akses lokasi untuk keamanan dan audit login. Izinkan akses lokasi di browser Anda untuk melanjutkan.",
+      "howTo": "Cara mengaktifkan:",
+      "chrome": "klik ikon kunci di address bar → Lokasi → Izinkan",
+      "firefox": "klik ikon kunci → Izinkan Lokasi",
+      "safari": "Pengaturan → Safari → Lokasi → Izinkan",
+      "android": "Pengaturan → Aplikasi → Browser → Izin → Lokasi",
+      "retry": "Coba Lagi"
+    }
+  },
+  "dashboard": {
+    "totalProducts": "Total Produk",
+    "allLocations": "Semua lokasi",
+    "grnsToday": "GRN Hari Ini",
+    "receivedToday": "Diterima hari ini",
+    "ordersOutToday": "Keluar Hari Ini",
+    "issuedToday": "Dikeluarkan hari ini",
+    "lowStockAlerts": "Stok Menipis",
+    "belowReorderPoint": "Di bawah titik reorder",
+    "lowStockByLocation": "Stok Menipis per Lokasi",
+    "viewAllLowStock": "Lihat semua stok menipis →",
+    "allStockAbove": "Semua stok di atas titik reorder",
+    "reorderAt": "reorder di",
+    "recentOrders": "Pesanan Terbaru",
+    "viewAll": "Lihat semua →"
+  },
+  "orders": {
+    "title": "Riwayat Pesanan",
+    "empty": "Belum ada pesanan",
+    "all": "Semua",
+    "view": "Lihat",
+    "cols": {
+      "document": "Dokumen",
+      "type": "Tipe",
+      "locations": "Lokasi",
+      "qty": "Qty · Kategori",
+      "reference": "Referensi",
+      "savedBy": "Disimpan Oleh",
+      "date": "Tanggal"
+    }
+  },
+  "movements": {
+    "title": "Log Mutasi",
+    "exportExcel": "↓ Ekspor Excel",
+    "allLocations": "Semua Lokasi",
+    "noMovements": "Tidak ada mutasi",
+    "cols": {
+      "date": "Tanggal",
+      "order": "Pesanan",
+      "type": "Tipe",
+      "product": "Produk",
+      "from": "Dari",
+      "to": "Ke",
+      "qty": "Qty"
+    }
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "tabs": {
+      "categories": "Kategori",
+      "units": "Satuan",
+      "locations": "Lokasi",
+      "notifications": "Notifikasi",
+      "loginHistory": "Riwayat Login"
+    },
+    "adminOnly": "Diperlukan akses admin.",
+    "loginHistory": {
+      "eventsRecorded": "kejadian login tercatat",
+      "eventRecorded": "kejadian login tercatat",
+      "timeHeader": "Waktu (WIB)",
+      "user": "Pengguna",
+      "ip": "Alamat IP",
+      "device": "Perangkat / Browser",
+      "location": "Lokasi",
+      "noHistory": "Belum ada riwayat login",
+      "of": "dari"
+    },
+    "notifications": {
+      "waTitle": "Nomor WhatsApp DO",
+      "waDesc": "Surat Jalan dari Barang Keluar akan dikirim ke nomor ini. Masukkan hanya digit, dengan kode negara (mis. 6281283118487).",
+      "pushTitle": "Notifikasi Push HP",
+      "pushDesc": "Dapatkan notifikasi instan di perangkat ini setiap kali Surat Jalan dikonfirmasi. Gratis — tanpa layanan tambahan. Aktifkan di setiap perangkat yang ingin menerima notifikasi."
+    },
+    "units": {
+      "help": "Tentukan satuan lebih besar dengan memilih satuan induk. Contoh:",
+      "helpBold": "Box",
+      "helpParent": "induk =",
+      "helpDummy": "Lusin",
+      "helpFactor": "faktor =",
+      "helpMeans": "berarti 1 Box = 12 Lusin.",
+      "nameLabel": "Nama satuan *",
+      "parentLabel": "1 satuan ini = … dari",
+      "factorLabel": "Faktor *",
+      "baseUnit": "(satuan dasar)",
+      "nameEditLabel": "Nama",
+      "factorEditLabel": "Faktor"
+    },
+    "categories": {
+      "placeholder": "Nama kategori baru…"
+    },
+    "locations": {
+      "placeholder": "Nama lokasi baru…",
+      "typePlaceholder": "Tipe (mis. Gudang)",
+      "noStock": "Tidak ada catatan stok untuk lokasi ini.",
+      "colProduct": "Produk",
+      "colCategory": "Kategori",
+      "colQty": "Qty"
+    }
+  }
+}

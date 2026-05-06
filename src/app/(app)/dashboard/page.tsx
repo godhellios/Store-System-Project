@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import RecentOrdersTable from "@/components/recent-orders-table";
+import { getT } from "@/modules/i18n";
 
 async function getDashboardData() {
   const today = new Date();
@@ -59,22 +60,22 @@ const LOC_HEADER: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
-  const data = await getDashboardData();
+  const [data, t] = await Promise.all([getDashboardData(), getT()]);
 
   return (
     <div>
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Products" value={data.totalProducts} sub="All locations" color="border-sky-400" />
-        <StatCard label="GRNs Today" value={data.grnsToday} sub="Received today" color="border-green-500" />
-        <StatCard label="Orders Out Today" value={data.ordersOutToday} sub="Issued today" color="border-orange-400" />
-        <StatCard label="Low Stock Alerts" value={data.lowStockCount} sub="Below reorder point" color="border-red-400" valueClass={data.lowStockCount > 0 ? "text-red-600 dark:text-red-400" : ""} />
+        <StatCard label={t("dashboard.totalProducts", "Total Products")} value={data.totalProducts} sub={t("dashboard.allLocations", "All locations")} color="border-sky-400" />
+        <StatCard label={t("dashboard.grnsToday", "GRNs Today")} value={data.grnsToday} sub={t("dashboard.receivedToday", "Received today")} color="border-green-500" />
+        <StatCard label={t("dashboard.ordersOutToday", "Orders Out Today")} value={data.ordersOutToday} sub={t("dashboard.issuedToday", "Issued today")} color="border-orange-400" />
+        <StatCard label={t("dashboard.lowStockAlerts", "Low Stock Alerts")} value={data.lowStockCount} sub={t("dashboard.belowReorderPoint", "Below reorder point")} color="border-red-400" valueClass={data.lowStockCount > 0 ? "text-red-600 dark:text-red-400" : ""} />
       </div>
 
       {/* Low stock by location */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-slate-700">Low Stock Alerts by Location</h2>
-        <Link href="/products?lowStock=1" className="text-xs text-blue-600 hover:underline">View all low stock →</Link>
+        <h2 className="text-sm font-semibold text-slate-700">{t("dashboard.lowStockByLocation", "Low Stock Alerts by Location")}</h2>
+        <Link href="/products?lowStock=1" className="text-xs text-blue-600 hover:underline">{t("dashboard.viewAllLowStock", "View all low stock →")}</Link>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {data.locationStock.map((loc) => {
@@ -89,14 +90,14 @@ export default async function DashboardPage() {
               </div>
               {lowItems.length === 0 ? (
                 <p className="px-4 py-3 text-xs text-green-600 flex items-center gap-1.5">
-                  <span>✓</span> All stock above reorder point
+                  <span>✓</span> {t("dashboard.allStockAbove", "All stock above reorder point")}
                 </p>
               ) : (
                 lowItems.map((s) => (
                   <div key={s.id} className="flex justify-between items-center px-4 py-2.5 border-b border-slate-50 last:border-0 text-sm">
                     <div className="truncate mr-2">
                       <div className="text-slate-700 text-xs font-medium truncate">{s.product.name}</div>
-                      <div className="text-[11px] text-slate-400">reorder at {s.product.reorderPoint}</div>
+                      <div className="text-[11px] text-slate-400">{t("dashboard.reorderAt", "reorder at")} {s.product.reorderPoint}</div>
                     </div>
                     <span className="font-semibold text-red-500 dark:text-red-400 whitespace-nowrap text-xs">
                       {s.quantity} {s.product.unit.name.toLowerCase()} ⚠
@@ -111,8 +112,8 @@ export default async function DashboardPage() {
 
       {/* Recent orders */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-slate-700">Recent Orders</h2>
-        <Link href="/orders" className="text-xs text-blue-600 hover:underline">View all →</Link>
+        <h2 className="text-sm font-semibold text-slate-700">{t("dashboard.recentOrders", "Recent Orders")}</h2>
+        <Link href="/orders" className="text-xs text-blue-600 hover:underline">{t("dashboard.viewAll", "View all →")}</Link>
       </div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <RecentOrdersTable orders={data.recentOrders} />

@@ -1,0 +1,170 @@
+{
+  "common": {
+    "add": "Add",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "yes": "Yes",
+    "no": "No",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "loading": "Loading…",
+    "filter": "Filter",
+    "clear": "Clear",
+    "view": "View",
+    "refresh": "Refresh",
+    "exportExcel": "↓ Export Excel",
+    "remove": "Remove",
+    "saving": "Saving…",
+    "signOut": "Sign out",
+    "previous": "Previous",
+    "next": "Next",
+    "inactive": "Inactive"
+  },
+  "nav": {
+    "sections": {
+      "main": "Main",
+      "transactions": "Transactions",
+      "barcodes": "Barcodes",
+      "history": "History",
+      "operations": "Operations",
+      "settings": "Settings"
+    },
+    "links": {
+      "dashboard": "Dashboard",
+      "products": "Products",
+      "addProduct": "Add Product",
+      "bulkImport": "Bulk Import",
+      "bulkImages": "Bulk Images",
+      "warehouse": "Warehouse",
+      "grn": "Goods Received (GRN)",
+      "goodsOut": "Goods Out Order",
+      "transfer": "Transfer",
+      "adjustment": "Stock Adjustment",
+      "barcodeLabels": "Barcode Labels",
+      "orderHistory": "Order History",
+      "movementLog": "Movement Log",
+      "reports": "Reports",
+      "stockOpname": "Stock Opname",
+      "settings": "Settings",
+      "userManagement": "User Management",
+      "auditLog": "Audit Log"
+    }
+  },
+  "app": {
+    "title": "MRIs — Mitra Ramah Inventory System",
+    "footer": "© 2026 Mitra Ramah — All rights reserved | MRIs v1.3.5",
+    "openNav": "Open navigation",
+    "closeMenu": "Close menu",
+    "geo": {
+      "title": "Akses Lokasi Diperlukan",
+      "body": "Aplikasi ini memerlukan akses lokasi untuk keamanan dan audit login. Izinkan akses lokasi di browser Anda untuk melanjutkan.",
+      "howTo": "Cara mengaktifkan:",
+      "chrome": "klik ikon kunci di address bar → Lokasi → Izinkan",
+      "firefox": "klik ikon kunci → Izinkan Lokasi",
+      "safari": "Pengaturan → Safari → Lokasi → Izinkan",
+      "android": "Pengaturan → Aplikasi → Browser → Izin → Lokasi",
+      "retry": "Coba Lagi"
+    }
+  },
+  "dashboard": {
+    "totalProducts": "Total Products",
+    "allLocations": "All locations",
+    "grnsToday": "GRNs Today",
+    "receivedToday": "Received today",
+    "ordersOutToday": "Orders Out Today",
+    "issuedToday": "Issued today",
+    "lowStockAlerts": "Low Stock Alerts",
+    "belowReorderPoint": "Below reorder point",
+    "lowStockByLocation": "Low Stock Alerts by Location",
+    "viewAllLowStock": "View all low stock →",
+    "allStockAbove": "All stock above reorder point",
+    "reorderAt": "reorder at",
+    "recentOrders": "Recent Orders",
+    "viewAll": "View all →"
+  },
+  "orders": {
+    "title": "Order History",
+    "empty": "No orders yet",
+    "all": "All",
+    "view": "View",
+    "cols": {
+      "document": "Document",
+      "type": "Type",
+      "locations": "Location(s)",
+      "qty": "Qty · Categories",
+      "reference": "Reference",
+      "savedBy": "Saved By",
+      "date": "Date"
+    }
+  },
+  "movements": {
+    "title": "Movement Log",
+    "exportExcel": "↓ Export Excel",
+    "allLocations": "All Locations",
+    "noMovements": "No movements found",
+    "cols": {
+      "date": "Date",
+      "order": "Order",
+      "type": "Type",
+      "product": "Product",
+      "from": "From",
+      "to": "To",
+      "qty": "Qty"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "tabs": {
+      "categories": "Categories",
+      "units": "Units",
+      "locations": "Locations",
+      "notifications": "Notifications",
+      "loginHistory": "Login History"
+    },
+    "adminOnly": "Admin access required.",
+    "loginHistory": {
+      "eventsRecorded": "login events recorded",
+      "eventRecorded": "login event recorded",
+      "timeHeader": "Time (WIB)",
+      "user": "User",
+      "ip": "IP Address",
+      "device": "Device / Browser",
+      "location": "Location",
+      "noHistory": "No login history yet",
+      "of": "of"
+    },
+    "notifications": {
+      "waTitle": "WhatsApp DO Number",
+      "waDesc": "Delivery Orders from Goods Out will be sent to this number. Enter digits only, with country code (e.g. 6281283118487).",
+      "pushTitle": "Phone Push Notifications",
+      "pushDesc": "Get an instant notification on this device whenever a Goods Out order is confirmed. Free — no service required. Enable on each device you want to receive alerts."
+    },
+    "units": {
+      "help": "Define higher units by selecting a parent. Example:",
+      "helpBold": "Box",
+      "helpParent": "parent =",
+      "helpDummy": "Dozen",
+      "helpFactor": "factor =",
+      "helpMeans": "means 1 Box = 12 Dozen.",
+      "nameLabel": "Unit name *",
+      "parentLabel": "1 of this = … of",
+      "factorLabel": "Factor *",
+      "baseUnit": "(base unit)",
+      "nameEditLabel": "Name",
+      "factorEditLabel": "Factor"
+    },
+    "categories": {
+      "placeholder": "New category name…"
+    },
+    "locations": {
+      "placeholder": "New location name…",
+      "typePlaceholder": "Type (e.g. Warehouse)",
+      "noStock": "No stock records for this location.",
+      "colProduct": "Product",
+      "colCategory": "Category",
+      "colQty": "Qty"
+    }
+  }
+}

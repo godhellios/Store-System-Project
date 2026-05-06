@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { blockOperator } from "@/lib/role-guard";
+import { getT } from "@/modules/i18n";
 
 const TYPE_BADGE: Record<string, string> = {
   IN: "bg-green-100 text-green-700", OUT: "bg-orange-100 text-orange-700",
@@ -13,7 +14,7 @@ export default async function MovementsPage({
   searchParams: Promise<{ locationId?: string; from?: string; to?: string; page?: string }>;
 }) {
   await blockOperator();
-  const params = await searchParams;
+  const [params, t] = await Promise.all([searchParams, getT()]);
   const locationId = params.locationId ?? "";
   const from = params.from ?? "";
   const to = params.to ?? "";
@@ -48,29 +49,29 @@ export default async function MovementsPage({
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-base font-semibold text-slate-800">Movement Log</h1>
+        <h1 className="text-base font-semibold text-slate-800">{t("movements.title", "Movement Log")}</h1>
         <a href={`/api/reports?report=movements&format=xlsx&locationId=${locationId}&from=${from}&to=${to}`}
           className="text-xs px-3 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
-          ↓ Export Excel
+          {t("movements.exportExcel", "↓ Export Excel")}
         </a>
       </div>
 
       <form method="GET" className="flex gap-2 mb-4 flex-wrap">
         <select name="locationId" defaultValue={locationId}
           className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">All Locations</option>
+          <option value="">{t("movements.allLocations", "All Locations")}</option>
           {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
         <input type="date" name="from" defaultValue={from} className="px-3 py-2 border border-slate-300 rounded-lg text-sm" />
         <input type="date" name="to" defaultValue={to} className="px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-        <button type="submit" className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700">Filter</button>
-        {(locationId || from || to) && <Link href="/movements" className="text-sm px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">Clear</Link>}
+        <button type="submit" className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700">{t("common.filter", "Filter")}</button>
+        {(locationId || from || to) && <Link href="/movements" className="text-sm px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">{t("common.clear", "Clear")}</Link>}
       </form>
 
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
         {movements.length === 0 ? (
-          <p className="text-center text-slate-400 text-xs py-10">No movements found</p>
+          <p className="text-center text-slate-400 text-xs py-10">{t("movements.noMovements", "No movements found")}</p>
         ) : movements.map((m) => (
           <div key={m.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
             <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -110,18 +111,18 @@ export default async function MovementsPage({
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                <th className="px-4 py-2.5 text-left font-medium">Date</th>
-                <th className="px-4 py-2.5 text-left font-medium">Order</th>
-                <th className="px-4 py-2.5 text-left font-medium">Type</th>
-                <th className="px-4 py-2.5 text-left font-medium">Product</th>
-                <th className="px-4 py-2.5 text-left font-medium">From</th>
-                <th className="px-4 py-2.5 text-left font-medium">To</th>
-                <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("movements.cols.date", "Date")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("movements.cols.order", "Order")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("movements.cols.type", "Type")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("movements.cols.product", "Product")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("movements.cols.from", "From")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("movements.cols.to", "To")}</th>
+                <th className="px-4 py-2.5 text-right font-medium">{t("movements.cols.qty", "Qty")}</th>
               </tr>
             </thead>
             <tbody>
               {movements.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">No movements found</td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">{t("movements.noMovements", "No movements found")}</td></tr>
               ) : movements.map((m) => (
                 <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-2.5 text-xs text-slate-500">

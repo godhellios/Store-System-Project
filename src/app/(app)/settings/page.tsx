@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 // ── push-notify module ──────────────────────────────────────────────────────
 import { PushSubscribeButton } from "@/modules/push-notify";
 // ────────────────────────────────────────────────────────────────────────────
+import { useT } from "@/modules/i18n/provider";
 
 type Row = { id: string; name: string; type?: string; isActive: boolean; _count?: { products?: number; stock?: number } };
 type LocationRow = { id: string; name: string; type: string; isActive: boolean; _count: { stock: number } };
@@ -21,10 +22,17 @@ type UnitRow = {
   _count: { products: number };
 };
 
-const TABS = ["Categories", "Units", "Locations", "Notifications", "Login History"];
+const TABS = [
+  { key: "settings.tabs.categories", label: "Categories" },
+  { key: "settings.tabs.units", label: "Units" },
+  { key: "settings.tabs.locations", label: "Locations" },
+  { key: "settings.tabs.notifications", label: "Notifications" },
+  { key: "settings.tabs.loginHistory", label: "Login History" },
+];
 
 // Generic manager for categories and locations
-function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: string; hasType?: boolean }) {
+function EntityManager({ endpoint, label, hasType, placeholder }: { endpoint: string; label: string; hasType?: boolean; placeholder?: string }) {
+  const t = useT();
   const [rows, setRows] = useState<Row[]>([]);
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState("");
@@ -66,7 +74,7 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
     const data = await res.json();
     setLoading(false);
     if (!res.ok) { toast.error(data.error); return; }
-    toast.success("Saved");
+    toast.success(t("common.save", "Save") + "d");
     setEditing(null);
     load();
   }
@@ -77,13 +85,13 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
       body: JSON.stringify({ isActive: !row.isActive }),
     });
     if (!res.ok) { toast.error("Failed"); return; }
-    toast.success(row.isActive ? "Deactivated" : "Activated");
+    toast.success(row.isActive ? t("common.deactivate", "Deactivate") + "d" : t("common.activate", "Activate") + "d");
     load();
   }
 
   async function handleDelete(row: Row) {
     const res = await fetch(`/api/${endpoint}/${row.id}`, { method: "DELETE" });
-    if (res.status === 204) { toast.success("Deleted"); setConfirmingId(null); load(); return; }
+    if (res.status === 204) { toast.success(t("common.delete", "Delete") + "d"); setConfirmingId(null); load(); return; }
     const data = await res.json();
     toast.error(data.error);
     setConfirmingId(null);
@@ -92,7 +100,8 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
   return (
     <div className="max-w-xl">
       <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2 mb-4">
-        <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={`New ${label.toLowerCase()} name…`}
+        <input value={newName} onChange={(e) => setNewName(e.target.value)}
+          placeholder={placeholder ?? `New ${label.toLowerCase()} name…`}
           className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         {hasType && (
           <input value={newType} onChange={(e) => setNewType(e.target.value)} placeholder="Type (e.g. Warehouse)"
@@ -100,7 +109,7 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
         )}
         <button type="submit" disabled={loading || !newName.trim()}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
-          Add
+          {t("common.add", "Add")}
         </button>
       </form>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
@@ -116,8 +125,8 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
                     className="sm:w-28 w-full px-3 py-2 border border-blue-400 rounded-lg text-sm focus:outline-none" />
                 )}
                 <div className="flex gap-2">
-                  <button onClick={handleSave} className="px-3 py-2 text-xs text-white bg-blue-600 hover:bg-blue-700 font-semibold rounded-lg">Save</button>
-                  <button onClick={() => setEditing(null)} className="px-3 py-2 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">Cancel</button>
+                  <button onClick={handleSave} className="px-3 py-2 text-xs text-white bg-blue-600 hover:bg-blue-700 font-semibold rounded-lg">{t("common.save", "Save")}</button>
+                  <button onClick={() => setEditing(null)} className="px-3 py-2 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">{t("common.cancel", "Cancel")}</button>
                 </div>
               </div>
             ) : (
@@ -134,19 +143,19 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
                 </div>
                 <div className="flex gap-1.5">
                   <button onClick={() => setEditing({ id: row.id, name: row.name, type: row.type ?? "" })}
-                    className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">Edit</button>
+                    className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">{t("common.edit", "Edit")}</button>
                   <button onClick={() => toggleActive(row)}
                     className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-lg transition-colors border ${row.isActive ? "text-orange-600 border-orange-200 hover:bg-orange-50" : "text-green-600 border-green-200 hover:bg-green-50"}`}>
-                    {row.isActive ? "Deactivate" : "Activate"}
+                    {row.isActive ? t("common.deactivate", "Deactivate") : t("common.activate", "Activate")}
                   </button>
                   {confirmingId === row.id ? (
                     <>
-                      <button onClick={() => setConfirmingId(null)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">No</button>
-                      <button onClick={() => handleDelete(row)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg">Yes</button>
+                      <button onClick={() => setConfirmingId(null)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">{t("common.no", "No")}</button>
+                      <button onClick={() => handleDelete(row)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg">{t("common.yes", "Yes")}</button>
                     </>
                   ) : (
                     <button onClick={() => setConfirmingId(row.id)}
-                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
+                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">{t("common.delete", "Delete")}</button>
                   )}
                 </div>
               </div>
@@ -160,6 +169,7 @@ function EntityManager({ endpoint, label, hasType }: { endpoint: string; label: 
 
 // Dedicated unit manager with parent/conversion support
 function UnitManager() {
+  const t = useT();
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [newName, setNewName] = useState("");
   const [newParentId, setNewParentId] = useState("");
@@ -238,25 +248,25 @@ function UnitManager() {
   return (
     <div className="max-w-xl">
       <p className="text-xs text-slate-500 mb-3">
-        Define higher units by selecting a parent. Example: <span className="font-medium">Box</span> → parent = <span className="font-medium">Dozen</span>, factor = <span className="font-medium">12</span> means 1 Box = 12 Dozen.
+        {t("settings.units.help", "Define higher units by selecting a parent. Example:")} <span className="font-medium">{t("settings.units.helpBold", "Box")}</span> → {t("settings.units.helpParent", "parent =")} <span className="font-medium">{t("settings.units.helpDummy", "Dozen")}</span>, {t("settings.units.helpFactor", "factor =")} <span className="font-medium">12</span> {t("settings.units.helpMeans", "means 1 Box = 12 Dozen.")}
       </p>
       <form onSubmit={handleAdd} className="flex flex-wrap gap-2 mb-4 items-end">
         <div className="flex-1 min-w-[140px]">
-          <label className="block text-xs text-slate-500 mb-0.5">Unit name *</label>
+          <label className="block text-xs text-slate-500 mb-0.5">{t("settings.units.nameLabel", "Unit name *")}</label>
           <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Box"
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div className="min-w-[130px]">
-          <label className="block text-xs text-slate-500 mb-0.5">1 of this = … of</label>
+          <label className="block text-xs text-slate-500 mb-0.5">{t("settings.units.parentLabel", "1 of this = … of")}</label>
           <select value={newParentId} onChange={(e) => setNewParentId(e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">(base unit)</option>
+            <option value="">{t("settings.units.baseUnit", "(base unit)")}</option>
             {activeUnits.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
         </div>
         {newParentId && (
           <div className="w-24">
-            <label className="block text-xs text-slate-500 mb-0.5">Factor *</label>
+            <label className="block text-xs text-slate-500 mb-0.5">{t("settings.units.factorLabel", "Factor *")}</label>
             <input type="number" inputMode="decimal" min="1" step="any" value={newFactor} onChange={(e) => setNewFactor(e.target.value)}
               placeholder="e.g. 12"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -264,7 +274,7 @@ function UnitManager() {
         )}
         <button type="submit" disabled={loading || !newName.trim() || (!!newParentId && !newFactor)}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">
-          Add
+          {t("common.add", "Add")}
         </button>
       </form>
 
@@ -275,30 +285,30 @@ function UnitManager() {
             {editing?.id === unit.id ? (
               <div className="flex flex-wrap gap-2 items-end">
                 <div className="flex-1 min-w-[120px]">
-                  <label className="block text-xs text-slate-400 mb-0.5">Name</label>
+                  <label className="block text-xs text-slate-400 mb-0.5">{t("settings.units.nameEditLabel", "Name")}</label>
                   <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })}
                     className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none" autoFocus />
                 </div>
                 <div className="min-w-[120px]">
-                  <label className="block text-xs text-slate-400 mb-0.5">1 of this = … of</label>
+                  <label className="block text-xs text-slate-400 mb-0.5">{t("settings.units.parentLabel", "1 of this = … of")}</label>
                   <select value={editing.parentUnitId}
                     onChange={(e) => setEditing({ ...editing, parentUnitId: e.target.value, conversionFactor: "" })}
                     className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none">
-                    <option value="">(base unit)</option>
+                    <option value="">{t("settings.units.baseUnit", "(base unit)")}</option>
                     {activeUnits.filter((u) => u.id !== unit.id).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                   </select>
                 </div>
                 {editing.parentUnitId && (
                   <div className="w-20">
-                    <label className="block text-xs text-slate-400 mb-0.5">Factor</label>
+                    <label className="block text-xs text-slate-400 mb-0.5">{t("settings.units.factorEditLabel", "Factor")}</label>
                     <input type="number" inputMode="decimal" min="1" step="any" value={editing.conversionFactor}
                       onChange={(e) => setEditing({ ...editing, conversionFactor: e.target.value })}
                       className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none" />
                   </div>
                 )}
                 <div className="flex gap-2 items-center">
-                  <button onClick={handleSave} className="text-xs text-blue-600 font-medium hover:underline">Save</button>
-                  <button onClick={() => setEditing(null)} className="text-xs text-slate-400 hover:underline">Cancel</button>
+                  <button onClick={handleSave} className="text-xs text-blue-600 font-medium hover:underline">{t("common.save", "Save")}</button>
+                  <button onClick={() => setEditing(null)} className="text-xs text-slate-400 hover:underline">{t("common.cancel", "Cancel")}</button>
                 </div>
               </div>
             ) : (
@@ -314,19 +324,19 @@ function UnitManager() {
                 </div>
                 <div className="flex gap-1.5">
                   <button onClick={() => setEditing({ id: unit.id, name: unit.name, parentUnitId: unit.parentUnitId ?? "", conversionFactor: unit.conversionFactor?.toString() ?? "" })}
-                    className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">Edit</button>
+                    className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">{t("common.edit", "Edit")}</button>
                   <button onClick={() => toggleActive(unit)}
                     className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-lg transition-colors border ${unit.isActive ? "text-orange-600 border-orange-200 hover:bg-orange-50" : "text-green-600 border-green-200 hover:bg-green-50"}`}>
-                    {unit.isActive ? "Deactivate" : "Activate"}
+                    {unit.isActive ? t("common.deactivate", "Deactivate") : t("common.activate", "Activate")}
                   </button>
                   {confirmingId === unit.id ? (
                     <>
-                      <button onClick={() => setConfirmingId(null)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">No</button>
-                      <button onClick={() => handleDelete(unit)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg">Yes</button>
+                      <button onClick={() => setConfirmingId(null)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">{t("common.no", "No")}</button>
+                      <button onClick={() => handleDelete(unit)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg">{t("common.yes", "Yes")}</button>
                     </>
                   ) : (
                     <button onClick={() => setConfirmingId(unit.id)}
-                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
+                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">{t("common.delete", "Delete")}</button>
                   )}
                 </div>
               </div>
@@ -339,6 +349,7 @@ function UnitManager() {
 }
 
 function LocationManager() {
+  const t = useT();
   const [rows, setRows] = useState<LocationRow[]>([]);
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState("Warehouse");
@@ -429,13 +440,15 @@ function LocationManager() {
   return (
     <div className="max-w-2xl">
       <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2 mb-4">
-        <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New location name…"
+        <input value={newName} onChange={(e) => setNewName(e.target.value)}
+          placeholder={t("settings.locations.placeholder", "New location name…")}
           className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        <input value={newType} onChange={(e) => setNewType(e.target.value)} placeholder="Type (e.g. Warehouse)"
+        <input value={newType} onChange={(e) => setNewType(e.target.value)}
+          placeholder={t("settings.locations.typePlaceholder", "Type (e.g. Warehouse)")}
           className="sm:w-36 px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         <button type="submit" disabled={loading || !newName.trim()}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
-          Add
+          {t("common.add", "Add")}
         </button>
       </form>
 
@@ -452,8 +465,8 @@ function LocationManager() {
                   <input value={editing.type} onChange={(e) => setEditing({ ...editing, type: e.target.value })}
                     className="sm:w-28 w-full px-3 py-2 border border-blue-400 rounded-lg text-sm focus:outline-none" />
                   <div className="flex gap-2">
-                    <button onClick={handleSave} className="px-3 py-2 text-xs text-white bg-blue-600 hover:bg-blue-700 font-semibold rounded-lg">Save</button>
-                    <button onClick={() => setEditing(null)} className="px-3 py-2 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">Cancel</button>
+                    <button onClick={handleSave} className="px-3 py-2 text-xs text-white bg-blue-600 hover:bg-blue-700 font-semibold rounded-lg">{t("common.save", "Save")}</button>
+                    <button onClick={() => setEditing(null)} className="px-3 py-2 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">{t("common.cancel", "Cancel")}</button>
                   </div>
                 </div>
               ) : (
@@ -471,19 +484,19 @@ function LocationManager() {
                   </div>
                   <div className="flex gap-1.5">
                     <button onClick={() => setEditing({ id: row.id, name: row.name, type: row.type })}
-                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">Edit</button>
+                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">{t("common.edit", "Edit")}</button>
                     <button onClick={() => toggleActive(row)}
                       className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-lg transition-colors border ${row.isActive ? "text-orange-600 border-orange-200 hover:bg-orange-50" : "text-green-600 border-green-200 hover:bg-green-50"}`}>
-                      {row.isActive ? "Deactivate" : "Activate"}
+                      {row.isActive ? t("common.deactivate", "Deactivate") : t("common.activate", "Activate")}
                     </button>
                     {confirmingId === row.id ? (
                       <>
-                        <button onClick={() => setConfirmingId(null)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">No</button>
-                        <button onClick={() => handleDelete(row)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg">Yes</button>
+                        <button onClick={() => setConfirmingId(null)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg">{t("common.no", "No")}</button>
+                        <button onClick={() => handleDelete(row)} className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg">{t("common.yes", "Yes")}</button>
                       </>
                     ) : (
                       <button onClick={() => setConfirmingId(row.id)}
-                        className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
+                        className="flex-1 sm:flex-none px-3 py-1.5 text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors">{t("common.delete", "Delete")}</button>
                     )}
                   </div>
                 </div>
@@ -494,15 +507,15 @@ function LocationManager() {
             {expandedId === row.id && (
               <div className="bg-slate-50 border-t border-slate-100 px-4 py-3">
                 {stockLoading ? (
-                  <p className="text-xs text-slate-400">Loading…</p>
+                  <p className="text-xs text-slate-400">{t("common.loading", "Loading…")}</p>
                 ) : stockItems.length === 0 ? (
-                  <p className="text-xs text-slate-400">No stock records for this location.</p>
+                  <p className="text-xs text-slate-400">{t("settings.locations.noStock", "No stock records for this location.")}</p>
                 ) : (
                   <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 overflow-hidden bg-white">
                     <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-3 py-1.5 bg-slate-100 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                      <span>Product</span>
-                      <span>Category</span>
-                      <span className="text-right">Qty</span>
+                      <span>{t("settings.locations.colProduct", "Product")}</span>
+                      <span>{t("settings.locations.colCategory", "Category")}</span>
+                      <span className="text-right">{t("settings.locations.colQty", "Qty")}</span>
                       <span />
                     </div>
                     {stockItems.map((s) => (
@@ -510,7 +523,7 @@ function LocationManager() {
                         <div className="min-w-0">
                           <div className={`text-sm truncate flex items-center gap-1.5 ${!s.product.isActive ? "text-slate-400" : "text-slate-800"}`}>
                             {s.product.name}{s.product.colorVariant ? <span className="text-slate-400"> — {s.product.colorVariant}</span> : null}
-                            {!s.product.isActive && <span className="text-[9px] font-semibold bg-slate-200 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">Inactive</span>}
+                            {!s.product.isActive && <span className="text-[9px] font-semibold bg-slate-200 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">{t("common.inactive", "Inactive")}</span>}
                           </div>
                           <div className="text-xs font-mono text-slate-400">{s.product.sku}</div>
                         </div>
@@ -521,13 +534,13 @@ function LocationManager() {
                         {confirmingStockId === s.id ? (
                           <span className="flex items-center gap-1.5 whitespace-nowrap">
                             {s.quantity > 0 && <span className="text-[10px] text-orange-600">{s.quantity} in stock</span>}
-                            <button onClick={() => setConfirmingStockId(null)} className="text-xs text-slate-500 hover:underline">No</button>
-                            <button onClick={() => deleteStockItem(s.id)} className="text-xs text-red-600 font-semibold hover:underline">Yes</button>
+                            <button onClick={() => setConfirmingStockId(null)} className="text-xs text-slate-500 hover:underline">{t("common.no", "No")}</button>
+                            <button onClick={() => deleteStockItem(s.id)} className="text-xs text-red-600 font-semibold hover:underline">{t("common.yes", "Yes")}</button>
                           </span>
                         ) : (
                           <button onClick={() => setConfirmingStockId(s.id)}
                             className="text-xs text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">
-                            Remove
+                            {t("common.remove", "Remove")}
                           </button>
                         )}
                       </div>
@@ -544,6 +557,7 @@ function LocationManager() {
 }
 
 function NotificationsManager() {
+  const t = useT();
   const [waNumber, setWaNumber] = useState("");
   const [waLoading, setWaLoading] = useState(false);
 
@@ -575,10 +589,10 @@ function NotificationsManager() {
           <svg className="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
           </svg>
-          <span className="text-sm font-semibold text-slate-800">WhatsApp DO Number</span>
+          <span className="text-sm font-semibold text-slate-800">{t("settings.notifications.waTitle", "WhatsApp DO Number")}</span>
         </div>
         <p className="text-xs text-slate-500 mb-3">
-          Delivery Orders from Goods Out will be sent to this number. Enter digits only, with country code (e.g. 6281283118487).
+          {t("settings.notifications.waDesc", "Delivery Orders from Goods Out will be sent to this number. Enter digits only, with country code (e.g. 6281283118487).")}
         </p>
         <div className="flex gap-2">
           <input
@@ -593,7 +607,7 @@ function NotificationsManager() {
             disabled={waLoading || !waNumber.trim()}
             className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
           >
-            {waLoading ? "Saving…" : "Save"}
+            {waLoading ? t("common.saving", "Saving…") : t("common.save", "Save")}
           </button>
         </div>
       </div>
@@ -603,9 +617,9 @@ function NotificationsManager() {
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 flex gap-3">
           <span className="text-xl">🔔</span>
           <div>
-            <div className="text-sm font-semibold text-blue-800 mb-0.5">Phone Push Notifications</div>
+            <div className="text-sm font-semibold text-blue-800 mb-0.5">{t("settings.notifications.pushTitle", "Phone Push Notifications")}</div>
             <p className="text-xs text-blue-700">
-              Get an instant notification on this device whenever a Goods Out order is confirmed. Free — no service required. Enable on each device you want to receive alerts.
+              {t("settings.notifications.pushDesc", "Get an instant notification on this device whenever a Goods Out order is confirmed. Free — no service required. Enable on each device you want to receive alerts.")}
             </p>
           </div>
         </div>
@@ -631,6 +645,7 @@ type LoginLogRow = {
 };
 
 function LoginHistoryTab() {
+  const t = useT();
   const [logs, setLogs] = useState<LoginLogRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -673,8 +688,10 @@ function LoginHistoryTab() {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-slate-500">{total} login event{total !== 1 ? "s" : ""} recorded</p>
-        <button onClick={() => load(page)} className="text-xs text-blue-600 hover:underline">Refresh</button>
+        <p className="text-xs text-slate-500">
+          {total} {total !== 1 ? t("settings.loginHistory.eventsRecorded", "login events recorded") : t("settings.loginHistory.eventRecorded", "login event recorded")}
+        </p>
+        <button onClick={() => load(page)} className="text-xs text-blue-600 hover:underline">{t("common.refresh", "Refresh")}</button>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -682,18 +699,18 @@ function LoginHistoryTab() {
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                <th className="px-4 py-2.5 text-left font-medium">Time (WIB)</th>
-                <th className="px-4 py-2.5 text-left font-medium">User</th>
-                <th className="px-4 py-2.5 text-left font-medium">IP Address</th>
-                <th className="px-4 py-2.5 text-left font-medium">Device / Browser</th>
-                <th className="px-4 py-2.5 text-left font-medium">Location</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("settings.loginHistory.timeHeader", "Time (WIB)")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("settings.loginHistory.user", "User")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("settings.loginHistory.ip", "IP Address")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("settings.loginHistory.device", "Device / Browser")}</th>
+                <th className="px-4 py-2.5 text-left font-medium">{t("settings.loginHistory.location", "Location")}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="px-4 py-10 text-center text-xs text-slate-400">Loading…</td></tr>
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-xs text-slate-400">{t("common.loading", "Loading…")}</td></tr>
               ) : logs.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-10 text-center text-xs text-slate-400">No login history yet</td></tr>
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-xs text-slate-400">{t("settings.loginHistory.noHistory", "No login history yet")}</td></tr>
               ) : logs.map((log) => (
                 <tr key={log.id} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-2.5 text-xs text-slate-500 whitespace-nowrap">{formatTime(log.createdAt)}</td>
@@ -731,12 +748,12 @@ function LoginHistoryTab() {
         <div className="flex items-center justify-center gap-2 mt-4">
           <button onClick={() => load(page - 1)} disabled={page <= 1}
             className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-40">
-            Previous
+            {t("common.previous", "Previous")}
           </button>
-          <span className="text-xs text-slate-500">Page {page} of {pages}</span>
+          <span className="text-xs text-slate-500">Page {page} {t("settings.loginHistory.of", "of")} {pages}</span>
           <button onClick={() => load(page + 1)} disabled={page >= pages}
             className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-40">
-            Next
+            {t("common.next", "Next")}
           </button>
         </div>
       )}
@@ -745,6 +762,7 @@ function LoginHistoryTab() {
 }
 
 export default function SettingsPage() {
+  const t = useT();
   const { data: session } = useSession();
   const router = useRouter();
   useEffect(() => {
@@ -755,25 +773,25 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <h1 className="text-base font-semibold text-slate-800 mb-5">Settings</h1>
+      <h1 className="text-base font-semibold text-slate-800 mb-5">{t("settings.title", "Settings")}</h1>
 
       <div className="flex gap-1 mb-6 border-b border-slate-200 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 pb-px">
-        {TABS.map((t, i) => (
-          <button key={t} onClick={() => setTab(i)}
+        {TABS.map((tabItem, i) => (
+          <button key={tabItem.label} onClick={() => setTab(i)}
             className={`whitespace-nowrap flex-shrink-0 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${i === tab ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
-            {t}
+            {t(tabItem.key, tabItem.label)}
           </button>
         ))}
       </div>
 
-      {tab === 0 && <EntityManager endpoint="categories" label="Category" />}
+      {tab === 0 && <EntityManager endpoint="categories" label="Category" placeholder={t("settings.categories.placeholder", "New category name…")} />}
       {tab === 1 && <UnitManager />}
       {tab === 2 && <LocationManager />}
       {tab === 3 && <NotificationsManager />}
       {tab === 4 && (
         session?.user.role === "ADMIN"
           ? <LoginHistoryTab />
-          : <p className="text-sm text-slate-400">Admin access required.</p>
+          : <p className="text-sm text-slate-400">{t("settings.adminOnly", "Admin access required.")}</p>
       )}
     </div>
   );

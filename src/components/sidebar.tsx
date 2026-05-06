@@ -3,61 +3,86 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { useT } from "@/modules/i18n/provider";
 
-const nav = [
+type NavLink = {
+  href: string;
+  label: string;
+  labelKey: string;
+  icon: string;
+  indent?: boolean;
+  small?: boolean;
+  adminOnly?: boolean;
+};
+
+type NavSection = {
+  section: string;
+  sectionKey: string;
+  roles: string[];
+  links: NavLink[];
+};
+
+const NAV: NavSection[] = [
   {
     section: "Main",
+    sectionKey: "nav.sections.main",
     roles: ["ADMIN", "STAFF", "VIEWER"],
     links: [
-      { href: "/dashboard", label: "Dashboard", icon: "▦" },
-      { href: "/products", label: "Products", icon: "⊞" },
-      { href: "/products/add", label: "Add Product", icon: "↳", indent: true, small: true },
-      { href: "/products/import", label: "Bulk Import", icon: "↳", indent: true, small: true },
-      { href: "/products/images", label: "Bulk Images", icon: "↳", indent: true, small: true }, // BULK_IMAGE_UPLOAD
-      { href: "/warehouse", label: "Warehouse", icon: "⊟" },
+      { href: "/dashboard", label: "Dashboard", labelKey: "nav.links.dashboard", icon: "▦" },
+      { href: "/products", label: "Products", labelKey: "nav.links.products", icon: "⊞" },
+      { href: "/products/add", label: "Add Product", labelKey: "nav.links.addProduct", icon: "↳", indent: true, small: true },
+      { href: "/products/import", label: "Bulk Import", labelKey: "nav.links.bulkImport", icon: "↳", indent: true, small: true },
+      { href: "/products/images", label: "Bulk Images", labelKey: "nav.links.bulkImages", icon: "↳", indent: true, small: true }, // BULK_IMAGE_UPLOAD
+      { href: "/warehouse", label: "Warehouse", labelKey: "nav.links.warehouse", icon: "⊟" },
     ],
   },
   {
     section: "Transactions",
+    sectionKey: "nav.sections.transactions",
     roles: ["ADMIN", "STAFF", "VIEWER", "OPERATOR"],
     links: [
-      { href: "/transactions/grn", label: "Goods Received (GRN)", icon: "↓" },
-      { href: "/transactions/goods-out", label: "Goods Out Order", icon: "↑" },
-      { href: "/transactions/transfer", label: "Transfer", icon: "⇄" },
-      { href: "/transactions/adjustment", label: "Stock Adjustment", icon: "±" },
+      { href: "/transactions/grn", label: "Goods Received (GRN)", labelKey: "nav.links.grn", icon: "↓" },
+      { href: "/transactions/goods-out", label: "Goods Out Order", labelKey: "nav.links.goodsOut", icon: "↑" },
+      { href: "/transactions/transfer", label: "Transfer", labelKey: "nav.links.transfer", icon: "⇄" },
+      { href: "/transactions/adjustment", label: "Stock Adjustment", labelKey: "nav.links.adjustment", icon: "±" },
     ],
   },
   {
     section: "Barcodes",
+    sectionKey: "nav.sections.barcodes",
     roles: ["ADMIN", "STAFF", "VIEWER"],
-    links: [{ href: "/barcodes", label: "Barcode Labels", icon: "▣" }],
+    links: [{ href: "/barcodes", label: "Barcode Labels", labelKey: "nav.links.barcodeLabels", icon: "▣" }],
   },
   {
     section: "History",
+    sectionKey: "nav.sections.history",
     roles: ["ADMIN", "STAFF", "VIEWER"],
     links: [
-      { href: "/orders", label: "Order History", icon: "📋" },
-      { href: "/movements", label: "Movement Log", icon: "≡" },
-      { href: "/reports", label: "Reports", icon: "⊙" },
+      { href: "/orders", label: "Order History", labelKey: "nav.links.orderHistory", icon: "📋" },
+      { href: "/movements", label: "Movement Log", labelKey: "nav.links.movementLog", icon: "≡" },
+      { href: "/reports", label: "Reports", labelKey: "nav.links.reports", icon: "⊙" },
     ],
   },
   {
     section: "Operations",
+    sectionKey: "nav.sections.operations",
     roles: ["ADMIN", "STAFF", "VIEWER"],
-    links: [{ href: "/opname", label: "Stock Opname", icon: "⊘" }],
+    links: [{ href: "/opname", label: "Stock Opname", labelKey: "nav.links.stockOpname", icon: "⊘" }],
   },
   {
     section: "Settings",
+    sectionKey: "nav.sections.settings",
     roles: ["ADMIN", "STAFF"],
     links: [
-      { href: "/settings", label: "Settings", icon: "⚙" },
-      { href: "/settings/users", label: "User Management", icon: "↳", indent: true, small: true },
-      { href: "/settings/audit-log", label: "Audit Log", icon: "↳", indent: true, small: true, adminOnly: true },
+      { href: "/settings", label: "Settings", labelKey: "nav.links.settings", icon: "⚙" },
+      { href: "/settings/users", label: "User Management", labelKey: "nav.links.userManagement", icon: "↳", indent: true, small: true },
+      { href: "/settings/audit-log", label: "Audit Log", labelKey: "nav.links.auditLog", icon: "↳", indent: true, small: true, adminOnly: true },
     ],
   },
 ];
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
+  const t = useT();
   const pathname = usePathname();
   const { data: session } = useSession();
   const role = session?.user.role ?? "";
@@ -85,7 +110,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           <button
             onClick={onClose}
             className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700"
-            aria-label="Close menu"
+            aria-label={t("app.closeMenu", "Close menu")}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -99,14 +124,14 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
-        {nav
+        {NAV
           .filter((s) => s.roles.includes(role))
-          .map(({ section, links }) => (
+          .map(({ section, sectionKey, links }) => (
             <div key={section}>
               <div className="px-4 pt-3.5 pb-1 text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-300 font-semibold">
-                {section}
+                {t(sectionKey, section)}
               </div>
-              {links.filter(({ adminOnly }) => !adminOnly || role === "ADMIN").map(({ href, label, icon, indent, small }) => {
+              {links.filter(({ adminOnly }) => !adminOnly || role === "ADMIN").map(({ href, label, labelKey, icon, indent, small }) => {
                 const active =
                   pathname === href ||
                   (href !== "/dashboard" && pathname.startsWith(href));
@@ -125,7 +150,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                     ].join(" ")}
                   >
                     <span>{icon}</span>
-                    {label}
+                    {t(labelKey, label)}
                   </Link>
                 );
               })}
@@ -142,7 +167,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="w-full text-xs text-slate-500 hover:text-slate-300 text-left py-2 px-3 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-800 transition-colors"
         >
-          ⎋ &nbsp;Sign out
+          ⎋ &nbsp;{t("common.signOut", "Sign out")}
         </button>
       </div>
     </div>
