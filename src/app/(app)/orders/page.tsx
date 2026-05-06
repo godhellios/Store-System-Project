@@ -10,6 +10,7 @@ const TYPE_BADGE: Record<string, string> = {
   TRANSFER: "bg-blue-100 text-blue-700",
   ADJUSTMENT: "bg-gray-100 text-gray-600",
 };
+const CANCELLED_BADGE = "bg-red-100 text-red-700";
 const TYPE_LABEL: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "Goods Out", TRANSFER: "Transfer", ADJUSTMENT: "Adjustment",
 };
@@ -76,12 +77,19 @@ export default async function OrdersPage({
             ? o.toLocation?.name ?? "—"
             : o.fromLocation?.name ?? "—";
           return (
-            <div key={o.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
+            <div key={o.id} className={`bg-white rounded-xl border px-4 py-3 ${o.cancelledAt ? "border-red-200 opacity-75" : "border-slate-200"}`}>
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <span className="font-mono font-semibold text-blue-600 text-xs">{o.orderNumber}</span>
-                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[o.type]}`}>
-                  {TYPE_LABEL[o.type]}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[o.type]}`}>
+                    {TYPE_LABEL[o.type]}
+                  </span>
+                  {o.cancelledAt && (
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${CANCELLED_BADGE}`}>
+                      CANCELLED
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="text-xs text-slate-600 mb-1">{location}</div>
               <div className="flex items-center justify-between text-xs text-slate-500">
@@ -122,12 +130,19 @@ export default async function OrdersPage({
               ) : orders.map((o) => {
                 const { totalQty, catLabel } = summariseLines(o.lines);
                 return (
-                  <tr key={o.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <tr key={o.id} className={`border-t border-slate-100 hover:bg-slate-50 ${o.cancelledAt ? "opacity-60" : ""}`}>
                     <td className="px-4 py-2.5 font-mono font-semibold text-blue-600 text-xs">{o.orderNumber}</td>
                     <td className="px-4 py-2.5">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[o.type]}`}>
-                        {TYPE_LABEL[o.type]}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[o.type]}`}>
+                          {TYPE_LABEL[o.type]}
+                        </span>
+                        {o.cancelledAt && (
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${CANCELLED_BADGE}`}>
+                            CANCELLED
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2.5 text-xs text-slate-600">
                       {o.type === "TRANSFER"

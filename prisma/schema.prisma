@@ -182,6 +182,9 @@ model Order {
   reviewedByName    String?
   reviewedAt        DateTime?
   reviewNote        String?
+  cancelledAt       DateTime?
+  cancelledByName   String?
+  cancelReason      String?
 
   lines     OrderLine[]
   movements Movement[]
