@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma";
 import { generateSku } from "@/lib/sku";
 import { generateBaseBarcode, generateUnitBarcode } from "@/lib/barcode";
 import type { ClassifiedRow, ParsedUnitConversion } from "../preview/route";
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
           // Store as pending edit — requires admin approval
           const product = await prisma.product.update({
             where: { id: existingProduct!.id },
-            data: { pendingChanges: changes, pendingChangedBy: submitterName, pendingChangedAt: new Date() },
+            data: { pendingChanges: changes as Prisma.InputJsonValue, pendingChangedBy: submitterName, pendingChangedAt: new Date() },
           });
           results.push({ index, action: action + " (pending)", status: "ok", productId: product.id });
         } else {
