@@ -39,15 +39,17 @@ enum UserRole {
 // ─── Models ──────────────────────────────────────────────
 
 model User {
-  id              String   @id @default(cuid())
-  name            String
-  email           String   @unique
-  password        String
-  role            UserRole @default(STAFF)
-  isActive        Boolean  @default(true)
-  activeSessionId String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                   String    @id @default(cuid())
+  name                 String
+  email                String    @unique
+  password             String
+  role                 UserRole  @default(STAFF)
+  isActive             Boolean   @default(true)
+  activeSessionId      String?
+  failedLoginAttempts  Int       @default(0)
+  lockedUntil          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 model LoginLog {

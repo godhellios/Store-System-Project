@@ -22,8 +22,33 @@ export const authOptions: NextAuthOptions = {
 
         if (!user || !user.isActive) return null;
 
+        // Check if account is temporarily locked
+        if (user.lockedUntil && user.lockedUntil > new Date()) {
+          const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+          throw new Error(`Account locked due to too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft !== 1 ? "s" : ""}.`);
+        }
+
         const valid = await bcrypt.compare(credentials.password, user.password);
-        if (!valid) return null;
+        if (!valid) {
+          const attempts = (user.failedLoginAttempts ?? 0) + 1;
+          const lockout = attempts >= 5;
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              failedLoginAttempts: attempts,
+              lockedUntil: lockout ? new Date(Date.now() + 15 * 60 * 1000) : null,
+            },
+          });
+          return null;
+        }
+
+        // Successful login — reset lockout counters
+        if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { failedLoginAttempts: 0, lockedUntil: null },
+          }).catch(() => {});
+        }
 
         const rawIp = (req.headers?.["x-forwarded-for"] ?? req.headers?.["x-real-ip"] ?? null) as string | null;
         const ip = rawIp ? rawIp.split(",")[0].trim() : null;

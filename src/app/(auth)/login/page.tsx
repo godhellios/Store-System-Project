@@ -38,7 +38,11 @@ export default function LoginPage() {
     setLoading(false);
 
     if (res?.error) {
-      setError(t("login.invalidCredentials", "Invalid email or password."));
+      if (res.error.startsWith("Account locked")) {
+        setError(res.error);
+      } else {
+        setError(t("login.invalidCredentials", "Invalid email or password."));
+      }
     } else {
       sessionStorage.setItem("captureLoginGeo", "1");
       sessionStorage.setItem("session_alive", "1");
@@ -109,7 +113,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-gray-400">
-          {t("login.footer", "© 2026 Mitra Ramah — MRIs v1.3.6")}
+          {t("login.footer", "© 2026 Mitra Ramah — MRIs v1.3.7")}
         </p>
       </div>
     </div>
