@@ -68,7 +68,7 @@ export function AdjustmentClient({
 
   function assignProduct(idx: number, p: ProductResult) {
     setLines((prev) => prev.map((l, i) => i === idx ? { ...l, productId: p.id, productName: p.name, productSku: p.sku } : l));
-    setSearch((s) => ({ ...s, [idx]: { q: `${p.sku} — ${p.name}`, results: [], open: false } }));
+    setSearch((s) => ({ ...s, [idx]: { q: `${p.sku} — ${p.name}`, results: [], open: false, loading: false } }));
   }
 
   function addLine() {
