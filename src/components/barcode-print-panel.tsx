@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type UnitConversion = { id: string; name: string; conversionFactor: number; barcode: string | null };
 type Product = { id: string; name: string; sku: string; barcode: string; colorVariant: string | null; isActive: boolean; categoryId: string; category: { name: string }; unit: { name: string }; unitConversions: UnitConversion[] };
 type Category = { id: string; name: string };
 
 export function BarcodePrintPanel({
-  products,
+  products: initialProducts,
   categories,
   preselect,
 }: {
@@ -15,15 +15,41 @@ export function BarcodePrintPanel({
   categories: Category[];
   preselect: string[];
 }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set(preselect));
-  const [copies, setCopies] = useState<Record<string, number>>({});
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [searchResults, setSearchResults] = useState<Product[]>(initialProducts);
+  const [searching, setSearching] = useState(false);
+  // Print queue: selected products stored as full objects
+  const [queue, setQueue] = useState<Map<string, Product>>(
+    new Map(initialProducts.filter((p) => preselect.includes(p.id)).map((p) => [p.id, p]))
+  );
+  const [copies, setCopies] = useState<Record<string, number>>({});
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function toggle(id: string) {
-    setSelected((s) => {
-      const next = new Set(s);
-      next.has(id) ? next.delete(id) : next.add(id);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      if (!q.trim() && !categoryId) { setSearchResults([]); return; }
+      setSearching(true);
+      try {
+        const params = new URLSearchParams({ full: "1" });
+        if (q.trim()) params.set("q", q.trim());
+        const res = await fetch(`/api/products/search?${params}`);
+        if (res.ok) {
+          const data: Product[] = await res.json();
+          const filtered = categoryId ? data.filter((p) => p.categoryId === categoryId) : data;
+          setSearchResults(filtered);
+        }
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+  }, [q, categoryId]);
+
+  function toggleQueue(p: Product) {
+    setQueue((prev) => {
+      const next = new Map(prev);
+      next.has(p.id) ? next.delete(p.id) : next.set(p.id, p);
       return next;
     });
   }
@@ -31,13 +57,7 @@ export function BarcodePrintPanel({
   function getCopies(id: string) { return copies[id] ?? 1; }
   function setCopy(id: string, n: number) { setCopies((c) => ({ ...c, [id]: Math.max(1, n) })); }
 
-  const filtered = products.filter((p) => {
-    const matchQ = !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.sku.toLowerCase().includes(q.toLowerCase()) || p.barcode.toLowerCase().includes(q.toLowerCase());
-    const matchCat = !categoryId || p.categoryId === categoryId;
-    return matchQ && matchCat;
-  });
-
-  const selectedProducts = products.filter((p) => selected.has(p.id));
+  const selectedProducts = [...queue.values()];
 
   function printLabels() {
     const printWindow = window.open("", "_blank");
@@ -96,7 +116,7 @@ export function BarcodePrintPanel({
       {/* Product list */}
       <div className="flex-1">
         <div className="flex gap-2 mb-3">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…"
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type to search products…"
             className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -107,14 +127,16 @@ export function BarcodePrintPanel({
 
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 text-xs text-slate-500">
-            <button onClick={() => setSelected(new Set(filtered.map((p) => p.id)))} className="hover:text-blue-600">Select all</button>
+            {searching ? <span className="text-blue-500">Searching…</span> : <span>{searchResults.length} results</span>}
             <span>·</span>
-            <button onClick={() => setSelected(new Set())} className="hover:text-blue-600">Clear</button>
+            <button onClick={() => setQueue(new Map())} className="hover:text-red-600">Clear queue</button>
           </div>
           <div className="max-h-[480px] overflow-y-auto divide-y divide-slate-100">
-            {filtered.map((p) => (
+            {!q && !categoryId ? (
+              <p className="px-4 py-8 text-center text-xs text-slate-400">Type a name, SKU, or barcode to search</p>
+            ) : searchResults.map((p) => (
               <label key={p.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50">
-                <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)}
+                <input type="checkbox" checked={queue.has(p.id)} onChange={() => toggleQueue(p)}
                   className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -122,9 +144,9 @@ export function BarcodePrintPanel({
                       {p.name}{p.colorVariant ? <span className="text-slate-400"> — {p.colorVariant}</span> : null}
                     </span>
                   </div>
-                  <div className="text-xs font-mono text-slate-400">{p.barcode}</div>
+                  <div className="text-xs font-mono text-slate-400">{p.sku} · {p.barcode}</div>
                 </div>
-                {selected.has(p.id) && (
+                {queue.has(p.id) && (
                   <input type="number" inputMode="numeric" min={1} max={100} value={getCopies(p.id)}
                     onChange={(e) => setCopy(p.id, parseInt(e.target.value) || 1)}
                     onClick={(e) => e.preventDefault()}
@@ -133,7 +155,9 @@ export function BarcodePrintPanel({
                 )}
               </label>
             ))}
-            {filtered.length === 0 && <p className="px-4 py-8 text-center text-xs text-slate-400">No products</p>}
+            {(q || categoryId) && !searching && searchResults.length === 0 && (
+              <p className="px-4 py-8 text-center text-xs text-slate-400">No products found</p>
+            )}
           </div>
         </div>
       </div>

@@ -12,12 +12,7 @@ export default async function BarcodesPage({
   const t = await getT();
   const { productId } = await searchParams;
 
-  const [products, categories, preselectProduct] = await Promise.all([
-    prisma.product.findMany({
-      where: { isActive: true, OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }] },
-      orderBy: { name: "asc" },
-      include: { category: true, unit: true, unitConversions: true },
-    }),
+  const [categories, preselectProduct] = await Promise.all([
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     productId
       ? prisma.product.findUnique({
@@ -27,12 +22,7 @@ export default async function BarcodesPage({
       : Promise.resolve(null),
   ]);
 
-  // Ensure the linked product is in the list even if it was somehow excluded
-  const mergedProducts =
-    preselectProduct && !products.some((p) => p.id === preselectProduct.id)
-      ? [preselectProduct, ...products]
-      : products;
-
+  const mergedProducts = preselectProduct ? [preselectProduct] : [];
   const preselect = productId ? [productId] : [];
 
   return (

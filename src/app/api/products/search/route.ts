@@ -10,6 +10,8 @@ export async function GET(req: Request) {
   const q = new URL(req.url).searchParams.get("q")?.trim() ?? "";
   if (q.length < 1) return NextResponse.json([]);
 
+  const full = new URL(req.url).searchParams.get("full") === "1";
+
   const products = await prisma.product.findMany({
     where: {
       isActive: true,
@@ -22,9 +24,11 @@ export async function GET(req: Request) {
         ]},
       ],
     },
-    select: { id: true, sku: true, name: true },
+    ...(full
+      ? { include: { category: true, unit: true, unitConversions: true } }
+      : { select: { id: true, sku: true, name: true } }),
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
-    take: 10,
+    take: 20,
   });
 
   return NextResponse.json(products);
