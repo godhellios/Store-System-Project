@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useT } from "@/modules/i18n/provider";
@@ -46,21 +46,24 @@ export function AdjustmentClient({
   const [saving, setSaving] = useState(false);
 
   // ── Product search state per line ─────────────────────────────────────────
-  const [search, setSearch] = useState<Record<number, { q: string; results: ProductResult[]; open: boolean }>>({});
-  const blurTimers = {} as Record<number, ReturnType<typeof setTimeout>>;
+  const [search, setSearch] = useState<Record<number, { q: string; results: ProductResult[]; open: boolean; loading: boolean }>>({});
+  const blurTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const searchTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
-  const searchProducts = useCallback(async (idx: number, q: string) => {
-    setSearch((s) => ({ ...s, [idx]: { q, open: true, results: s[idx]?.results ?? [] } }));
-    if (q.trim().length < 1) { setSearch((s) => ({ ...s, [idx]: { q, open: false, results: [] } })); return; }
-    try {
-      const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        clearTimeout(blurTimers[idx]);
-        setSearch((s) => ({ ...s, [idx]: { ...s[idx], results: data.slice(0, 8), open: true } }));
-      }
-    } catch { /* ignore */ }
+  const searchProducts = useCallback((idx: number, q: string) => {
+    setSearch((s) => ({ ...s, [idx]: { q, open: q.trim().length > 0, results: s[idx]?.results ?? [], loading: q.trim().length > 0 } }));
+    if (q.trim().length < 1) return;
+    clearTimeout(searchTimers.current[idx]);
+    searchTimers.current[idx] = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/products/search?q=${encodeURIComponent(q.trim())}`);
+        if (!res.ok) { setSearch((s) => ({ ...s, [idx]: { ...s[idx], loading: false } })); return; }
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setSearch((s) => ({ ...s, [idx]: { ...s[idx], results: data.slice(0, 8), open: true, loading: false } }));
+        }
+      } catch { setSearch((s) => ({ ...s, [idx]: { ...s[idx], loading: false } })); }
+    }, 300);
   }, []);
 
   function assignProduct(idx: number, p: ProductResult) {
@@ -163,18 +166,30 @@ export function AdjustmentClient({
                   placeholder={t("adjustment.searchProduct", "Search product by name or SKU…")}
                   value={search[idx]?.q ?? (line.productId ? `${line.productSku} — ${line.productName}` : "")}
                   onChange={(e) => searchProducts(idx, e.target.value)}
-                  onBlur={() => { blurTimers[idx] = setTimeout(() => setSearch((s) => ({ ...s, [idx]: { ...s[idx], open: false } })), 200); }}
+                  onBlur={() => { blurTimers.current[idx] = setTimeout(() => setSearch((s) => ({ ...s, [idx]: { ...s[idx], open: false } })), 200); }}
                   className="w-full px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-200"
                 />
-                {search[idx]?.open && (search[idx]?.results?.length ?? 0) > 0 && (
-                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg">
-                    {search[idx].results.map((p) => (
+                {search[idx]?.open && (
+                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg overflow-hidden">
+                    {search[idx].loading && (
+                      <div className="px-3 py-2 text-xs text-slate-400 flex items-center gap-2">
+                        <svg className="w-3 h-3 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        Searching…
+                      </div>
+                    )}
+                    {!search[idx].loading && search[idx].results.map((p) => (
                       <button key={p.id} type="button" onMouseDown={() => assignProduct(idx, p)}
                         className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 dark:hover:bg-slate-700 flex gap-2">
                         <span className="font-mono text-slate-400">{p.sku}</span>
                         <span className="text-slate-700 dark:text-slate-200">{p.name}</span>
                       </button>
                     ))}
+                    {!search[idx].loading && search[idx].results.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-slate-400">No products found</div>
+                    )}
                   </div>
                 )}
               </div>

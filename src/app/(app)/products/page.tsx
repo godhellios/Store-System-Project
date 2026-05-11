@@ -48,6 +48,7 @@ export default async function ProductsPage({
         { name: { contains: q, mode: "insensitive" as const } },
         { sku: { contains: q, mode: "insensitive" as const } },
         { barcode: { contains: q, mode: "insensitive" as const } },
+        { colorVariant: { contains: q, mode: "insensitive" as const } },
       ]}] : []),
     ],
     ...(lowStockIds !== null ? { id: { in: lowStockIds } } : {}),

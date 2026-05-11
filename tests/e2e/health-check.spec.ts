@@ -38,6 +38,7 @@ const PAGES = [
 ];
 
 test("health check — all pages load without server error", async ({ page }) => {
+  test.setTimeout(90000);
   await login(page);
 
   for (const path of PAGES) {

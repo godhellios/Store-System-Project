@@ -289,6 +289,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const order = await prisma.order.findUnique({ where: { id }, include: { lines: true } });
   if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (order.type === "ADJUSTMENT" && order.adjustmentStatus === "APPROVED")
+    return NextResponse.json({ error: "Approved adjustments cannot be deleted — they are part of the permanent audit trail." }, { status: 400 });
   await prisma.$transaction(async (tx) => {
     for (const line of order.lines) {
       if (order.type === "GRN" && order.toLocationId) {

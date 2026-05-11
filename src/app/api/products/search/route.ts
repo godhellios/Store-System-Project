@@ -20,6 +20,7 @@ export async function GET(req: Request) {
         { name: { contains: q, mode: "insensitive" as const } },
         { sku: { contains: q, mode: "insensitive" as const } },
         { barcode: { contains: q, mode: "insensitive" as const } },
+        { colorVariant: { contains: q, mode: "insensitive" as const } },
       ]},
     ],
   };
