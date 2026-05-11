@@ -112,6 +112,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
   const scanRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   const [lines, setLines] = useState<LineItem[]>(() => order.lines.map(initLineItem));
   const [customer, setCustomer] = useState(order.customer ?? "");
@@ -145,10 +146,18 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { setSearchResults([]); setShowDropdown(false); return; }
+    searchAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    searchAbortRef.current = ctrl;
     setSearchLoading(true);
-    const res = await fetch(`/api/products/search?full=1&q=${encodeURIComponent(q)}`);
-    setSearchLoading(false);
-    if (res.ok) { setSearchResults(await res.json()); setShowDropdown(true); }
+    try {
+      const res = await fetch(`/api/products/search?full=1&q=${encodeURIComponent(q.trim())}`, { signal: ctrl.signal });
+      if (res.ok) { setSearchResults(await res.json()); setShowDropdown(true); }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
   }, []);
 
   useEffect(() => {

@@ -12,24 +12,25 @@ export async function GET(req: Request) {
 
   const full = new URL(req.url).searchParams.get("full") === "1";
 
-  const products = await prisma.product.findMany({
-    where: {
-      isActive: true,
-      AND: [
-        { OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }] },
-        { OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { sku: { contains: q, mode: "insensitive" } },
-          { barcode: { contains: q, mode: "insensitive" } },
-        ]},
-      ],
-    },
-    ...(full
-      ? { include: { category: true, unit: true, unitConversions: true } }
-      : { select: { id: true, sku: true, name: true } }),
-    orderBy: [{ isActive: "desc" }, { name: "asc" }],
-    take: 20,
-  });
+  const where = {
+    isActive: true,
+    AND: [
+      { OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }] },
+      { OR: [
+        { name: { contains: q, mode: "insensitive" as const } },
+        { sku: { contains: q, mode: "insensitive" as const } },
+        { barcode: { contains: q, mode: "insensitive" as const } },
+      ]},
+    ],
+  };
+  const orderBy = [{ isActive: "desc" as const }, { name: "asc" as const }];
 
-  return NextResponse.json(products);
+  try {
+    const products = full
+      ? await prisma.product.findMany({ where, orderBy, take: 20, include: { category: true, unit: true, unitConversions: true } })
+      : await prisma.product.findMany({ where, orderBy, take: 20, select: { id: true, sku: true, name: true } });
+    return NextResponse.json(products);
+  } catch {
+    return NextResponse.json([], { status: 200 });
+  }
 }
