@@ -28,6 +28,16 @@ export async function POST(req: Request) {
   const rows: ClassifiedRow[] = body.rows ?? [];
   const decisions: Record<number, "create" | "skip"> = body.conflictDecisions ?? {};
 
+  // ── Load existing products to make import idempotent ─────────────────────
+  // If the user clicks "Confirm & Import" more than once, products already
+  // created on a previous attempt are skipped rather than duplicated.
+  const existingProducts = await prisma.product.findMany({
+    select: { id: true, name: true, sku: true },
+  });
+  const existingSkuSet = new Set(existingProducts.map((p) => p.sku.toLowerCase()));
+  const existingNameSet = new Set(existingProducts.map((p) => p.name.trim().toLowerCase()));
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ── Pre-generate all SKUs in bulk ─────────────────────────────────────────
   const rowsNeedingSku = rows.filter((r) => {
     if (r.blocked || r.action === "invalid" || r.action === "file_duplicate") return false;
@@ -103,6 +113,13 @@ export async function POST(req: Request) {
         results.push({ index, action, status: "error", message: `Category '${catName}' has no code set` });
         continue;
       }
+
+      // Skip if already created by a previous import attempt
+      if (existingSkuSet.has(sku.toLowerCase()) || existingNameSet.has(raw.name!.trim().toLowerCase())) {
+        results.push({ index, action, status: "skipped", message: "Already exists — skipped to avoid duplicate" });
+        continue;
+      }
+
       const barcode = raw.barcode?.trim() || generateBaseBarcode(sku);
       toCreate.push({
         index,
