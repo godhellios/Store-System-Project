@@ -143,21 +143,21 @@ export function ProductsBulkPanel({
                       </div>
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${!p.isActive ? "bg-slate-100 text-slate-400" : hashColor(p.category.name)}`}>{p.category.name}</span>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${!p.isActive ? "bg-slate-100 text-slate-400" : hashColor(p.category?.name ?? "")}`}>{p.category?.name ?? "—"}</span>
                     </td>
-                    <td className={`px-4 py-2.5 text-xs ${!p.isActive ? "text-slate-400" : "text-slate-600"}`}>{p.unit.name}</td>
+                    <td className={`px-4 py-2.5 text-xs ${!p.isActive ? "text-slate-400" : "text-slate-600"}`}>{p.unit?.name ?? "—"}</td>
                     <td className={`px-4 py-2.5 text-xs ${!p.isActive ? "text-slate-400" : "text-slate-600"}`}>
-                      {p.reorderPoint > 0 ? `${p.reorderPoint} ${p.unit.name.toLowerCase()}` : "—"}
+                      {p.reorderPoint > 0 ? `${p.reorderPoint} ${p.unit?.name?.toLowerCase() ?? ""}` : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className={`font-semibold text-sm ${!p.isActive ? "text-slate-400" : isLow ? "text-red-600" : "text-slate-800"}`}>
-                        {totalQty} {p.unit.name.toLowerCase()}
+                        {totalQty} {p.unit?.name?.toLowerCase() ?? ""}
                       </div>
                       {visibleStock.filter((s) => s.quantity > 0).map((s) => {
                         const locLow = p.isActive && p.reorderPoint > 0 && s.quantity <= p.reorderPoint;
                         return (
                           <div key={s.id} className={`text-xs mt-0.5 ${locLow ? "text-red-400" : "text-slate-400"}`}>
-                            {!locationId && <span>{s.location.name}: </span>}
+                            {!locationId && <span>{s.location?.name}: </span>}
                             <span className="font-medium">{s.quantity}</span>
                           </div>
                         );
@@ -227,16 +227,16 @@ export function ProductsBulkPanel({
                 {p.barcode && p.barcode !== p.sku && (
                   <span className="font-mono text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.barcode}</span>
                 )}
-                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${!p.isActive ? "bg-slate-100 text-slate-400" : hashColor(p.category.name)}`}>{p.category.name}</span>
+                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${!p.isActive ? "bg-slate-100 text-slate-400" : hashColor(p.category?.name ?? "")}`}>{p.category?.name ?? "—"}</span>
               </div>
               <div className="flex items-baseline gap-1.5 mb-2">
                 <span className={`font-semibold text-sm ${!p.isActive ? "text-slate-400" : isLow ? "text-red-600" : "text-slate-800"}`}>{totalQty}</span>
-                <span className="text-xs text-slate-500">{p.unit.name.toLowerCase()}</span>
+                <span className="text-xs text-slate-500">{p.unit?.name?.toLowerCase() ?? ""}</span>
                 {visibleStock.filter((s) => s.quantity > 0).map((s) => {
                   const locLow = p.isActive && p.reorderPoint > 0 && s.quantity <= p.reorderPoint;
                   return (
                     <span key={s.id} className={`text-xs ${locLow ? "text-red-400" : "text-slate-400"}`}>
-                      · {!locationId && `${s.location.name}: `}<span className="font-medium">{s.quantity}</span>
+                      · {!locationId && `${s.location?.name}: `}<span className="font-medium">{s.quantity}</span>
                     </span>
                   );
                 })}

@@ -40,6 +40,8 @@ export function BarcodePrintPanel({
           const filtered = categoryId ? data.filter((p) => p.categoryId === categoryId) : data;
           setSearchResults(filtered);
         }
+      } catch {
+        // network error — leave results unchanged, spinner stops via finally
       } finally {
         setSearching(false);
       }
@@ -70,7 +72,7 @@ export function BarcodePrintPanel({
           <img src="/api/barcodes/${encodeURIComponent(p.barcode)}" alt="${p.barcode}" class="barcode-img" />
           <div class="barcode-num">${p.barcode}</div>
           <div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>
-          <div class="unit">${p.unit.name} · ${p.sku}</div>
+          <div class="unit">${p.unit?.name ?? ""} · ${p.sku}</div>
         </div>
       `;
       const unitLabels = (p.unitConversions ?? [])
@@ -166,8 +168,8 @@ export function BarcodePrintPanel({
       <div className="md:w-72 md:flex-shrink-0">
         <div className="bg-white rounded-xl border border-slate-200 p-4 md:sticky md:top-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">
-            {selected.size} product{selected.size !== 1 ? "s" : ""} selected
-            {selected.size > 0 && <span className="text-slate-400 font-normal"> · {selectedProducts.reduce((s, p) => {
+            {queue.size} product{queue.size !== 1 ? "s" : ""} selected
+            {queue.size > 0 && <span className="text-slate-400 font-normal"> · {selectedProducts.reduce((s, p) => {
               const unitBarcodes = (p.unitConversions ?? []).filter((uc) => uc.barcode).length;
               return s + getCopies(p.id) * (1 + unitBarcodes);
             }, 0)} labels</span>}
@@ -183,7 +185,7 @@ export function BarcodePrintPanel({
                   <img src={`/api/barcodes/${encodeURIComponent(p.barcode)}`} alt={p.barcode} className="w-40 h-auto" />
                   <div className="font-mono text-[10px] text-slate-500">{p.barcode}</div>
                   <div className="text-xs font-semibold text-center">{p.name}</div>
-                  <div className="text-[10px] text-slate-400">{p.unit.name} · {p.sku}</div>
+                  <div className="text-[10px] text-slate-400">{p.unit?.name ?? "—"} · {p.sku}</div>
                 </div>
               );
               for (const uc of (p.unitConversions ?? [])) {
@@ -214,7 +216,7 @@ export function BarcodePrintPanel({
             );
           })()}
 
-          <button onClick={printLabels} disabled={selected.size === 0}
+          <button onClick={printLabels} disabled={queue.size === 0}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold py-2 rounded-lg transition-colors mt-2">
             🖨 Print Labels
           </button>
