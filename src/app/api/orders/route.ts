@@ -259,6 +259,31 @@ export async function POST(req: Request) {
       url: `/orders/${result.order.id}`,
     }).catch(() => {});
   }
+
+  // ── Reorder point alerts ─────────────────────────────────────────────────
+  // Fire after GOODS_OUT or TRANSFER — stock was just decremented from fromLocation
+  if ((type === "GOODS_OUT" || type === "TRANSFER") && fromLocationId) {
+    const productIds = lines.map((l) => l.productId);
+    prisma.stock.findMany({
+      where: {
+        productId: { in: productIds },
+        locationId: fromLocationId,
+        product: { reorderPoint: { gt: 0 } },
+      },
+      include: { product: { select: { name: true, sku: true, reorderPoint: true } } },
+    }).then((stockRows) => {
+      const belowReorder = stockRows.filter((s) => s.quantity <= s.product.reorderPoint);
+      if (!belowReorder.length) return;
+      const itemList = belowReorder
+        .map((s) => `${s.product.name} (${s.product.sku}): ${s.quantity} left`)
+        .join(", ");
+      sendPushNotification({
+        title: `⚠️ Low Stock Alert — ${belowReorder.length} item${belowReorder.length !== 1 ? "s" : ""} at reorder point`,
+        body: itemList,
+        url: `/dashboard`,
+      });
+    }).catch(() => {});
+  }
   // ─────────────────────────────────────────────────────────────────────────
 
   const actionLabel: Record<string, string> = {

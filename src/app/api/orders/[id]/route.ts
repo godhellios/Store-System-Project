@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MovementType, OrderType } from "@/generated/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { sendPushNotification } from "@/modules/push-notify/send";
 
 const MOVEMENT_TYPE: Record<OrderType, MovementType> = {
   GRN: MovementType.IN,
@@ -81,6 +82,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       });
     });
     writeAuditLog({ session, action: "APPROVE_ADJUSTMENT", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
+
+    // Reorder alert: check if any negative-adjustment line pushed stock at/below reorder point
+    if (order.toLocationId) {
+      const negLines = order.lines.filter((l) => l.quantity < 0);
+      if (negLines.length) {
+        prisma.stock.findMany({
+          where: {
+            productId: { in: negLines.map((l) => l.productId) },
+            locationId: order.toLocationId,
+            product: { reorderPoint: { gt: 0 } },
+          },
+          include: { product: { select: { name: true, sku: true, reorderPoint: true } } },
+        }).then((stockRows) => {
+          const belowReorder = stockRows.filter((s) => s.quantity <= s.product.reorderPoint);
+          if (!belowReorder.length) return;
+          const itemList = belowReorder
+            .map((s) => `${s.product.name} (${s.product.sku}): ${s.quantity} left`)
+            .join(", ");
+          sendPushNotification({
+            title: `⚠️ Low Stock Alert — ${belowReorder.length} item${belowReorder.length !== 1 ? "s" : ""} at reorder point`,
+            body: itemList,
+            url: `/dashboard`,
+          });
+        }).catch(() => {});
+      }
+    }
   } else {
     await prisma.order.update({
       where: { id },
