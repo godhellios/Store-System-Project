@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
@@ -113,7 +113,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-gray-400">
-          {t("login.footer", "© 2026 Mitra Ramah — MRIs v1.3.7")}
+          {t("login.footer", "© 2026 Mitra Ramah — MRIs v1.4")}
         </p>
       </div>
     </div>
