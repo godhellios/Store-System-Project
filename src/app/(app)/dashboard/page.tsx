@@ -119,7 +119,7 @@ export default async function DashboardPage() {
                       <div className="text-[11px] text-slate-400">{t("dashboard.reorderAt", "reorder at")} {s.product.reorderPoint}</div>
                     </div>
                     <span className="font-semibold text-red-500 dark:text-red-400 whitespace-nowrap text-xs">
-                      {s.quantity} {s.product.unit.name.toLowerCase()} ⚠
+                      {s.quantity} {s.product.unit?.name?.toLowerCase() ?? ""} ⚠
                     </span>
                   </div>
                 ))

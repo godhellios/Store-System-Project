@@ -113,7 +113,7 @@ export function LocationStockTable({ stock, categories }: Props) {
                     {s.product.name}
                     {s.product.colorVariant && <span className="text-slate-400 font-normal"> — {s.product.colorVariant}</span>}
                   </div>
-                  <div className="text-xs font-mono text-slate-400 mt-0.5">{s.product.sku} · {s.product.category.name}</div>
+                  <div className="text-xs font-mono text-slate-400 mt-0.5">{s.product.sku} · {s.product.category?.name}</div>
                 </div>
                 {!s.product.isActive ? (
                   <span className="flex-shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Inactive</span>
@@ -127,7 +127,7 @@ export function LocationStockTable({ stock, categories }: Props) {
               </div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className={`font-semibold text-sm ${!s.product.isActive ? "text-slate-400" : isNegative ? "text-orange-600 dark:text-orange-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>{s.quantity}</span>
-                <span className="text-xs text-slate-500">{s.product.unit.name.toLowerCase()}</span>
+                <span className="text-xs text-slate-500">{s.product.unit?.name?.toLowerCase()}</span>
                 {s.product.reorderPoint > 0 && (
                   <span className="text-xs text-slate-400">· reorder at {s.product.reorderPoint}</span>
                 )}
@@ -204,16 +204,16 @@ export function LocationStockTable({ stock, categories }: Props) {
                       <td className="px-4 py-2.5">
                         <span className="font-mono text-xs text-blue-600">{s.product.sku}</span>
                       </td>
-                      <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.category.name}</td>
+                      <td className="px-4 py-2.5 text-xs text-slate-500">{s.product.category?.name}</td>
                       <td className="px-4 py-2.5 text-right">
                         <span className={`font-semibold ${!s.product.isActive ? "text-slate-400" : isNegative ? "text-orange-600 dark:text-orange-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>
                           {s.quantity}
                         </span>
-                        <span className="text-xs text-slate-400 ml-1">{s.product.unit.name.toLowerCase()}</span>
+                        <span className="text-xs text-slate-400 ml-1">{s.product.unit?.name?.toLowerCase()}</span>
                       </td>
                       <td className="px-4 py-2.5 text-right text-xs text-slate-400">
                         {s.product.reorderPoint > 0
-                          ? `${s.product.reorderPoint} ${s.product.unit.name.toLowerCase()}`
+                          ? `${s.product.reorderPoint} ${s.product.unit?.name?.toLowerCase() ?? ""}`
                           : "—"}
                       </td>
                       <td className="px-4 py-2.5">
