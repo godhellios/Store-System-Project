@@ -40,6 +40,7 @@ export default function PendingApprovalPage() {
   const [bulkAction, setBulkAction] = useState<"approve" | "reject" | null>(null);
   const [bulkNote, setBulkNote] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [printQueue, setPrintQueue] = useState<Array<{ id: string; name: string; barcode: string; colorVariant: string | null }>>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,6 +58,7 @@ export default function PendingApprovalPage() {
   function toggleAll() { setSelected(allSelected ? new Set() : new Set(products.map((p) => p.id))); }
 
   async function doAction(id: string, action: "approve" | "reject", note?: string) {
+    const product = products.find((p) => p.id === id);
     setProcessingId(id);
     const res = await fetch(`/api/products/${id}/approve`, {
       method: "POST",
@@ -68,7 +70,11 @@ export default function PendingApprovalPage() {
     setRejectingId(null);
     setRejectNote("");
     if (!res.ok) { toast.error(data.error ?? "Failed"); return; }
-    toast.success(action === "approve" ? "Approved" : "Rejected");
+    if (action === "approve" && product) {
+      setPrintQueue((q) => [...q, { id: product.id, name: product.name, barcode: product.barcode, colorVariant: product.colorVariant }]);
+    } else {
+      toast.success("Rejected");
+    }
     setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
     await load();
     router.refresh();
@@ -76,6 +82,9 @@ export default function PendingApprovalPage() {
 
   async function doBulk(action: "approve" | "reject", note?: string) {
     if (selected.size === 0) return;
+    const approvedProducts = action === "approve"
+      ? products.filter((p) => selected.has(p.id) && p.approvalStatus === "DRAFT")
+      : [];
     const res = await fetch("/api/products/approve-bulk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -88,6 +97,9 @@ export default function PendingApprovalPage() {
     toast.success(`${action === "approve" ? "Approved" : "Rejected"} ${data.updated} product${data.updated !== 1 ? "s" : ""}`);
     if (data.editRequestsSkipped > 0) {
       toast(`${data.editRequestsSkipped} edit request${data.editRequestsSkipped !== 1 ? "s" : ""} skipped — open each one to approve changes individually`, { icon: "⚠️" });
+    }
+    if (approvedProducts.length > 0) {
+      setPrintQueue((q) => [...q, ...approvedProducts.map((p) => ({ id: p.id, name: p.name, barcode: p.barcode, colorVariant: p.colorVariant }))]);
     }
     setSelected(new Set());
     await load();
@@ -136,6 +148,47 @@ export default function PendingApprovalPage() {
             <button onClick={() => { setBulkAction(null); setBulkNote(""); }}
               className="text-xs px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">Cancel</button>
           </div>
+        </div>
+      )}
+
+      {/* Print label prompt — shown after approvals */}
+      {printQueue.length > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-green-600 text-base">✅</span>
+              <span className="text-sm font-semibold text-green-800">
+                {printQueue.length === 1 ? "Product approved" : `${printQueue.length} products approved`} — print barcode label{printQueue.length !== 1 ? "s" : ""}?
+              </span>
+            </div>
+            <button onClick={() => setPrintQueue([])} className="text-xs text-green-600 hover:text-green-800 underline">Dismiss</button>
+          </div>
+          <div className="space-y-2">
+            {printQueue.map((p) => (
+              <div key={p.id} className="flex items-center justify-between bg-white border border-green-100 rounded-lg px-3 py-2">
+                <div>
+                  <span className="text-sm font-medium text-slate-800">{p.name}{p.colorVariant ? ` — ${p.colorVariant}` : ""}</span>
+                  <span className="ml-2 text-xs font-mono text-slate-400">{p.barcode}</span>
+                </div>
+                <Link
+                  href={`/barcodes?productId=${p.id}`}
+                  className="text-xs bg-violet-600 hover:bg-violet-700 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  🖨 Print Label
+                </Link>
+              </div>
+            ))}
+          </div>
+          {printQueue.length > 1 && (
+            <div className="mt-3 pt-3 border-t border-green-100">
+              <Link
+                href={`/barcodes?productId=${printQueue[0].id}`}
+                className="text-xs text-green-700 hover:underline font-medium"
+              >
+                Print all labels one by one →
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
