@@ -8,18 +8,6 @@ import type { ClassifiedRow, ParsedUnitConversion } from "../preview/route";
 
 export const maxDuration = 60;
 
-async function createUnitConversions(productId: string, sku: string, units: ParsedUnitConversion[]) {
-  if (!units.length) return;
-  await prisma.productUnitConversion.createMany({
-    data: units.map((uc) => {
-      const barcode =
-        uc.barcode ||
-        generateUnitBarcode(sku, uc.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
-      return { productId, name: uc.name, conversionFactor: uc.conversionFactor, barcode };
-    }),
-  });
-}
-
 export type ApplyResult = {
   index: number;
   action: string;
@@ -41,7 +29,6 @@ export async function POST(req: Request) {
   const decisions: Record<number, "create" | "skip"> = body.conflictDecisions ?? {};
 
   // ── Pre-generate all SKUs in bulk ─────────────────────────────────────────
-  // Collect rows that need auto-generated SKUs (create or conflict-resolved-as-create, no explicit SKU)
   const rowsNeedingSku = rows.filter((r) => {
     if (r.blocked || r.action === "invalid" || r.action === "file_duplicate") return false;
     if (r.action === "update" || r.action === "link") return false;
@@ -51,15 +38,12 @@ export async function POST(req: Request) {
   });
 
   const needyCategoryIds = [...new Set(rowsNeedingSku.map((r) => r.categoryId!).filter(Boolean))];
-
-  // Fetch category codes in one query
   const categoryData = await prisma.category.findMany({
     where: { id: { in: needyCategoryIds } },
     select: { id: true, code: true, name: true },
   });
   const catCodeMap = new Map(categoryData.map((c) => [c.id, c]));
 
-  // Find current max SKU per category prefix (parallel, one query per unique category)
   const skuCounters = new Map<string, number>();
   await Promise.all(
     categoryData.map(async (cat) => {
@@ -73,7 +57,6 @@ export async function POST(req: Request) {
     })
   );
 
-  // Assign SKUs in order (sequential so each row gets a unique number)
   const preAssignedSkus = new Map<number, string>();
   for (const row of rowsNeedingSku) {
     const cat = catCodeMap.get(row.categoryId!);
@@ -87,95 +70,155 @@ export async function POST(req: Request) {
 
   const results: ApplyResult[] = [];
 
+  // ── Separate rows by action type ─────────────────────────────────────────
+  type CreatePayload = {
+    index: number;
+    action: string;
+    data: Prisma.ProductCreateManyInput;
+    unitConversions: ParsedUnitConversion[];
+    sku: string;
+  };
+
+  const toCreate: CreatePayload[] = [];
+  const toUpdate: ClassifiedRow[] = [];
+  const toSkip: ClassifiedRow[] = [];
+
   for (const row of rows) {
-    const { index, action, blocked, raw, categoryId, unitId, existingProduct } = row;
+    const { index, action, blocked, raw, categoryId, unitId } = row;
 
     if (action === "invalid" || action === "file_duplicate" || blocked) {
-      results.push({ index, action, status: "skipped", message: row.issues[0] });
+      toSkip.push(row);
       continue;
     }
 
+    if (action === "update" || action === "link") {
+      toUpdate.push(row);
+      continue;
+    }
+
+    if (action === "create" || (action === "conflict" && (decisions[index] ?? "skip") === "create")) {
+      const sku = raw.sku?.trim() || preAssignedSkus.get(index);
+      if (!sku) {
+        const catName = catCodeMap.get(categoryId!)?.name ?? categoryId;
+        results.push({ index, action, status: "error", message: `Category '${catName}' has no code set` });
+        continue;
+      }
+      const barcode = raw.barcode?.trim() || generateBaseBarcode(sku);
+      toCreate.push({
+        index,
+        action: action === "conflict" ? "created (conflict resolved)" : action,
+        sku,
+        unitConversions: row.parsedUnitConversions ?? [],
+        data: {
+          name: raw.name!.trim(),
+          sku,
+          barcode,
+          categoryId: categoryId!,
+          unitId: unitId!,
+          reorderPoint: parseInt(raw.reorderPoint ?? "0") || 0,
+          colorVariant: raw.colorVariant?.trim() || null,
+          description: raw.description?.trim() || null,
+          imageUrl: raw.imageUrl?.trim() || null,
+          approvalStatus,
+          ...(!isAdmin ? { pendingChangedBy: submitterName, pendingChangedAt: new Date() } : {}),
+        },
+      });
+    } else if (action === "conflict" && (decisions[index] ?? "skip") === "skip") {
+      results.push({ index, action, status: "skipped", message: "Skipped by user" });
+    }
+  }
+
+  // Skipped rows
+  for (const row of toSkip) {
+    results.push({ index: row.index, action: row.action, status: "skipped", message: row.issues[0] });
+  }
+
+  // ── Bulk create all new products in one DB call ───────────────────────────
+  if (toCreate.length > 0) {
     try {
-      if (action === "create") {
-        const sku = raw.sku?.trim() || preAssignedSkus.get(index);
-        if (!sku) {
-          const catName = catCodeMap.get(categoryId!)?.name ?? categoryId;
-          results.push({ index, action, status: "error", message: `Category '${catName}' has no code set — ask admin to set it in Settings` });
-          continue;
+      const created = await prisma.product.createManyAndReturn({
+        data: toCreate.map((r) => r.data),
+        skipDuplicates: false,
+      });
+
+      // Map created products back to rows by SKU
+      const createdBySku = new Map(created.map((p) => [p.sku, p.id]));
+
+      // Bulk create unit conversions
+      const allUnitConvData: Prisma.ProductUnitConversionCreateManyInput[] = [];
+      for (const row of toCreate) {
+        const productId = createdBySku.get(row.sku);
+        if (!productId) continue;
+        results.push({ index: row.index, action: row.action, status: "ok", productId });
+
+        for (const uc of row.unitConversions) {
+          const barcode =
+            uc.barcode ||
+            generateUnitBarcode(row.sku, uc.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
+          allUnitConvData.push({ productId, name: uc.name, conversionFactor: uc.conversionFactor, barcode });
         }
-        const barcode = raw.barcode?.trim() || generateBaseBarcode(sku);
-        const product = await prisma.product.create({
-          data: {
-            name: raw.name!.trim(),
-            sku,
-            barcode,
-            categoryId: categoryId!,
-            unitId: unitId!,
-            reorderPoint: parseInt(raw.reorderPoint ?? "0") || 0,
-            colorVariant: raw.colorVariant?.trim() || null,
-            description: raw.description?.trim() || null,
-            imageUrl: raw.imageUrl?.trim() || null,
-            approvalStatus,
-            ...(!isAdmin ? { pendingChangedBy: submitterName, pendingChangedAt: new Date() } : {}),
-          },
+      }
+      if (allUnitConvData.length > 0) {
+        await prisma.productUnitConversion.createMany({ data: allUnitConvData });
+      }
+    } catch (err: unknown) {
+      // Bulk insert failed — fall back to individual creates to identify bad rows
+      for (const row of toCreate) {
+        try {
+          const product = await prisma.product.create({ data: row.data });
+          if (row.unitConversions.length) {
+            await prisma.productUnitConversion.createMany({
+              data: row.unitConversions.map((uc) => {
+                const barcode =
+                  uc.barcode ||
+                  generateUnitBarcode(row.sku, uc.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
+                return { productId: product.id, name: uc.name, conversionFactor: uc.conversionFactor, barcode };
+              }),
+            });
+          }
+          results.push({ index: row.index, action: row.action, status: "ok", productId: product.id });
+        } catch (rowErr: unknown) {
+          const msg = rowErr instanceof Error ? rowErr.message : "Unknown error";
+          results.push({ index: row.index, action: row.action, status: "error", message: msg });
+        }
+      }
+      void err;
+    }
+  }
+
+  // ── Individual updates/links ──────────────────────────────────────────────
+  for (const row of toUpdate) {
+    const { index, action, raw, categoryId, unitId, existingProduct } = row;
+    try {
+      const changes: Record<string, unknown> = {};
+      if (raw.name?.trim()) changes.name = raw.name.trim();
+      if (categoryId) changes.categoryId = categoryId;
+      if (unitId) changes.unitId = unitId;
+      if (raw.reorderPoint !== undefined) changes.reorderPoint = parseInt(raw.reorderPoint) || 0;
+      if (raw.colorVariant !== undefined) changes.colorVariant = raw.colorVariant.trim() || null;
+      if (raw.description !== undefined) changes.description = raw.description.trim() || null;
+      if (raw.imageUrl !== undefined) changes.imageUrl = raw.imageUrl.trim() || null;
+
+      if (!isAdmin) {
+        const product = await prisma.product.update({
+          where: { id: existingProduct!.id },
+          data: { pendingChanges: changes as Prisma.InputJsonValue, pendingChangedBy: submitterName, pendingChangedAt: new Date() },
         });
-        await createUnitConversions(product.id, sku, row.parsedUnitConversions ?? []);
+        results.push({ index, action: action + " (pending)", status: "ok", productId: product.id });
+      } else {
+        const product = await prisma.product.update({ where: { id: existingProduct!.id }, data: changes });
+        if (row.parsedUnitConversions?.length) {
+          await prisma.productUnitConversion.deleteMany({ where: { productId: product.id } });
+          await prisma.productUnitConversion.createMany({
+            data: row.parsedUnitConversions.map((uc) => {
+              const barcode =
+                uc.barcode ||
+                generateUnitBarcode(product.sku, uc.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
+              return { productId: product.id, name: uc.name, conversionFactor: uc.conversionFactor, barcode };
+            }),
+          });
+        }
         results.push({ index, action, status: "ok", productId: product.id });
-
-      } else if (action === "update" || action === "link") {
-        const changes: Record<string, unknown> = {};
-        if (raw.name?.trim()) changes.name = raw.name.trim();
-        if (categoryId) changes.categoryId = categoryId;
-        if (unitId) changes.unitId = unitId;
-        if (raw.reorderPoint !== undefined) changes.reorderPoint = parseInt(raw.reorderPoint) || 0;
-        if (raw.colorVariant !== undefined) changes.colorVariant = raw.colorVariant.trim() || null;
-        if (raw.description !== undefined) changes.description = raw.description.trim() || null;
-        if (raw.imageUrl !== undefined) changes.imageUrl = raw.imageUrl.trim() || null;
-
-        if (!isAdmin) {
-          const product = await prisma.product.update({
-            where: { id: existingProduct!.id },
-            data: { pendingChanges: changes as Prisma.InputJsonValue, pendingChangedBy: submitterName, pendingChangedAt: new Date() },
-          });
-          results.push({ index, action: action + " (pending)", status: "ok", productId: product.id });
-        } else {
-          const product = await prisma.product.update({ where: { id: existingProduct!.id }, data: changes });
-          if (row.parsedUnitConversions?.length) {
-            await prisma.productUnitConversion.deleteMany({ where: { productId: product.id } });
-            await createUnitConversions(product.id, product.sku, row.parsedUnitConversions);
-          }
-          results.push({ index, action, status: "ok", productId: product.id });
-        }
-
-      } else if (action === "conflict") {
-        const decision = decisions[index] ?? "skip";
-        if (decision === "skip") {
-          results.push({ index, action, status: "skipped", message: "Skipped by user" });
-        } else {
-          const sku = raw.sku?.trim() || preAssignedSkus.get(index);
-          if (!sku) {
-            const catName = catCodeMap.get(categoryId!)?.name ?? categoryId;
-            results.push({ index, action, status: "error", message: `Category '${catName}' has no code set — ask admin to set it in Settings` });
-            continue;
-          }
-          const barcode = raw.barcode?.trim() || generateBaseBarcode(sku);
-          const product = await prisma.product.create({
-            data: {
-              name: raw.name!.trim(),
-              sku,
-              barcode,
-              categoryId: categoryId!,
-              unitId: unitId!,
-              reorderPoint: parseInt(raw.reorderPoint ?? "0") || 0,
-              colorVariant: raw.colorVariant?.trim() || null,
-              description: raw.description?.trim() || null,
-              approvalStatus,
-              ...(!isAdmin ? { pendingChangedBy: submitterName, pendingChangedAt: new Date() } : {}),
-            },
-          });
-          await createUnitConversions(product.id, sku, row.parsedUnitConversions ?? []);
-          results.push({ index, action: "created (conflict resolved)", status: "ok", productId: product.id });
-        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
