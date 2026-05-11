@@ -146,7 +146,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { setSearchResults([]); setShowDropdown(false); return; }
     setSearchLoading(true);
-    const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`/api/products/search?full=1&q=${encodeURIComponent(q)}`);
     setSearchLoading(false);
     if (res.ok) { setSearchResults(await res.json()); setShowDropdown(true); }
   }, []);
