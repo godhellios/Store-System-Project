@@ -645,6 +645,13 @@ export function ProductForm({
         </div>
       </div>
 
+      {!isEdit && !previewSku && !!form.categoryId && !skuLoading && (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-xs text-red-700">
+          <span className="font-semibold shrink-0">Cannot save:</span>
+          <span>The selected category has no code. Go to <strong>Settings → Categories</strong> and set a code for it first.</span>
+        </div>
+      )}
+
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={saving || uploading || (!isEdit && !previewSku && !!form.categoryId)}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">

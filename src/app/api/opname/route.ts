@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { viewerGuard } from "@/lib/role-guard";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -20,15 +21,19 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const vg = viewerGuard(session); if (vg) return vg;
 
   const { locationId, notes } = await req.json();
   if (!locationId) return NextResponse.json({ error: "Location is required" }, { status: 400 });
 
   const year = new Date().getFullYear();
-  const count = await prisma.opnameSession.count({
+  const last = await prisma.opnameSession.findFirst({
     where: { sessionNumber: { startsWith: `OPN-${year}-` } },
+    orderBy: { sessionNumber: "desc" },
+    select: { sessionNumber: true },
   });
-  const sessionNumber = `OPN-${year}-${String(count + 1).padStart(4, "0")}`;
+  const lastNum = last ? parseInt(last.sessionNumber.split("-").pop() ?? "0") : 0;
+  const sessionNumber = `OPN-${year}-${String(lastNum + 1).padStart(4, "0")}`;
 
   // Pre-fill lines with current stock for blind counting
   const currentStock = await prisma.stock.findMany({

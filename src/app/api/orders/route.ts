@@ -7,6 +7,7 @@ import { MovementType, OrderType } from "@/generated/prisma";
 import { sendPushNotification } from "@/modules/push-notify/send";
 // ────────────────────────────────────────────────────────────────────────────
 import { writeAuditLog } from "@/lib/audit-log";
+import { viewerGuard } from "@/lib/role-guard";
 
 const ORDER_PREFIX: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "OUT", TRANSFER: "TRF", ADJUSTMENT: "ADJ",
@@ -44,6 +45,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const vg = viewerGuard(session); if (vg) return vg;
 
   const body = await req.json();
   const { type, fromLocationId, toLocationId, customer, reference, notes, lines } = body as {
@@ -109,31 +111,68 @@ export async function POST(req: Request) {
   }
   // ─────────────────────────────────────────────────────────────────────────
 
+  // ── Block transactions while an opname session is open for affected location ─
+  if (type !== "ADJUSTMENT") {
+    const affectedLocationIds = [...new Set([fromLocationId, toLocationId].filter(Boolean))] as string[];
+    const openOpname = await prisma.opnameSession.findFirst({
+      where: { locationId: { in: affectedLocationIds }, status: { in: ["IN_PROGRESS", "REVIEWING"] } },
+      include: { location: true },
+    });
+    if (openOpname) {
+      return NextResponse.json(
+        { error: `Cannot create transaction: ${openOpname.location.name} has an open stock opname session (${openOpname.sessionNumber}). Complete or cancel the opname first.` },
+        { status: 409 }
+      );
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   const { adjustmentReason } = body as { adjustmentReason?: string };
   const isManualAdjustment = type === "ADJUSTMENT";
   const warnings: string[] = [];
 
   let result!: { order: { id: string; orderNumber: string; fromLocationId: string | null }; txWarnings: string[] };
-  try {
-    result = await prisma.$transaction(async (tx) => {
-      const txWarnings: string[] = [];
-      const prefix = ORDER_PREFIX[type] ?? "ORD";
-      const year = new Date().getFullYear();
-      const last = await tx.order.findFirst({
-        where: { orderNumber: { startsWith: `${prefix}-${year}-` } },
-        orderBy: { orderNumber: "desc" },
-        select: { orderNumber: true },
-      });
-      const lastNum = last ? parseInt(last.orderNumber.split("-").pop() ?? "0") : 0;
-      const orderNumber = `${prefix}-${year}-${String(lastNum + 1).padStart(4, "0")}`;
+  const MAX_RETRIES = 3;
+  let attempt = 0;
+  while (attempt < MAX_RETRIES) {
+    try {
+      result = await prisma.$transaction(async (tx) => {
+        const txWarnings: string[] = [];
+        const prefix = ORDER_PREFIX[type] ?? "ORD";
+        const year = new Date().getFullYear();
+        const last = await tx.order.findFirst({
+          where: { orderNumber: { startsWith: `${prefix}-${year}-` } },
+          orderBy: { orderNumber: "desc" },
+          select: { orderNumber: true },
+        });
+        const lastNum = last ? parseInt(last.orderNumber.split("-").pop() ?? "0") : 0;
+        const orderNumber = `${prefix}-${year}-${String(lastNum + 1).padStart(4, "0")}`;
 
-      const order = await tx.order.create({
+        const order = await tx.order.create({
         data: {
           orderNumber, type, fromLocationId, toLocationId, customer, reference, notes,
           createdByName: session.user.name ?? null,
           ...(isManualAdjustment ? { adjustmentStatus: "PENDING", adjustmentReason: adjustmentReason ?? null } : {}),
         },
       });
+
+      // Lock stock rows inside the transaction — prevents concurrent GOODS_OUT/TRANSFER from
+      // both passing the outer pre-check and both decrementing past zero.
+      if ((type === "GOODS_OUT" || type === "TRANSFER") && fromLocationId) {
+        const productIds = lines.map((l) => l.productId);
+        const lockedStock = await tx.$queryRaw<Array<{ productId: string; quantity: number }>>`
+          SELECT "productId", quantity FROM "Stock"
+          WHERE "productId" = ANY(${productIds}::text[]) AND "locationId" = ${fromLocationId}
+          FOR UPDATE
+        `;
+        const stockMap = new Map(lockedStock.map((s) => [s.productId, s.quantity]));
+        for (const line of lines) {
+          const available = stockMap.get(line.productId) ?? 0;
+          if (available < line.quantity) {
+            throw new Error(`Insufficient stock: available ${available}, requested ${line.quantity} (product ${line.productId})`);
+          }
+        }
+      }
 
       for (const line of lines) {
         const orderLine = await tx.orderLine.create({
@@ -186,12 +225,22 @@ export async function POST(req: Request) {
         // ADJUSTMENT: stock NOT updated here — deferred until admin approves
       }
 
-      return { order, txWarnings };
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to create order — please try again";
-    console.error("Order creation failed:", err);
-    return NextResponse.json({ error: message }, { status: 400 });
+        return { order, txWarnings };
+      });
+      break; // success — exit retry loop
+    } catch (err) {
+      const isOrderNumberCollision =
+        err instanceof Error &&
+        (err as { code?: string }).code === "P2002" &&
+        JSON.stringify((err as { meta?: unknown }).meta).includes("orderNumber");
+      if (isOrderNumberCollision && attempt < MAX_RETRIES - 1) {
+        attempt++;
+        continue;
+      }
+      const message = err instanceof Error ? err.message : "Failed to create order — please try again";
+      console.error("Order creation failed:", err);
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
   }
 
   warnings.push(...result.txWarnings);

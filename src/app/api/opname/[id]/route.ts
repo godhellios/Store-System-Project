@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { nextOrderNumber } from "@/lib/order-number";
 import { MovementType } from "@/generated/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { viewerGuard } from "@/lib/role-guard";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -28,6 +29,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const vg = viewerGuard(session); if (vg) return vg;
 
   const { id } = await params;
   const body = await req.json();
@@ -66,6 +68,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   // Approve — create adjustment orders for all discrepancies
   if (action === "approve") {
+    if (session.user.role !== "ADMIN")
+      return NextResponse.json({ error: "Only admins can approve opname sessions" }, { status: 403 });
     const fullSession = await prisma.opnameSession.findUnique({
       where: { id },
       include: { lines: { include: { product: true } } },

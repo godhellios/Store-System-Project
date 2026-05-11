@@ -33,3 +33,12 @@ export async function requireAdmin() {
   if (session.user.role !== "ADMIN") redirect("/dashboard");
   return session;
 }
+
+// For API route handlers — returns a 403 response object when the caller is VIEWER.
+// Usage: const guard = viewerGuard(session); if (guard) return guard;
+import { NextResponse } from "next/server";
+export function viewerGuard(session: { user: { role: string } }) {
+  if (session.user.role === "VIEWER")
+    return NextResponse.json({ error: "Viewers have read-only access" }, { status: 403 });
+  return null;
+}

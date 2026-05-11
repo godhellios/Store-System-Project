@@ -32,8 +32,12 @@ export default function ReportsPage() {
 
   const [locationId, setLocationId] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
 
   const [data, setData] = useState<StockRow[] | MovementRow[]>([]);
   const [loading, setLoading] = useState(false);

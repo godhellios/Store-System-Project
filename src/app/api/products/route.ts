@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { generateSku } from "@/lib/sku";
 import { generateBaseBarcode, generateUnitBarcode, validateBarcodeUniqueness } from "@/lib/barcode";
 import { findSimilarProducts } from "@/lib/duplicate-detect";
+import { viewerGuard } from "@/lib/role-guard";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -51,6 +52,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const vg = viewerGuard(session); if (vg) return vg;
 
   const body = await req.json();
   const { name, categoryId, unitId, reorderPoint, colorVariant, description, imageUrl, unitConversions, force } = body;

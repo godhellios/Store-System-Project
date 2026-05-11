@@ -93,7 +93,7 @@ export function AppShell({
         },
         () => {
           sessionStorage.removeItem("captureLoginGeo");
-          setGeoBlocked(true);
+          if (!sessionStorage.getItem("geoSkipped")) setGeoBlocked(true);
         },
         { timeout: 15000, enableHighAccuracy: false }
       );
@@ -103,7 +103,7 @@ export function AppShell({
       navigator.permissions.query({ name: "geolocation" as PermissionName }).then((result) => {
         if (result.state === "denied") {
           sessionStorage.removeItem("captureLoginGeo");
-          setGeoBlocked(true);
+          if (!sessionStorage.getItem("geoSkipped")) setGeoBlocked(true);
         } else {
           request();
         }
@@ -161,6 +161,15 @@ export function AppShell({
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
             >
               {t("app.geo.retry", "Coba Lagi")}
+            </button>
+            <button
+              onClick={() => {
+                sessionStorage.setItem("geoSkipped", "1");
+                setGeoBlocked(false);
+              }}
+              className="w-full mt-2 text-slate-500 hover:text-slate-700 text-xs py-2 rounded-xl transition-colors"
+            >
+              {t("app.geo.skip", "Lewati (lokasi tidak akan dicatat)")}
             </button>
           </div>
         </div>

@@ -49,6 +49,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Only pending adjustment orders can be reviewed" }, { status: 400 });
 
   if (action === "approve") {
+    // Pre-check: ensure no negative adjustment line pushes stock below 0
+    if (order.toLocationId) {
+      for (const line of order.lines) {
+        if (line.quantity >= 0) continue;
+        const stock = await prisma.stock.findUnique({
+          where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
+        });
+        const current = stock?.quantity ?? 0;
+        if (current + line.quantity < 0) {
+          const product = await prisma.product.findUnique({ where: { id: line.productId }, select: { name: true, sku: true } });
+          return NextResponse.json({
+            error: `Insufficient stock for ${product?.name ?? line.productId} (${product?.sku ?? ""}): has ${current}, adjustment would result in ${current + line.quantity}`,
+          }, { status: 400 });
+        }
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       for (const line of order.lines) {
         if (!order.toLocationId) continue;

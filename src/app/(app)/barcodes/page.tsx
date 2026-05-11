@@ -3,6 +3,8 @@ import { BarcodePrintPanel } from "@/components/barcode-print-panel";
 import { blockOperator } from "@/lib/role-guard";
 import { getT } from "@/modules/i18n";
 
+export const maxDuration = 30;
+
 export default async function BarcodesPage({
   searchParams,
 }: {

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { Prisma } from "@/generated/prisma";
+import { viewerGuard } from "@/lib/role-guard";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -57,6 +58,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const vg = viewerGuard(session); if (vg) return vg;
+
   const { id } = await params;
   const body = await req.json();
   const { name, sku, barcode, categoryId, unitId, reorderPoint, colorVariant, description, imageUrl, isActive, unitConversions } = body;
@@ -93,7 +96,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   // Admin: apply directly (also clears any pending edits)
-  if (sku) {
+  if (sku && sku.trim() !== existing.sku) {
+    const hasTransactions = await prisma.orderLine.count({ where: { productId: id } });
+    if (hasTransactions > 0)
+      return NextResponse.json(
+        { error: "SKU cannot be changed — this product already has transaction history. Deactivate and create a new product instead." },
+        { status: 409 }
+      );
     const c = await prisma.product.findFirst({ where: { sku: sku.trim(), NOT: { id } } });
     if (c) return NextResponse.json({ error: "SKU already in use" }, { status: 409 });
   }

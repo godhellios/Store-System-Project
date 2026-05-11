@@ -111,7 +111,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="min-w-0">
                     <div className="font-medium text-slate-800 text-sm leading-tight">{line.product.name}</div>
-                    <div className="text-xs font-mono text-slate-400 mt-0.5">{line.product.sku} · {line.product.category.name}</div>
+                    <div className="text-xs font-mono text-slate-400 mt-0.5">{line.product.sku} · {line.product.category?.name}</div>
                   </div>
                   {diff !== null && (
                     <span className={`flex-shrink-0 text-sm font-bold ${diff === 0 ? "text-green-600" : diff > 0 ? "text-blue-600" : "text-red-600"}`}>
@@ -122,7 +122,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
                 {/* Book qty + input row */}
                 <div className="flex items-center gap-3">
                   <div className="text-xs text-slate-500">
-                    System: <span className="font-semibold text-slate-700">{line.bookQty}</span> {line.product.unit.name}
+                    System: <span className="font-semibold text-slate-700">{line.bookQty}</span> {line.product.unit?.name}
                   </div>
                   <div className="flex-1" />
                   {isEditable ? (
@@ -134,7 +134,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
                     />
                   ) : (
                     <span className="text-base font-semibold text-slate-800">
-                      {line.physicalQty ?? "—"} <span className="text-xs font-normal text-slate-500">{line.product.unit.name}</span>
+                      {line.physicalQty ?? "—"} <span className="text-xs font-normal text-slate-500">{line.product.unit?.name}</span>
                     </span>
                   )}
                 </div>
@@ -168,7 +168,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
                     <div className="font-medium text-slate-800">{line.product.name}</div>
                     <div className="text-xs font-mono text-slate-400">{line.product.sku}</div>
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-slate-500">{line.product.category.name}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500">{line.product.category?.name}</td>
                   <td className="px-4 py-2.5 text-right text-slate-600">{line.bookQty}</td>
                   <td className="px-4 py-2.5 text-center">
                     {isEditable ? (
@@ -185,7 +185,7 @@ export function OpnameCountSheet({ session }: { session: Session }) {
                   <td className={`px-4 py-2.5 text-right font-semibold ${diff === null ? "text-slate-300" : diff === 0 ? "text-green-600" : diff > 0 ? "text-blue-600" : "text-red-600"}`}>
                     {diff === null ? "—" : diff === 0 ? "✓" : diff > 0 ? `+${diff}` : diff}
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-slate-500">{line.product.unit.name}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500">{line.product.unit?.name}</td>
                   <td className="px-4 py-2.5 text-xs text-slate-400">{line.notes ?? "—"}</td>
                 </tr>
               );

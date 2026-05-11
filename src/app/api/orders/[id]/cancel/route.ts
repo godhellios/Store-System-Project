@@ -28,6 +28,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     );
   }
 
+  // Pre-check: GRN and TRANSFER reversals decrement stock — verify it won't go negative
+  if ((order.type === "GRN" && order.toLocationId) || (order.type === "TRANSFER" && order.toLocationId)) {
+    const locationId = order.toLocationId!;
+    const productIds = order.lines.map((l) => l.productId);
+    const stockRows = await prisma.stock.findMany({
+      where: { productId: { in: productIds }, locationId },
+      include: { product: { select: { name: true } } },
+    });
+    const stockMap = new Map(stockRows.map((s) => [s.productId, s]));
+    const blocked: string[] = [];
+    for (const line of order.lines) {
+      const current = stockMap.get(line.productId)?.quantity ?? 0;
+      if (current < line.quantity) {
+        const name = stockMap.get(line.productId)?.product.name ?? line.productId;
+        blocked.push(`"${name}" — available ${current}, need to reverse ${line.quantity}`);
+      }
+    }
+    if (blocked.length > 0) {
+      return NextResponse.json(
+        { error: `Cannot cancel — stock was already partially used:\n${blocked.join("\n")}` },
+        { status: 409 }
+      );
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     for (const line of order.lines) {
       if (order.type === "GRN" && order.toLocationId) {
