@@ -33,7 +33,6 @@ const NAV: NavSection[] = [
       { href: "/products/add", label: "Add Product", labelKey: "nav.links.addProduct", icon: "↳", indent: true, small: true },
       { href: "/products/import", label: "Bulk Import", labelKey: "nav.links.bulkImport", icon: "↳", indent: true, small: true },
       { href: "/products/images", label: "Bulk Images", labelKey: "nav.links.bulkImages", icon: "↳", indent: true, small: true }, // BULK_IMAGE_UPLOAD
-      { href: "/products/pending", label: "Pending Approval", labelKey: "nav.links.pendingApproval", icon: "⏳", indent: true, small: true, adminOnly: true },
       { href: "/warehouse", label: "Warehouse", labelKey: "nav.links.warehouse", icon: "⊟" },
     ],
   },
@@ -60,7 +59,7 @@ const NAV: NavSection[] = [
     roles: ["ADMIN", "STAFF", "VIEWER"],
     links: [
       { href: "/orders", label: "Order History", labelKey: "nav.links.orderHistory", icon: "📋" },
-      { href: "/orders/pending", label: "Pending Approval", labelKey: "nav.links.ordersPending", icon: "⏳", indent: true, small: true, adminOnly: true },
+      { href: "/approvals", label: "Pending Approval", labelKey: "nav.links.pendingApproval", icon: "⏳", indent: true, small: true, adminOnly: true },
       { href: "/movements", label: "Movement Log", labelKey: "nav.links.movementLog", icon: "≡", adminOnly: true },
       { href: "/reports", label: "Reports", labelKey: "nav.links.reports", icon: "⊙" },
     ],
