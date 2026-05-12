@@ -46,6 +46,7 @@ type FlowState =
   | { step: "idle" }
   | { step: "confirm" }
   | { step: "saving" }
+  | { step: "pending_approval"; orderId: string; orderNumber: string }
   | { step: "whatsapp"; orderId: string; orderNumber: string; whatsappUrl: string }
   | { step: "print"; orderId: string; orderNumber: string }
   | { step: "done"; orderNumber: string }
@@ -57,7 +58,7 @@ function progressIndex(step: FlowState["step"]): number {
   if (step === "whatsapp") return 1;
   if (step === "print") return 2;
   if (step === "done") return 3;
-  return -1;
+  return -1; // pending_approval, confirm, idle, error — no progress bar
 }
 
 function StepProgress({ step }: { step: FlowState["step"] }) {
@@ -387,13 +388,18 @@ export function TransactionForm({
       }),
     });
     setSubmitting(false);
-    let data: { error?: string; order?: { id: string; orderNumber: string }; warnings?: string[] } = {};
+    let data: { error?: string; order?: { id: string; orderNumber: string; grnStatus?: string | null; transferStatus?: string | null }; warnings?: string[] } = {};
     try { data = await res.json(); } catch { toast.error("Server error — please try again"); return; }
     if (!res.ok) { toast.error(data.error ?? "Failed to save order"); return; }
     if (data.warnings?.length) data.warnings.forEach((w) => toast(w, { icon: "⚠️", duration: 6000 }));
-    toast.success(`${data.order!.orderNumber} saved`);
+    const isPending = data.order?.grnStatus === "PENDING" || data.order?.transferStatus === "PENDING";
+    if (isPending) {
+      toast.success(`${data.order!.orderNumber} submitted — awaiting admin approval`, { duration: 5000 });
+    } else {
+      toast.success(`${data.order!.orderNumber} saved`);
+    }
     localStorage.removeItem(DRAFT_KEY);
-    router.push("/orders");
+    router.push(isPending ? `/orders/${data.order!.id}` : "/orders");
     router.refresh();
   }
 
@@ -425,7 +431,7 @@ export function TransactionForm({
       setFlowState({ step: "error", message: "Network error — check your connection and try again.", onRetry: executeGoodsOutSave });
       return;
     }
-    let data: { error?: string; order?: { id: string; orderNumber: string }; warnings?: string[] } = {};
+    let data: { error?: string; order?: { id: string; orderNumber: string; goodsOutStatus?: string | null }; warnings?: string[] } = {};
     try { data = await res.json(); } catch {
       setFlowState({ step: "error", message: "Server error — please try again.", onRetry: executeGoodsOutSave });
       return;
@@ -437,9 +443,16 @@ export function TransactionForm({
     if (data.warnings?.length) data.warnings.forEach((w) => toast(w, { icon: "⚠️", duration: 6000 }));
 
     const { id: orderId, orderNumber } = data.order!;
+    localStorage.removeItem(DRAFT_KEY);
+
+    // When approval is required, skip WhatsApp/Print — go to pending state instead
+    if (data.order?.goodsOutStatus === "PENDING") {
+      setFlowState({ step: "pending_approval", orderId, orderNumber });
+      return;
+    }
+
     const fromLocationName = locations.find((l) => l.id === fromLocationId)?.name ?? "";
     const whatsappUrl = buildWhatsAppUrl({ orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, savedBy: session?.user?.name ?? undefined });
-    localStorage.removeItem(DRAFT_KEY);
     setFlowState({ step: "whatsapp", orderId, orderNumber, whatsappUrl });
   }
 
@@ -785,7 +798,7 @@ export function TransactionForm({
                   <p className="text-xs text-slate-400 mb-0.5">Customer: {customer}</p>
                 )}
                 <p className="text-xs text-amber-600 font-medium mt-3 mb-5">
-                  {t("transactionForm.flow.afterSaving", "After saving: Send DO to WhatsApp → Print DO (mandatory)")}
+                  {t("transactionForm.flow.afterSaving", "After saving: order will be sent for admin approval. WhatsApp and print available from the order detail page.")}
                 </p>
                 <div className="flex gap-3">
                   <button onClick={() => setFlowState({ step: "idle" })}
@@ -799,6 +812,34 @@ export function TransactionForm({
                 </div>
               </>
             )}
+
+            {/* ── pending approval ── */}
+            {flowState.step === "pending_approval" && (() => {
+              const { orderId, orderNumber } = flowState;
+              return (
+                <>
+                  <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-7 h-7 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-800 mb-1">Submitted for Approval</h2>
+                  <p className="text-sm font-mono text-slate-500 mb-3">{orderNumber}</p>
+                  <p className="text-sm text-slate-600 mb-2">
+                    Your Goods Out order has been saved and is <span className="font-semibold text-amber-600">awaiting admin approval</span>.
+                  </p>
+                  <p className="text-xs text-slate-400 mb-6">
+                    Stock will only be deducted after the admin approves. WhatsApp and print are available from the order detail page.
+                  </p>
+                  <button
+                    onClick={() => { router.push(`/orders/${orderId}`); router.refresh(); }}
+                    className="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-xl transition-colors"
+                  >
+                    View Order →
+                  </button>
+                </>
+              );
+            })()}
 
             {/* ── saving ── */}
             {flowState.step === "saving" && (
