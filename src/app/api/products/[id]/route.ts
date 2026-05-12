@@ -97,8 +97,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   // Admin: apply directly (also clears any pending edits)
   if (sku && sku.trim() !== existing.sku) {
-    const hasTransactions = await prisma.orderLine.count({ where: { productId: id } });
-    if (hasTransactions > 0)
+    const [orderLineCount, movementCount] = await Promise.all([
+      prisma.orderLine.count({ where: { productId: id } }),
+      prisma.movement.count({ where: { productId: id } }),
+    ]);
+    if (orderLineCount > 0 || movementCount > 0)
       return NextResponse.json(
         { error: "SKU cannot be changed — this product already has transaction history. Deactivate and create a new product instead." },
         { status: 409 }

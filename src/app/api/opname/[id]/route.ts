@@ -84,44 +84,61 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       // prisma client which shares the same single-connection pool; calling it inside
       // prisma.$transaction would deadlock because the transaction already holds the
       // one available connection.
-      const orderNumber = await nextOrderNumber("ADJUSTMENT");
+      // Retry up to 3 times in case of order number collision (P2002 on orderNumber).
+      const MAX_RETRIES = 3;
+      let attempt = 0;
+      while (attempt < MAX_RETRIES) {
+        const orderNumber = await nextOrderNumber("ADJUSTMENT");
+        try {
+          await prisma.$transaction(async (tx) => {
+            const order = await tx.order.create({
+              data: {
+                orderNumber,
+                type: "ADJUSTMENT",
+                toLocationId: fullSession!.locationId,
+                notes: `Stock Opname approval: ${fullSession!.sessionNumber}`,
+                adjustmentStatus: "APPROVED",
+                adjustmentReason: "Stock Opname",
+                reviewedByName: session.user.name ?? null,
+                reviewedAt: new Date(),
+              },
+            });
 
-      await prisma.$transaction(async (tx) => {
-        const order = await tx.order.create({
-          data: {
-            orderNumber,
-            type: "ADJUSTMENT",
-            toLocationId: fullSession!.locationId,
-            notes: `Stock Opname approval: ${fullSession!.sessionNumber}`,
-            adjustmentStatus: "APPROVED",
-            adjustmentReason: "Stock Opname",
-            reviewedByName: session.user.name ?? null,
-            reviewedAt: new Date(),
-          },
-        });
-
-        for (const line of discrepancies) {
-          const diff = line.difference!;
-          const orderLine = await tx.orderLine.create({
-            data: { orderId: order.id, productId: line.productId, quantity: Math.abs(diff) },
+            for (const line of discrepancies) {
+              const diff = line.difference!;
+              const orderLine = await tx.orderLine.create({
+                data: { orderId: order.id, productId: line.productId, quantity: Math.abs(diff) },
+              });
+              await tx.movement.create({
+                data: {
+                  orderId: order.id,
+                  orderLineId: orderLine.id,
+                  productId: line.productId,
+                  toLocationId: fullSession!.locationId,
+                  quantity: Math.abs(diff),
+                  type: MovementType.ADJUSTMENT,
+                },
+              });
+              await tx.stock.upsert({
+                where: { productId_locationId: { productId: line.productId, locationId: fullSession!.locationId } },
+                create: { productId: line.productId, locationId: fullSession!.locationId, quantity: line.physicalQty! },
+                update: { quantity: { increment: diff } },
+              });
+            }
           });
-          await tx.movement.create({
-            data: {
-              orderId: order.id,
-              orderLineId: orderLine.id,
-              productId: line.productId,
-              toLocationId: fullSession!.locationId,
-              quantity: Math.abs(diff),
-              type: MovementType.ADJUSTMENT,
-            },
-          });
-          await tx.stock.upsert({
-            where: { productId_locationId: { productId: line.productId, locationId: fullSession!.locationId } },
-            create: { productId: line.productId, locationId: fullSession!.locationId, quantity: line.physicalQty! },
-            update: { quantity: { increment: diff } },
-          });
+          break; // success
+        } catch (err) {
+          const isCollision =
+            err instanceof Error &&
+            (err as { code?: string }).code === "P2002" &&
+            JSON.stringify((err as { meta?: unknown }).meta).includes("orderNumber");
+          if (isCollision && attempt < MAX_RETRIES - 1) {
+            attempt++;
+            continue;
+          }
+          throw err;
         }
-      });
+      }
     }
 
     const updated = await prisma.opnameSession.update({
