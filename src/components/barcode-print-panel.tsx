@@ -129,13 +129,28 @@ export function BarcodePrintPanel({
 
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 text-xs text-slate-500">
-            {searching ? <span className="text-blue-500">Searching…</span> : <span>{searchResults.length} results</span>}
+            {searching ? <span className="text-blue-500">Searching…</span> : <span>{searchResults.length} result{searchResults.length !== 1 ? "s" : ""}</span>}
+            {!searching && searchResults.length > 0 && (
+              <>
+                <span>·</span>
+                <button
+                  onClick={() => setQueue((prev) => {
+                    const next = new Map(prev);
+                    searchResults.forEach((p) => next.set(p.id, p));
+                    return next;
+                  })}
+                  className="hover:text-blue-600 font-medium"
+                >
+                  Select all
+                </button>
+              </>
+            )}
             <span>·</span>
             <button onClick={() => setQueue(new Map())} className="hover:text-red-600">Clear queue</button>
           </div>
           <div className="max-h-[480px] overflow-y-auto divide-y divide-slate-100">
             {!q && !categoryId ? (
-              <p className="px-4 py-8 text-center text-xs text-slate-400">Type a name, SKU, or barcode to search</p>
+              <p className="px-4 py-8 text-center text-xs text-slate-400">Select a category or search by name, SKU, or barcode</p>
             ) : searchResults.map((p) => (
               <label key={p.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50">
                 <input type="checkbox" checked={queue.has(p.id)} onChange={() => toggleQueue(p)}
