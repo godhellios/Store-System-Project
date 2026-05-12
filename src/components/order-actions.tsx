@@ -10,11 +10,13 @@ export function OrderActions({
   userRole,
   cancelledAt,
   adjustmentStatus,
+  grnStatus,
 }: {
   orderId: string;
   userRole: string;
   cancelledAt?: string | null;
   adjustmentStatus?: string | null;
+  grnStatus?: string | null;
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -23,13 +25,17 @@ export function OrderActions({
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewing, setReviewing] = useState(false);
+
   async function handleDelete() {
     setDeleting(true);
     const res = await fetch(`/api/orders/${orderId}`, { method: "DELETE" });
     const data = await res.json();
     setDeleting(false);
     if (!res.ok) { toast.error(data.error ?? "Failed to delete order"); return; }
-    toast.success("Order deleted — stock reversed");
+    toast.success("Order deleted");
     router.push("/orders");
     router.refresh();
   }
@@ -50,12 +56,30 @@ export function OrderActions({
     router.refresh();
   }
 
+  async function handleReview(action: "approve" | "reject") {
+    setReviewing(true);
+    const res = await fetch(`/api/orders/${orderId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, note: reviewNote || undefined }),
+    });
+    const data = await res.json();
+    setReviewing(false);
+    if (!res.ok) { toast.error(data.error ?? "Failed to review order"); return; }
+    toast.success(action === "approve" ? "Approved — stock updated" : "Rejected");
+    setReviewOpen(false);
+    setReviewNote("");
+    router.refresh();
+  }
+
   const isAdmin = userRole === "ADMIN";
-  const canEdit = ["ADMIN", "STAFF"].includes(userRole) && !cancelledAt;
-  const canCancel = isAdmin && !cancelledAt && adjustmentStatus !== "PENDING";
+  const isPendingReview = adjustmentStatus === "PENDING" || grnStatus === "PENDING";
+  const canReview = isAdmin && !cancelledAt && isPendingReview;
+  const canEdit = ["ADMIN", "STAFF"].includes(userRole) && !cancelledAt && grnStatus !== "REJECTED";
+  const canCancel = isAdmin && !cancelledAt && adjustmentStatus !== "PENDING" && grnStatus !== "PENDING";
   const canDelete = isAdmin;
 
-  if (!canEdit && !canCancel && !canDelete) return null;
+  if (!canReview && !canEdit && !canCancel && !canDelete) return null;
 
   return (
     <div className="flex gap-2 items-center flex-wrap">
@@ -64,6 +88,43 @@ export function OrderActions({
           className="text-xs px-3 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
           Edit
         </Link>
+      )}
+
+      {/* Approve / Reject for pending adjustment or GRN */}
+      {canReview && (
+        reviewOpen ? (
+          <div className="flex flex-col gap-2 border border-blue-200 bg-blue-50 rounded-xl px-4 py-3 min-w-[260px]">
+            <p className="text-xs font-semibold text-blue-800">
+              {grnStatus === "PENDING" ? "Review this GRN?" : "Review this adjustment?"}
+            </p>
+            <textarea
+              value={reviewNote}
+              onChange={(e) => setReviewNote(e.target.value)}
+              placeholder="Note (optional — shown on rejection)…"
+              rows={2}
+              className="w-full px-2 py-1.5 text-xs border border-blue-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none bg-white"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => handleReview("approve")} disabled={reviewing}
+                className="text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg disabled:opacity-50">
+                {reviewing ? "…" : "✓ Approve"}
+              </button>
+              <button onClick={() => handleReview("reject")} disabled={reviewing}
+                className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg disabled:opacity-50">
+                {reviewing ? "…" : "✗ Reject"}
+              </button>
+              <button onClick={() => { setReviewOpen(false); setReviewNote(""); }}
+                className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+                Back
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setReviewOpen(true)}
+            className="text-xs px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
+            Review
+          </button>
+        )
       )}
 
       {/* Cancel order */}

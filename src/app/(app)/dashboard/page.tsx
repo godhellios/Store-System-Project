@@ -64,11 +64,12 @@ const LOC_HEADER: Record<string, string> = {
 export default async function DashboardPage() {
   const [data, t, session] = await Promise.all([getDashboardData(), getT(), getServerSession(authOptions)]);
   const isAdmin = session?.user.role === "ADMIN";
-  const pendingCount = isAdmin
-    ? await prisma.product.count({
-        where: { OR: [{ approvalStatus: "DRAFT" }, { pendingChangedAt: { not: null } }] },
-      })
-    : 0;
+  const [pendingCount, pendingGrnCount] = isAdmin
+    ? await Promise.all([
+        prisma.product.count({ where: { OR: [{ approvalStatus: "DRAFT" }, { pendingChangedAt: { not: null } }] } }),
+        prisma.order.count({ where: { type: "GRN", grnStatus: "PENDING" } }),
+      ])
+    : [0, 0];
 
   return (
     <div>
@@ -79,6 +80,17 @@ export default async function DashboardPage() {
         <StatCard label={t("dashboard.ordersOutToday", "Orders Out Today")} value={data.ordersOutToday} sub={t("dashboard.issuedToday", "Issued today")} color="border-orange-400" />
         <StatCard label={t("dashboard.lowStockAlerts", "Low Stock Alerts")} value={data.lowStockCount} sub={t("dashboard.belowReorderPoint", "Below reorder point")} color="border-red-400" valueClass={data.lowStockCount > 0 ? "text-red-600 dark:text-red-400" : ""} />
       </div>
+      {isAdmin && pendingGrnCount > 0 && (
+        <Link href="/orders?type=GRN" className="block mb-3">
+          <div className="bg-green-50 border border-green-300 border-l-4 border-l-green-600 rounded-xl p-4 flex items-center justify-between hover:bg-green-100 transition-colors">
+            <div>
+              <div className="text-sm font-semibold text-green-800">{pendingGrnCount} GRN{pendingGrnCount !== 1 ? "s" : ""} awaiting approval</div>
+              <div className="text-xs text-green-700 mt-0.5">Stock will not be credited until you approve</div>
+            </div>
+            <span className="text-green-600 text-lg">📥</span>
+          </div>
+        </Link>
+      )}
       {isAdmin && pendingCount > 0 && (
         <Link href="/products/pending" className="block mb-6">
           <div className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-xl p-4 flex items-center justify-between hover:bg-amber-100 transition-colors">

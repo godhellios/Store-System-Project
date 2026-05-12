@@ -153,6 +153,7 @@ export async function POST(req: Request) {
           orderNumber, type, fromLocationId, toLocationId, customer, reference, notes,
           createdByName: session.user.name ?? null,
           ...(isManualAdjustment ? { adjustmentStatus: "PENDING", adjustmentReason: adjustmentReason ?? null } : {}),
+          ...(type === "GRN" ? { grnStatus: "PENDING" } : {}),
         },
       });
 
@@ -199,11 +200,7 @@ export async function POST(req: Request) {
         });
 
         if (type === "GRN") {
-          await tx.stock.upsert({
-            where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
-            create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
-            update: { quantity: { increment: line.quantity } },
-          });
+          // Stock deferred — applied only when admin approves the GRN
         } else if (type === "GOODS_OUT") {
           await tx.stock.update({
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
@@ -244,6 +241,14 @@ export async function POST(req: Request) {
   warnings.push(...result.txWarnings);
 
   // ── push-notify module ──────────────────────────────────────────────────
+  if (type === "GRN") {
+    const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
+    sendPushNotification({
+      title: `📥 GRN Pending Approval — ${result.order.orderNumber}`,
+      body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQty} units — awaiting admin approval before stock is credited`,
+      url: `/orders/${result.order.id}`,
+    }).catch(() => {});
+  }
   if (type === "GOODS_OUT") {
     const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
     const fromName = result.order.fromLocationId
@@ -290,7 +295,7 @@ export async function POST(req: Request) {
   writeAuditLog({
     session,
     action: actionLabel[type] ?? "CREATE_ORDER",
-    description: `${result.order.orderNumber} — ${lines.length} line${lines.length !== 1 ? "s" : ""}${isManualAdjustment ? " (pending approval)" : ""}`,
+    description: `${result.order.orderNumber} — ${lines.length} line${lines.length !== 1 ? "s" : ""}${isManualAdjustment || type === "GRN" ? " (pending approval)" : ""}`,
     entityId: result.order.id,
     entityType: "ORDER",
   });

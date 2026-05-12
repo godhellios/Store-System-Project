@@ -27,9 +27,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       { status: 400 }
     );
   }
+  if (order.type === "GRN" && order.grnStatus === "PENDING") {
+    return NextResponse.json(
+      { error: "Pending GRNs must be rejected, not cancelled. Use the Reject button." },
+      { status: 400 }
+    );
+  }
 
-  // Pre-check: GRN and TRANSFER reversals decrement stock — verify it won't go negative
-  if ((order.type === "GRN" && order.toLocationId) || (order.type === "TRANSFER" && order.toLocationId)) {
+  // Pre-check: GRN (approved) and TRANSFER reversals decrement stock — verify it won't go negative
+  const grnStockApplied = order.type === "GRN" && (order.grnStatus === "APPROVED" || order.grnStatus === null);
+  if ((grnStockApplied && order.toLocationId) || (order.type === "TRANSFER" && order.toLocationId)) {
     const locationId = order.toLocationId!;
     const productIds = order.lines.map((l) => l.productId);
     const stockRows = await prisma.stock.findMany({
@@ -55,7 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   await prisma.$transaction(async (tx) => {
     for (const line of order.lines) {
-      if (order.type === "GRN" && order.toLocationId) {
+      if (grnStockApplied && order.toLocationId) {
         await tx.stock.updateMany({
           where: { productId: line.productId, locationId: order.toLocationId },
           data: { quantity: { decrement: line.quantity } },

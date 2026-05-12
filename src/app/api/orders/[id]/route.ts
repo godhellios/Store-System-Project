@@ -32,12 +32,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   return NextResponse.json(order);
 }
 
-// ── Approve or reject a PENDING manual stock adjustment ────────────────────
+// ── Approve or reject a PENDING adjustment or GRN ─────────────────────────
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.user.role !== "ADMIN")
-    return NextResponse.json({ error: "Only admins can approve or reject adjustments" }, { status: 403 });
+    return NextResponse.json({ error: "Only admins can approve or reject orders" }, { status: 403 });
 
   const { id } = await params;
   const { action, note } = (await req.json()) as { action: "approve" | "reject"; note?: string };
@@ -46,11 +46,41 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const order = await prisma.order.findUnique({ where: { id }, include: { lines: true } });
   if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (order.type !== "ADJUSTMENT" || order.adjustmentStatus !== "PENDING")
-    return NextResponse.json({ error: "Only pending adjustment orders can be reviewed" }, { status: 400 });
 
+  const isPendingAdjustment = order.type === "ADJUSTMENT" && order.adjustmentStatus === "PENDING";
+  const isPendingGrn = order.type === "GRN" && order.grnStatus === "PENDING";
+  if (!isPendingAdjustment && !isPendingGrn)
+    return NextResponse.json({ error: "Only pending adjustment or GRN orders can be reviewed" }, { status: 400 });
+
+  const reviewFields = { reviewedByName: session.user.name ?? null, reviewedAt: new Date(), reviewNote: note ?? null };
+
+  // ── GRN approve / reject ──────────────────────────────────────────────────
+  if (isPendingGrn) {
+    if (action === "approve") {
+      await prisma.$transaction(async (tx) => {
+        for (const line of order.lines) {
+          if (!order.toLocationId) continue;
+          await tx.stock.upsert({
+            where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
+            create: { productId: line.productId, locationId: order.toLocationId, quantity: line.quantity },
+            update: { quantity: { increment: line.quantity } },
+          });
+        }
+        await tx.order.update({ where: { id }, data: { grnStatus: "APPROVED", ...reviewFields } });
+      });
+      writeAuditLog({ session, action: "APPROVE_GRN", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
+
+      // Reorder alert: GRN increases stock, so no need to check reorder point here
+    } else {
+      await prisma.order.update({ where: { id }, data: { grnStatus: "REJECTED", ...reviewFields } });
+      writeAuditLog({ session, action: "REJECT_GRN", description: `Rejected ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
+    }
+    return NextResponse.json({ success: true });
+  }
+
+  // ── Adjustment approve / reject ───────────────────────────────────────────
   if (action === "approve") {
-    // Pre-check: ensure no negative adjustment line pushes stock below 0
+    // Pre-check: ensure no negative line pushes stock below 0
     if (order.toLocationId) {
       for (const line of order.lines) {
         if (line.quantity >= 0) continue;
@@ -76,43 +106,30 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           update: { quantity: { increment: line.quantity } },
         });
       }
-      await tx.order.update({
-        where: { id },
-        data: { adjustmentStatus: "APPROVED", reviewedByName: session.user.name ?? null, reviewedAt: new Date(), reviewNote: note ?? null },
-      });
+      await tx.order.update({ where: { id }, data: { adjustmentStatus: "APPROVED", ...reviewFields } });
     });
     writeAuditLog({ session, action: "APPROVE_ADJUSTMENT", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
 
-    // Reorder alert: check if any negative-adjustment line pushed stock at/below reorder point
+    // Reorder alert on negative-adjustment lines
     if (order.toLocationId) {
       const negLines = order.lines.filter((l) => l.quantity < 0);
       if (negLines.length) {
         prisma.stock.findMany({
-          where: {
-            productId: { in: negLines.map((l) => l.productId) },
-            locationId: order.toLocationId,
-            product: { reorderPoint: { gt: 0 } },
-          },
+          where: { productId: { in: negLines.map((l) => l.productId) }, locationId: order.toLocationId, product: { reorderPoint: { gt: 0 } } },
           include: { product: { select: { name: true, sku: true, reorderPoint: true } } },
         }).then((stockRows) => {
           const belowReorder = stockRows.filter((s) => s.quantity <= s.product.reorderPoint);
           if (!belowReorder.length) return;
-          const itemList = belowReorder
-            .map((s) => `${s.product.name} (${s.product.sku}): ${s.quantity} left`)
-            .join(", ");
           sendPushNotification({
             title: `⚠️ Low Stock Alert — ${belowReorder.length} item${belowReorder.length !== 1 ? "s" : ""} at reorder point`,
-            body: itemList,
+            body: belowReorder.map((s) => `${s.product.name} (${s.product.sku}): ${s.quantity} left`).join(", "),
             url: `/dashboard`,
           });
         }).catch(() => {});
       }
     }
   } else {
-    await prisma.order.update({
-      where: { id },
-      data: { adjustmentStatus: "REJECTED", reviewedByName: session.user.name ?? null, reviewedAt: new Date(), reviewNote: note ?? null },
-    });
+    await prisma.order.update({ where: { id }, data: { adjustmentStatus: "REJECTED", ...reviewFields } });
     writeAuditLog({ session, action: "REJECT_ADJUSTMENT", description: `Rejected ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
   }
 
@@ -130,6 +147,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const existing = await prisma.order.findUnique({ where: { id } });
   if (existing?.type === "ADJUSTMENT" && existing.adjustmentStatus !== "PENDING")
     return NextResponse.json({ error: "Approved or rejected adjustments cannot be edited" }, { status: 400 });
+  if (existing?.type === "GRN" && existing.grnStatus === "REJECTED")
+    return NextResponse.json({ error: "Rejected GRN orders cannot be edited" }, { status: 400 });
 
   const body = await req.json();
   const { customer, reference, notes, lines } = body as {
@@ -151,8 +170,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         });
         if (!current) throw new Error("Order not found");
 
-        // 1. Reverse stock for all existing lines (skip PENDING adjustments — stock was never applied)
-        const skipStock = current.type === "ADJUSTMENT" && current.adjustmentStatus === "PENDING";
+        // 1. Reverse stock for all existing lines (skip if stock was never applied)
+        const skipStock = (current.type === "ADJUSTMENT" && current.adjustmentStatus === "PENDING") ||
+                          (current.type === "GRN" && current.grnStatus === "PENDING");
         for (const old of current.lines) {
           if (skipStock) continue;
           if (current.type === "GRN" && current.toLocationId) {
@@ -291,7 +311,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Approved adjustments cannot be deleted — they are part of the permanent audit trail." }, { status: 400 });
   await prisma.$transaction(async (tx) => {
     for (const line of order.lines) {
-      if (order.type === "GRN" && order.toLocationId) {
+      if (order.type === "GRN" && order.toLocationId && (order.grnStatus === "APPROVED" || order.grnStatus === null)) {
         await tx.stock.updateMany({
           where: { productId: line.productId, locationId: order.toLocationId },
           data: { quantity: { decrement: line.quantity } },

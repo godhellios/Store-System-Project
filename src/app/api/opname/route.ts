@@ -21,7 +21,8 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const vg = viewerGuard(session); if (vg) return vg;
+  if (session.user.role !== "ADMIN")
+    return NextResponse.json({ error: "Only admins can start a stock opname session" }, { status: 403 });
 
   const { locationId, notes } = await req.json();
   if (!locationId) return NextResponse.json({ error: "Location is required" }, { status: 400 });

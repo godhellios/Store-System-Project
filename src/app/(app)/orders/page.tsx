@@ -11,6 +11,8 @@ const TYPE_BADGE: Record<string, string> = {
   ADJUSTMENT: "bg-gray-100 text-gray-600",
 };
 const CANCELLED_BADGE = "bg-red-100 text-red-700";
+const GRN_PENDING_BADGE = "bg-amber-100 text-amber-700";
+const GRN_REJECTED_BADGE = "bg-red-100 text-red-600";
 const TYPE_LABEL: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "Goods Out", TRANSFER: "Transfer", ADJUSTMENT: "Adjustment",
 };
@@ -89,6 +91,16 @@ export default async function OrdersPage({
                       CANCELLED
                     </span>
                   )}
+                  {!o.cancelledAt && o.grnStatus === "PENDING" && (
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${GRN_PENDING_BADGE}`}>
+                      PENDING
+                    </span>
+                  )}
+                  {!o.cancelledAt && o.grnStatus === "REJECTED" && (
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${GRN_REJECTED_BADGE}`}>
+                      REJECTED
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="text-xs text-slate-600 mb-1">{location}</div>
@@ -140,6 +152,16 @@ export default async function OrdersPage({
                         {o.cancelledAt && (
                           <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${CANCELLED_BADGE}`}>
                             CANCELLED
+                          </span>
+                        )}
+                        {!o.cancelledAt && o.grnStatus === "PENDING" && (
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${GRN_PENDING_BADGE}`}>
+                            PENDING
+                          </span>
+                        )}
+                        {!o.cancelledAt && o.grnStatus === "REJECTED" && (
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${GRN_REJECTED_BADGE}`}>
+                            REJECTED
                           </span>
                         )}
                       </div>

@@ -181,6 +181,7 @@ model Order {
   printedAt         DateTime?
   adjustmentStatus  String?   // PENDING | APPROVED | REJECTED (null for non-ADJUSTMENT orders)
   adjustmentReason  String?
+  grnStatus         String?   // PENDING | APPROVED | REJECTED (null for legacy GRN = approved immediately)
   reviewedByName    String?
   reviewedAt        DateTime?
   reviewNote        String?
