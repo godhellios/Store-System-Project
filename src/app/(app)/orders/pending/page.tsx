@@ -61,6 +61,7 @@ export default function OrdersPendingPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<PendingOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
@@ -68,8 +69,18 @@ export default function OrdersPendingPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/orders/pending");
-    if (res.ok) setOrders(await res.json());
+    setFetchError(null);
+    try {
+      const res = await fetch("/api/orders/pending");
+      if (res.ok) {
+        setOrders(await res.json());
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setFetchError(`Error ${res.status}: ${data.error ?? res.statusText}`);
+      }
+    } catch (e) {
+      setFetchError(e instanceof Error ? e.message : "Network error");
+    }
     setLoading(false);
   }, []);
 
@@ -114,6 +125,12 @@ export default function OrdersPendingPage() {
 
       {loading ? (
         <div className="text-center py-16 text-slate-400 text-sm">Loading…</div>
+      ) : fetchError ? (
+        <div className="bg-red-50 border border-red-300 rounded-xl px-5 py-4 text-sm text-red-700">
+          <div className="font-semibold mb-1">Failed to load pending orders</div>
+          <div className="font-mono text-xs">{fetchError}</div>
+          <button onClick={load} className="mt-3 text-xs text-red-600 underline">Retry</button>
+        </div>
       ) : orders.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 px-6 py-16 text-center">
           <div className="text-3xl mb-3">✅</div>

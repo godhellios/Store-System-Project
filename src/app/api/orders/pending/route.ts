@@ -10,12 +10,11 @@ export async function GET() {
 
   const orders = await prisma.order.findMany({
     where: {
-      cancelledAt: null,
       OR: [
-        { type: "GRN", grnStatus: "PENDING" },
-        { type: "GOODS_OUT", goodsOutStatus: "PENDING" },
-        { type: "TRANSFER", transferStatus: "PENDING" },
-        { type: "ADJUSTMENT", adjustmentStatus: "PENDING" },
+        { type: "GRN", grnStatus: "PENDING", cancelledAt: null },
+        { type: "GOODS_OUT", goodsOutStatus: "PENDING", cancelledAt: null },
+        { type: "TRANSFER", transferStatus: "PENDING", cancelledAt: null },
+        { type: "ADJUSTMENT", adjustmentStatus: "PENDING", cancelledAt: null },
       ],
     },
     include: {
