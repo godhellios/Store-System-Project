@@ -34,11 +34,11 @@ export function BarcodePrintPanel({
       try {
         const params = new URLSearchParams({ full: "1" });
         if (q.trim()) params.set("q", q.trim());
+        if (categoryId) params.set("categoryId", categoryId);
         const res = await fetch(`/api/products/search?${params}`);
         if (res.ok) {
           const data: Product[] = await res.json();
-          const filtered = categoryId ? data.filter((p) => p.categoryId === categoryId) : data;
-          setSearchResults(filtered);
+          setSearchResults(data);
         }
       } catch {
         // network error — leave results unchanged, spinner stops via finally
