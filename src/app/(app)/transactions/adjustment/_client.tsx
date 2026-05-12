@@ -7,7 +7,7 @@ import { useT } from "@/modules/i18n/provider";
 
 type Location = { id: string; name: string };
 type ProductResult = { id: string; sku: string; name: string };
-type AdjLine = { productId: string; productName: string; productSku: string; direction: "add" | "remove"; qty: number; reason: string };
+type AdjLine = { productId: string; productName: string; productSku: string; direction: "add" | "remove"; qty: number; reason: string; currentStock: number | null; unitName: string; stockLoading: boolean };
 type PendingOrder = {
   id: string; orderNumber: string; createdAt: Date | string; createdByName: string | null;
   adjustmentReason: string | null; notes: string | null;
@@ -39,9 +39,8 @@ export function AdjustmentClient({
 
   // ── Form state ────────────────────────────────────────────────────────────
   const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
-  const [lines, setLines] = useState<AdjLine[]>([
-    { productId: "", productName: "", productSku: "", direction: "add", qty: 1, reason: REASONS[0] },
-  ]);
+  const BLANK_LINE: AdjLine = { productId: "", productName: "", productSku: "", direction: "add", qty: 1, reason: REASONS[0], currentStock: null, unitName: "", stockLoading: false };
+  const [lines, setLines] = useState<AdjLine[]>([{ ...BLANK_LINE }]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -66,13 +65,29 @@ export function AdjustmentClient({
     }, 300);
   }, []);
 
+  async function fetchStockForLine(idx: number, productId: string, locId: string) {
+    setLines((prev) => prev.map((l, i) => i === idx ? { ...l, stockLoading: true } : l));
+    try {
+      const res = await fetch(`/api/stock?productId=${encodeURIComponent(productId)}&locationId=${encodeURIComponent(locId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLines((prev) => prev.map((l, i) => i === idx ? { ...l, currentStock: data.quantity, unitName: data.unit, stockLoading: false } : l));
+      } else {
+        setLines((prev) => prev.map((l, i) => i === idx ? { ...l, stockLoading: false } : l));
+      }
+    } catch {
+      setLines((prev) => prev.map((l, i) => i === idx ? { ...l, stockLoading: false } : l));
+    }
+  }
+
   function assignProduct(idx: number, p: ProductResult) {
-    setLines((prev) => prev.map((l, i) => i === idx ? { ...l, productId: p.id, productName: p.name, productSku: p.sku } : l));
+    setLines((prev) => prev.map((l, i) => i === idx ? { ...l, productId: p.id, productName: p.name, productSku: p.sku, currentStock: null, unitName: "", stockLoading: false } : l));
     setSearch((s) => ({ ...s, [idx]: { q: `${p.sku} — ${p.name}`, results: [], open: false, loading: false } }));
+    fetchStockForLine(idx, p.id, locationId);
   }
 
   function addLine() {
-    setLines((prev) => [...prev, { productId: "", productName: "", productSku: "", direction: "add", qty: 1, reason: REASONS[0] }]);
+    setLines((prev) => [...prev, { ...BLANK_LINE }]);
   }
 
   function removeLine(idx: number) {
@@ -109,7 +124,7 @@ export function AdjustmentClient({
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Failed to submit"); return; }
       toast.success("Adjustment request submitted — waiting for admin approval");
-      setLines([{ productId: "", productName: "", productSku: "", direction: "add", qty: 1, reason: REASONS[0] }]);
+      setLines([{ ...BLANK_LINE }]);
       setNotes("");
       router.refresh();
     } finally {
@@ -149,7 +164,13 @@ export function AdjustmentClient({
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("adjustment.location", "Location")}</label>
           <select
             value={locationId}
-            onChange={(e) => setLocationId(e.target.value)}
+            onChange={(e) => {
+              const newLocId = e.target.value;
+              setLocationId(newLocId);
+              lines.forEach((line, idx) => {
+                if (line.productId) fetchStockForLine(idx, line.productId, newLocId);
+              });
+            }}
             className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -193,6 +214,31 @@ export function AdjustmentClient({
                   </div>
                 )}
               </div>
+
+              {/* Stock info */}
+              {line.productId && (
+                <div className="flex items-center gap-3 text-xs px-0.5">
+                  {line.stockLoading ? (
+                    <span className="text-slate-400">Loading stock…</span>
+                  ) : line.currentStock !== null ? (() => {
+                    const after = line.direction === "add"
+                      ? line.currentStock + line.qty
+                      : line.currentStock - line.qty;
+                    const belowZero = after < 0;
+                    return (
+                      <>
+                        <span className="text-slate-500">
+                          Stock: <span className="font-semibold text-slate-700 dark:text-slate-200">{line.currentStock}</span> {line.unitName}
+                        </span>
+                        <span className={`font-medium ${belowZero ? "text-red-500" : "text-slate-500"}`}>
+                          → After: <span className="font-semibold">{after}</span> {line.unitName}
+                          {belowZero && " ⚠"}
+                        </span>
+                      </>
+                    );
+                  })() : null}
+                </div>
+              )}
 
               <div className="flex gap-2 items-center flex-wrap">
                 {/* Direction */}

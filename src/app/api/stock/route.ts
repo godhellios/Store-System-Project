@@ -8,7 +8,23 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
+  const productId = searchParams.get("productId");
   const locationId = searchParams.get("locationId") ?? "";
+
+  // Single product+location lookup (used by adjustment form)
+  if (productId && locationId) {
+    const [stock, product] = await Promise.all([
+      prisma.stock.findUnique({
+        where: { productId_locationId: { productId, locationId } },
+        select: { quantity: true },
+      }),
+      prisma.product.findUnique({
+        where: { id: productId },
+        select: { unit: { select: { name: true } } },
+      }),
+    ]);
+    return NextResponse.json({ quantity: stock?.quantity ?? 0, unit: product?.unit?.name ?? "" });
+  }
   const categoryId = searchParams.get("categoryId") ?? "";
   const lowOnly = searchParams.get("lowOnly") === "true";
   const includeInactive = searchParams.get("includeInactive") === "true";
