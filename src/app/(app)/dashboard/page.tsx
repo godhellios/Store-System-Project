@@ -82,36 +82,20 @@ export default async function DashboardPage() {
         <StatCard label={t("dashboard.ordersOutToday", "Orders Out Today")} value={data.ordersOutToday} sub={t("dashboard.issuedToday", "Issued today")} color="border-orange-400" />
         <StatCard label={t("dashboard.lowStockAlerts", "Low Stock Alerts")} value={data.lowStockCount} sub={t("dashboard.belowReorderPoint", "Below reorder point")} color="border-red-400" valueClass={data.lowStockCount > 0 ? "text-red-600 dark:text-red-400" : ""} />
       </div>
-      {isAdmin && pendingGrnCount > 0 && (
-        <Link href="/orders?type=GRN" className="block mb-3">
-          <div className="bg-green-50 border border-green-300 border-l-4 border-l-green-600 rounded-xl p-4 flex items-center justify-between hover:bg-green-100 transition-colors">
+      {isAdmin && (pendingGrnCount + pendingGoodsOutCount + pendingTransferCount) > 0 && (
+        <Link href="/orders/pending" className="block mb-3">
+          <div className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-xl p-4 flex items-center justify-between hover:bg-amber-100 transition-colors">
             <div>
-              <div className="text-sm font-semibold text-green-800">{pendingGrnCount} GRN{pendingGrnCount !== 1 ? "s" : ""} awaiting approval</div>
-              <div className="text-xs text-green-700 mt-0.5">Stock will not be credited until you approve</div>
+              <div className="text-sm font-semibold text-amber-800">
+                {pendingGrnCount + pendingGoodsOutCount + pendingTransferCount} order{(pendingGrnCount + pendingGoodsOutCount + pendingTransferCount) !== 1 ? "s" : ""} awaiting approval
+              </div>
+              <div className="text-xs text-amber-700 mt-0.5 flex items-center gap-3 flex-wrap">
+                {pendingGrnCount > 0 && <span>📥 {pendingGrnCount} GRN</span>}
+                {pendingGoodsOutCount > 0 && <span>🚚 {pendingGoodsOutCount} Goods Out</span>}
+                {pendingTransferCount > 0 && <span>🔄 {pendingTransferCount} Transfer</span>}
+              </div>
             </div>
-            <span className="text-green-600 text-lg">📥</span>
-          </div>
-        </Link>
-      )}
-      {isAdmin && pendingGoodsOutCount > 0 && (
-        <Link href="/orders?type=GOODS_OUT" className="block mb-3">
-          <div className="bg-orange-50 border border-orange-300 border-l-4 border-l-orange-500 rounded-xl p-4 flex items-center justify-between hover:bg-orange-100 transition-colors">
-            <div>
-              <div className="text-sm font-semibold text-orange-800">{pendingGoodsOutCount} Goods Out{pendingGoodsOutCount !== 1 ? "" : ""} awaiting approval</div>
-              <div className="text-xs text-orange-700 mt-0.5">Stock will not be deducted until you approve</div>
-            </div>
-            <span className="text-orange-500 text-lg">🚚</span>
-          </div>
-        </Link>
-      )}
-      {isAdmin && pendingTransferCount > 0 && (
-        <Link href="/orders?type=TRANSFER" className="block mb-3">
-          <div className="bg-blue-50 border border-blue-300 border-l-4 border-l-blue-500 rounded-xl p-4 flex items-center justify-between hover:bg-blue-100 transition-colors">
-            <div>
-              <div className="text-sm font-semibold text-blue-800">{pendingTransferCount} Transfer{pendingTransferCount !== 1 ? "s" : ""} awaiting approval</div>
-              <div className="text-xs text-blue-700 mt-0.5">Stock will not be moved until you approve</div>
-            </div>
-            <span className="text-blue-500 text-lg">🔄</span>
+            <span className="text-amber-500 text-sm font-semibold whitespace-nowrap">Review →</span>
           </div>
         </Link>
       )}

@@ -60,6 +60,7 @@ const NAV: NavSection[] = [
     roles: ["ADMIN", "STAFF", "VIEWER"],
     links: [
       { href: "/orders", label: "Order History", labelKey: "nav.links.orderHistory", icon: "📋" },
+      { href: "/orders/pending", label: "Pending Approval", labelKey: "nav.links.ordersPending", icon: "⏳", indent: true, small: true, adminOnly: true },
       { href: "/movements", label: "Movement Log", labelKey: "nav.links.movementLog", icon: "≡", adminOnly: true },
       { href: "/reports", label: "Reports", labelKey: "nav.links.reports", icon: "⊙" },
     ],
