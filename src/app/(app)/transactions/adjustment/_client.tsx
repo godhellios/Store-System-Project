@@ -103,6 +103,16 @@ export function AdjustmentClient({
     const validLines = lines.filter((l) => l.productId && l.qty > 0);
     if (!validLines.length) { toast.error("Add at least one product with quantity"); return; }
 
+    const wouldGoNegative = validLines.filter(
+      (l) => l.direction === "remove" && l.currentStock !== null && l.currentStock - l.qty < 0
+    );
+    if (wouldGoNegative.length) {
+      toast.error(
+        `Insufficient stock: ${wouldGoNegative.map((l) => `${l.productName} (has ${l.currentStock}, removing ${l.qty})`).join("; ")}`
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       const apiLines = validLines.map((l) => ({

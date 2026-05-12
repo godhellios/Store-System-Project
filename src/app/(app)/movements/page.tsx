@@ -8,6 +8,18 @@ const TYPE_BADGE: Record<string, string> = {
   TRANSFER: "bg-blue-100 text-blue-700", ADJUSTMENT: "bg-gray-100 text-gray-600",
 };
 
+type OrderRow = { type: string; grnStatus: string | null; goodsOutStatus: string | null; transferStatus: string | null; adjustmentStatus: string | null } | null;
+function orderStatus(order: OrderRow): "PENDING" | "REJECTED" | null {
+  if (!order) return null;
+  const s = order.type === "GRN" ? order.grnStatus
+    : order.type === "GOODS_OUT" ? order.goodsOutStatus
+    : order.type === "TRANSFER" ? order.transferStatus
+    : order.adjustmentStatus;
+  if (s === "PENDING") return "PENDING";
+  if (s === "REJECTED") return "REJECTED";
+  return null;
+}
+
 export default async function MovementsPage({
   searchParams,
 }: {
@@ -75,13 +87,20 @@ export default async function MovementsPage({
         ) : movements.map((m) => (
           <div key={m.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
             <div className="flex items-center justify-between gap-2 mb-1.5">
-              {m.order ? (
-                <Link href={`/orders/${m.orderId}`} className="font-mono text-xs text-blue-600 font-semibold">
-                  {m.order.orderNumber}
-                </Link>
-              ) : (
-                <span className="font-mono text-xs text-slate-400">{m.orderId.slice(0, 8)}…</span>
-              )}
+              <div className="flex items-center gap-1.5">
+                {m.order ? (
+                  <Link href={`/orders/${m.orderId}`} className="font-mono text-xs text-blue-600 font-semibold">
+                    {m.order.orderNumber}
+                  </Link>
+                ) : (
+                  <span className="font-mono text-xs text-slate-400">{m.orderId.slice(0, 8)}…</span>
+                )}
+                {(() => { const s = orderStatus(m.order); return s === "PENDING"
+                  ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">PENDING</span>
+                  : s === "REJECTED"
+                  ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">REJECTED</span>
+                  : null; })()}
+              </div>
               <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[m.type]}`}>
                 {m.type}
               </span>
@@ -129,13 +148,20 @@ export default async function MovementsPage({
                     {m.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
                   </td>
                   <td className="px-4 py-2.5">
-                    {m.order ? (
-                      <Link href={`/orders/${m.orderId}`} className="font-mono text-xs text-blue-600 hover:underline">
-                        {m.order.orderNumber}
-                      </Link>
-                    ) : (
-                      <span className="font-mono text-xs text-slate-400">{m.orderId.slice(0, 8)}…</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {m.order ? (
+                        <Link href={`/orders/${m.orderId}`} className="font-mono text-xs text-blue-600 hover:underline">
+                          {m.order.orderNumber}
+                        </Link>
+                      ) : (
+                        <span className="font-mono text-xs text-slate-400">{m.orderId.slice(0, 8)}…</span>
+                      )}
+                      {(() => { const s = orderStatus(m.order); return s === "PENDING"
+                        ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">PENDING</span>
+                        : s === "REJECTED"
+                        ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">REJECTED</span>
+                        : null; })()}
+                    </div>
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[m.type]}`}>
