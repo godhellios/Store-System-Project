@@ -281,6 +281,13 @@ export async function POST(req: Request) {
       }).catch(() => {});
     }
   }
+  if (type === "ADJUSTMENT") {
+    sendPushNotification({
+      title: `⚖️ Adjustment Pending Approval — ${result.order.orderNumber}`,
+      body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQtyNotify} units — awaiting admin approval before stock is adjusted`,
+      url: `/orders/${result.order.id}`,
+    }).catch(() => {});
+  }
   if (type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER) {
     const fromName = result.order.fromLocationId
       ? await prisma.location.findUnique({ where: { id: result.order.fromLocationId }, select: { name: true } })

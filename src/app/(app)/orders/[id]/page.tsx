@@ -74,6 +74,22 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           {order.reviewNote && <div className="text-xs text-red-600 mt-1">Reason: <span className="font-medium">{order.reviewNote}</span></div>}
         </div>
       )}
+      {order.type === "ADJUSTMENT" && order.adjustmentStatus === "PENDING" && (
+        <div className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-xl px-4 py-3 mb-4">
+          <div className="text-sm font-semibold text-amber-700">Awaiting admin approval</div>
+          <div className="text-xs text-amber-600 mt-0.5">Stock will only be adjusted once an admin approves this Adjustment.</div>
+        </div>
+      )}
+      {order.type === "ADJUSTMENT" && order.adjustmentStatus === "REJECTED" && (
+        <div className="bg-red-50 border border-red-300 border-l-4 border-l-red-500 rounded-xl px-4 py-3 mb-4">
+          <div className="text-sm font-semibold text-red-700">Adjustment Rejected — stock was not changed</div>
+          <div className="text-xs text-red-600 mt-0.5">
+            Reviewed by <span className="font-medium">{order.reviewedByName ?? "Admin"}</span>
+            {order.reviewedAt && <> · {new Date(order.reviewedAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" })}</>}
+          </div>
+          {order.reviewNote && <div className="text-xs text-red-600 mt-1">Reason: <span className="font-medium">{order.reviewNote}</span></div>}
+        </div>
+      )}
       {order.type === "GRN" && order.grnStatus === "REJECTED" && (
         <div className="bg-red-50 border border-red-300 border-l-4 border-l-red-500 rounded-xl px-4 py-3 mb-4">
           <div className="text-sm font-semibold text-red-700">GRN Rejected — stock was not credited</div>
