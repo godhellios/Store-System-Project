@@ -83,35 +83,43 @@ export default async function DashboardPage() {
         <StatCard label={t("dashboard.ordersOutToday", "Orders Out Today")} value={data.ordersOutToday} sub={t("dashboard.issuedToday", "Issued today")} color="border-orange-400" />
         <StatCard label={t("dashboard.lowStockAlerts", "Low Stock Alerts")} value={data.lowStockCount} sub={t("dashboard.belowReorderPoint", "Below reorder point")} color="border-red-400" valueClass={data.lowStockCount > 0 ? "text-red-600 dark:text-red-400" : ""} />
       </div>
-      {isAdmin && (pendingGrnCount + pendingGoodsOutCount + pendingTransferCount + pendingAdjustmentCount) > 0 && (
-        <Link href="/orders/pending" className="block mb-3">
-          <div className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-xl p-4 flex items-center justify-between hover:bg-amber-100 transition-colors">
-            <div>
-              <div className="text-sm font-semibold text-amber-800">
-                {pendingGrnCount + pendingGoodsOutCount + pendingTransferCount + pendingAdjustmentCount} order{(pendingGrnCount + pendingGoodsOutCount + pendingTransferCount + pendingAdjustmentCount) !== 1 ? "s" : ""} awaiting approval
-              </div>
-              <div className="text-xs text-amber-700 mt-0.5 flex items-center gap-3 flex-wrap">
-                {pendingGrnCount > 0 && <span>📥 {pendingGrnCount} GRN</span>}
-                {pendingGoodsOutCount > 0 && <span>🚚 {pendingGoodsOutCount} Goods Out</span>}
-                {pendingTransferCount > 0 && <span>🔄 {pendingTransferCount} Transfer</span>}
-                {pendingAdjustmentCount > 0 && <span>⚖️ {pendingAdjustmentCount} Adjustment</span>}
-              </div>
+      {isAdmin && (pendingCount + pendingGrnCount + pendingGoodsOutCount + pendingTransferCount + pendingAdjustmentCount) > 0 && (() => {
+        const orderTotal = pendingGrnCount + pendingGoodsOutCount + pendingTransferCount + pendingAdjustmentCount;
+        return (
+          <div className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-xl mb-6 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-amber-200 flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-amber-700">Pending Approval</span>
+              <span className="bg-amber-400 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {pendingCount + orderTotal}
+              </span>
             </div>
-            <span className="text-amber-500 text-sm font-semibold whitespace-nowrap">Review →</span>
+            {orderTotal > 0 && (
+              <Link href="/orders/pending" className="flex items-center justify-between px-4 py-3 hover:bg-amber-100 transition-colors border-b border-amber-100 last:border-0">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-medium text-amber-800">
+                    {orderTotal} order{orderTotal !== 1 ? "s" : ""}
+                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {pendingGrnCount > 0 && <span className="text-[11px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">GRN ×{pendingGrnCount}</span>}
+                    {pendingGoodsOutCount > 0 && <span className="text-[11px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">Goods Out ×{pendingGoodsOutCount}</span>}
+                    {pendingTransferCount > 0 && <span className="text-[11px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">Transfer ×{pendingTransferCount}</span>}
+                    {pendingAdjustmentCount > 0 && <span className="text-[11px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium">Adjustment ×{pendingAdjustmentCount}</span>}
+                  </div>
+                </div>
+                <span className="text-amber-500 text-xs font-semibold whitespace-nowrap ml-3">Review →</span>
+              </Link>
+            )}
+            {pendingCount > 0 && (
+              <Link href="/products/pending" className="flex items-center justify-between px-4 py-3 hover:bg-amber-100 transition-colors">
+                <span className="text-sm font-medium text-amber-800">
+                  {pendingCount} product{pendingCount !== 1 ? "s" : ""}
+                </span>
+                <span className="text-amber-500 text-xs font-semibold whitespace-nowrap ml-3">Review →</span>
+              </Link>
+            )}
           </div>
-        </Link>
-      )}
-      {isAdmin && pendingCount > 0 && (
-        <Link href="/products/pending" className="block mb-6">
-          <div className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-xl p-4 flex items-center justify-between hover:bg-amber-100 transition-colors">
-            <div>
-              <div className="text-sm font-semibold text-amber-800">{pendingCount} product{pendingCount !== 1 ? "s" : ""} awaiting approval</div>
-              <div className="text-xs text-amber-600 mt-0.5">Click to review and approve pending submissions</div>
-            </div>
-            <span className="text-amber-500 text-lg">⏳</span>
-          </div>
-        </Link>
-      )}
+        );
+      })()}
 
       {/* Low stock by location */}
       <div className="flex items-center justify-between mb-3">
