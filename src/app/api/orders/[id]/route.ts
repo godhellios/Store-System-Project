@@ -229,16 +229,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                 update: { quantity: { increment: line.quantity } },
               });
             } else if (current.type === "GOODS_OUT" && current.fromLocationId) {
-              await tx.stock.upsert({
+              await tx.stock.update({
                 where: { productId_locationId: { productId: line.productId, locationId: current.fromLocationId } },
-                create: { productId: line.productId, locationId: current.fromLocationId, quantity: -line.quantity },
-                update: { quantity: { decrement: line.quantity } },
+                data: { quantity: { decrement: line.quantity } },
               });
             } else if (current.type === "TRANSFER" && current.fromLocationId && current.toLocationId) {
-              await tx.stock.upsert({
+              await tx.stock.update({
                 where: { productId_locationId: { productId: line.productId, locationId: current.fromLocationId } },
-                create: { productId: line.productId, locationId: current.fromLocationId, quantity: -line.quantity },
-                update: { quantity: { decrement: line.quantity } },
+                data: { quantity: { decrement: line.quantity } },
               });
               await tx.stock.upsert({
                 where: { productId_locationId: { productId: line.productId, locationId: current.toLocationId } },

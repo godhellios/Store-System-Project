@@ -205,16 +205,14 @@ export async function POST(req: Request) {
             update: { quantity: { increment: line.quantity } },
           });
         } else if (type === "GOODS_OUT") {
-          await tx.stock.upsert({
+          await tx.stock.update({
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
-            create: { productId: line.productId, locationId: fromLocationId!, quantity: -line.quantity },
-            update: { quantity: { decrement: line.quantity } },
+            data: { quantity: { decrement: line.quantity } },
           });
         } else if (type === "TRANSFER") {
-          await tx.stock.upsert({
+          await tx.stock.update({
             where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
-            create: { productId: line.productId, locationId: fromLocationId!, quantity: -line.quantity },
-            update: { quantity: { decrement: line.quantity } },
+            data: { quantity: { decrement: line.quantity } },
           });
           await tx.stock.upsert({
             where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
