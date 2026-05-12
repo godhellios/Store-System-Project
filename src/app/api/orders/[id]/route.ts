@@ -194,32 +194,33 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   // ── Adjustment approve / reject ───────────────────────────────────────────
   if (action === "approve") {
-    // Pre-check: ensure no negative line pushes stock below 0
-    if (order.toLocationId) {
-      for (const line of order.lines) {
-        if (line.quantity >= 0) continue;
-        const stock = await prisma.stock.findUnique({
-          where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
-        });
-        const current = stock?.quantity ?? 0;
-        if (current + line.quantity < 0) {
-          const product = await prisma.product.findUnique({ where: { id: line.productId }, select: { name: true, sku: true } });
-          return NextResponse.json({
-            error: `Insufficient stock for ${product?.name ?? line.productId} (${product?.sku ?? ""}): has ${current}, adjustment would result in ${current + line.quantity}`,
-          }, { status: 400 });
-        }
-      }
-    }
-
     try {
       await prisma.$transaction(async (tx) => {
         for (const line of order.lines) {
           if (!order.toLocationId) continue;
-          await tx.stock.upsert({
+
+          const existing = await tx.stock.findUnique({
             where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
-            create: { productId: line.productId, locationId: order.toLocationId, quantity: line.quantity },
-            update: { quantity: { increment: line.quantity } },
+            select: { quantity: true },
           });
+          const currentQty = existing?.quantity ?? 0;
+          const newQty = currentQty + line.quantity;
+
+          if (newQty < 0) {
+            const product = await tx.product.findUnique({ where: { id: line.productId }, select: { name: true, sku: true } });
+            throw new Error(`Insufficient stock for "${product?.name ?? line.productId}" (${product?.sku ?? ""}): has ${currentQty}, adjustment would result in ${newQty}`);
+          }
+
+          if (existing) {
+            await tx.stock.update({
+              where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
+              data: { quantity: newQty },
+            });
+          } else {
+            await tx.stock.create({
+              data: { productId: line.productId, locationId: order.toLocationId, quantity: newQty },
+            });
+          }
         }
         await tx.order.update({ where: { id }, data: { adjustmentStatus: "APPROVED", ...reviewFields } });
       });
