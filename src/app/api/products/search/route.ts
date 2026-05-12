@@ -28,7 +28,7 @@ export async function GET(req: Request) {
 
   try {
     const products = full
-      ? await prisma.product.findMany({ where, orderBy, take: 20, include: { category: true, unit: true, unitConversions: true } })
+      ? await prisma.product.findMany({ where, orderBy, take: 20, include: { category: true, unit: true, unitConversions: true, stock: true } })
       : await prisma.product.findMany({ where, orderBy, take: 20, select: { id: true, sku: true, name: true } });
     return NextResponse.json(products);
   } catch {
