@@ -64,12 +64,14 @@ const LOC_HEADER: Record<string, string> = {
 export default async function DashboardPage() {
   const [data, t, session] = await Promise.all([getDashboardData(), getT(), getServerSession(authOptions)]);
   const isAdmin = session?.user.role === "ADMIN";
-  const [pendingCount, pendingGrnCount] = isAdmin
+  const [pendingCount, pendingGrnCount, pendingGoodsOutCount, pendingTransferCount] = isAdmin
     ? await Promise.all([
         prisma.product.count({ where: { OR: [{ approvalStatus: "DRAFT" }, { pendingChangedAt: { not: null } }] } }),
         prisma.order.count({ where: { type: "GRN", grnStatus: "PENDING" } }),
+        prisma.order.count({ where: { type: "GOODS_OUT", goodsOutStatus: "PENDING" } }),
+        prisma.order.count({ where: { type: "TRANSFER", transferStatus: "PENDING" } }),
       ])
-    : [0, 0];
+    : [0, 0, 0, 0];
 
   return (
     <div>
@@ -88,6 +90,28 @@ export default async function DashboardPage() {
               <div className="text-xs text-green-700 mt-0.5">Stock will not be credited until you approve</div>
             </div>
             <span className="text-green-600 text-lg">📥</span>
+          </div>
+        </Link>
+      )}
+      {isAdmin && pendingGoodsOutCount > 0 && (
+        <Link href="/orders?type=GOODS_OUT" className="block mb-3">
+          <div className="bg-orange-50 border border-orange-300 border-l-4 border-l-orange-500 rounded-xl p-4 flex items-center justify-between hover:bg-orange-100 transition-colors">
+            <div>
+              <div className="text-sm font-semibold text-orange-800">{pendingGoodsOutCount} Goods Out{pendingGoodsOutCount !== 1 ? "" : ""} awaiting approval</div>
+              <div className="text-xs text-orange-700 mt-0.5">Stock will not be deducted until you approve</div>
+            </div>
+            <span className="text-orange-500 text-lg">🚚</span>
+          </div>
+        </Link>
+      )}
+      {isAdmin && pendingTransferCount > 0 && (
+        <Link href="/orders?type=TRANSFER" className="block mb-3">
+          <div className="bg-blue-50 border border-blue-300 border-l-4 border-l-blue-500 rounded-xl p-4 flex items-center justify-between hover:bg-blue-100 transition-colors">
+            <div>
+              <div className="text-sm font-semibold text-blue-800">{pendingTransferCount} Transfer{pendingTransferCount !== 1 ? "s" : ""} awaiting approval</div>
+              <div className="text-xs text-blue-700 mt-0.5">Stock will not be moved until you approve</div>
+            </div>
+            <span className="text-blue-500 text-lg">🔄</span>
           </div>
         </Link>
       )}

@@ -182,6 +182,8 @@ model Order {
   adjustmentStatus  String?   // PENDING | APPROVED | REJECTED (null for non-ADJUSTMENT orders)
   adjustmentReason  String?
   grnStatus         String?   // PENDING | APPROVED | REJECTED (null for legacy GRN = approved immediately)
+  goodsOutStatus    String?   // PENDING | APPROVED | REJECTED (null = stock applied immediately, no approval)
+  transferStatus    String?   // PENDING | APPROVED | REJECTED (null = stock applied immediately, no approval)
   reviewedByName    String?
   reviewedAt        DateTime?
   reviewNote        String?

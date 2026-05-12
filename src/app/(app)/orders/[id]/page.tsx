@@ -42,6 +42,38 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <div className="text-xs text-amber-600 mt-0.5">Stock will only be credited once an admin approves this GRN.</div>
         </div>
       )}
+      {order.type === "GOODS_OUT" && order.goodsOutStatus === "PENDING" && (
+        <div className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-xl px-4 py-3 mb-4">
+          <div className="text-sm font-semibold text-amber-700">Awaiting admin approval</div>
+          <div className="text-xs text-amber-600 mt-0.5">Stock will only be deducted once an admin approves this Goods Out.</div>
+        </div>
+      )}
+      {order.type === "TRANSFER" && order.transferStatus === "PENDING" && (
+        <div className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-xl px-4 py-3 mb-4">
+          <div className="text-sm font-semibold text-amber-700">Awaiting admin approval</div>
+          <div className="text-xs text-amber-600 mt-0.5">Stock will only be moved once an admin approves this Transfer.</div>
+        </div>
+      )}
+      {order.type === "GOODS_OUT" && order.goodsOutStatus === "REJECTED" && (
+        <div className="bg-red-50 border border-red-300 border-l-4 border-l-red-500 rounded-xl px-4 py-3 mb-4">
+          <div className="text-sm font-semibold text-red-700">Goods Out Rejected — stock was not deducted</div>
+          <div className="text-xs text-red-600 mt-0.5">
+            Reviewed by <span className="font-medium">{order.reviewedByName ?? "Admin"}</span>
+            {order.reviewedAt && <> · {new Date(order.reviewedAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" })}</>}
+          </div>
+          {order.reviewNote && <div className="text-xs text-red-600 mt-1">Reason: <span className="font-medium">{order.reviewNote}</span></div>}
+        </div>
+      )}
+      {order.type === "TRANSFER" && order.transferStatus === "REJECTED" && (
+        <div className="bg-red-50 border border-red-300 border-l-4 border-l-red-500 rounded-xl px-4 py-3 mb-4">
+          <div className="text-sm font-semibold text-red-700">Transfer Rejected — stock was not moved</div>
+          <div className="text-xs text-red-600 mt-0.5">
+            Reviewed by <span className="font-medium">{order.reviewedByName ?? "Admin"}</span>
+            {order.reviewedAt && <> · {new Date(order.reviewedAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" })}</>}
+          </div>
+          {order.reviewNote && <div className="text-xs text-red-600 mt-1">Reason: <span className="font-medium">{order.reviewNote}</span></div>}
+        </div>
+      )}
       {order.type === "GRN" && order.grnStatus === "REJECTED" && (
         <div className="bg-red-50 border border-red-300 border-l-4 border-l-red-500 rounded-xl px-4 py-3 mb-4">
           <div className="text-sm font-semibold text-red-700">GRN Rejected — stock was not credited</div>
@@ -110,6 +142,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             cancelledAt={order.cancelledAt?.toISOString() ?? null}
             adjustmentStatus={order.adjustmentStatus ?? null}
             grnStatus={order.grnStatus ?? null}
+            goodsOutStatus={order.goodsOutStatus ?? null}
+            transferStatus={order.transferStatus ?? null}
           />
         </div>
       </div>

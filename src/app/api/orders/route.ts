@@ -13,6 +13,10 @@ const ORDER_PREFIX: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "OUT", TRANSFER: "TRF", ADJUSTMENT: "ADJ",
 };
 
+// Toggle approval requirement per order type.
+// Set to false to bypass approval and apply stock immediately.
+const REQUIRE_APPROVAL = { GRN: true, GOODS_OUT: true, TRANSFER: true } as const;
+
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -154,6 +158,8 @@ export async function POST(req: Request) {
           createdByName: session.user.name ?? null,
           ...(isManualAdjustment ? { adjustmentStatus: "PENDING", adjustmentReason: adjustmentReason ?? null } : {}),
           ...(type === "GRN" ? { grnStatus: "PENDING" } : {}),
+          ...(type === "GOODS_OUT" && REQUIRE_APPROVAL.GOODS_OUT ? { goodsOutStatus: "PENDING" } : {}),
+          ...(type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER ? { transferStatus: "PENDING" } : {}),
         },
       });
 
@@ -200,22 +206,28 @@ export async function POST(req: Request) {
         });
 
         if (type === "GRN") {
-          // Stock deferred — applied only when admin approves the GRN
+          // Stock deferred — applied only when admin approves
         } else if (type === "GOODS_OUT") {
-          await tx.stock.update({
-            where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
-            data: { quantity: { decrement: line.quantity } },
-          });
+          if (!REQUIRE_APPROVAL.GOODS_OUT) {
+            await tx.stock.update({
+              where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
+              data: { quantity: { decrement: line.quantity } },
+            });
+          }
+          // else: stock deferred until admin approves
         } else if (type === "TRANSFER") {
-          await tx.stock.update({
-            where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
-            data: { quantity: { decrement: line.quantity } },
-          });
-          await tx.stock.upsert({
-            where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
-            create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
-            update: { quantity: { increment: line.quantity } },
-          });
+          if (!REQUIRE_APPROVAL.TRANSFER) {
+            await tx.stock.update({
+              where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
+              data: { quantity: { decrement: line.quantity } },
+            });
+            await tx.stock.upsert({
+              where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
+              create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
+              update: { quantity: { increment: line.quantity } },
+            });
+          }
+          // else: stock deferred until admin approves
         }
         // ADJUSTMENT: stock NOT updated here — deferred until admin approves
       }
@@ -241,31 +253,51 @@ export async function POST(req: Request) {
   warnings.push(...result.txWarnings);
 
   // ── push-notify module ──────────────────────────────────────────────────
+  const totalQtyNotify = lines.reduce((s, l) => s + l.quantity, 0);
   if (type === "GRN") {
-    const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
     sendPushNotification({
       title: `📥 GRN Pending Approval — ${result.order.orderNumber}`,
-      body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQty} units — awaiting admin approval before stock is credited`,
+      body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQtyNotify} units — awaiting admin approval before stock is credited`,
       url: `/orders/${result.order.id}`,
     }).catch(() => {});
   }
   if (type === "GOODS_OUT") {
-    const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
+    const fromName = result.order.fromLocationId
+      ? await prisma.location.findUnique({ where: { id: result.order.fromLocationId }, select: { name: true } })
+          .then((l) => l?.name ?? "")
+          .catch(() => "")
+      : "";
+    if (REQUIRE_APPROVAL.GOODS_OUT) {
+      sendPushNotification({
+        title: `🚚 Goods Out Pending Approval — ${result.order.orderNumber}`,
+        body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQtyNotify} units${fromName ? ` from ${fromName}` : ""} — awaiting admin approval`,
+        url: `/orders/${result.order.id}`,
+      }).catch(() => {});
+    } else {
+      sendPushNotification({
+        title: `🚚 Goods Out — ${result.order.orderNumber}`,
+        body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQtyNotify} units dispatched${fromName ? ` from ${fromName}` : ""}`,
+        url: `/orders/${result.order.id}`,
+      }).catch(() => {});
+    }
+  }
+  if (type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER) {
     const fromName = result.order.fromLocationId
       ? await prisma.location.findUnique({ where: { id: result.order.fromLocationId }, select: { name: true } })
           .then((l) => l?.name ?? "")
           .catch(() => "")
       : "";
     sendPushNotification({
-      title: `🚚 Goods Out — ${result.order.orderNumber}`,
-      body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQty} units dispatched${fromName ? ` from ${fromName}` : ""}`,
+      title: `🔄 Transfer Pending Approval — ${result.order.orderNumber}`,
+      body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQtyNotify} units${fromName ? ` from ${fromName}` : ""} — awaiting admin approval`,
       url: `/orders/${result.order.id}`,
     }).catch(() => {});
   }
 
   // ── Reorder point alerts ─────────────────────────────────────────────────
-  // Fire after GOODS_OUT or TRANSFER — stock was just decremented from fromLocation
-  if ((type === "GOODS_OUT" || type === "TRANSFER") && fromLocationId) {
+  // Only fire after immediate stock decrements (when approval is bypassed)
+  const stockAppliedNow = (type === "GOODS_OUT" && !REQUIRE_APPROVAL.GOODS_OUT) || (type === "TRANSFER" && !REQUIRE_APPROVAL.TRANSFER);
+  if (stockAppliedNow && fromLocationId) {
     const productIds = lines.map((l) => l.productId);
     prisma.stock.findMany({
       where: {
@@ -295,7 +327,7 @@ export async function POST(req: Request) {
   writeAuditLog({
     session,
     action: actionLabel[type] ?? "CREATE_ORDER",
-    description: `${result.order.orderNumber} — ${lines.length} line${lines.length !== 1 ? "s" : ""}${isManualAdjustment || type === "GRN" ? " (pending approval)" : ""}`,
+    description: `${result.order.orderNumber} — ${lines.length} line${lines.length !== 1 ? "s" : ""}${(isManualAdjustment || type === "GRN" || (type === "GOODS_OUT" && REQUIRE_APPROVAL.GOODS_OUT) || (type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER)) ? " (pending approval)" : ""}`,
     entityId: result.order.id,
     entityType: "ORDER",
   });

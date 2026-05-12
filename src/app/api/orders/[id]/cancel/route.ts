@@ -33,10 +33,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       { status: 400 }
     );
   }
+  if (order.type === "GOODS_OUT" && order.goodsOutStatus === "PENDING") {
+    return NextResponse.json(
+      { error: "Pending Goods Out orders must be rejected, not cancelled. Use the Reject button." },
+      { status: 400 }
+    );
+  }
+  if (order.type === "TRANSFER" && order.transferStatus === "PENDING") {
+    return NextResponse.json(
+      { error: "Pending Transfer orders must be rejected, not cancelled. Use the Reject button." },
+      { status: 400 }
+    );
+  }
 
-  // Pre-check: GRN (approved) and TRANSFER reversals decrement stock — verify it won't go negative
+  // Pre-check: reversals that decrement stock — verify it won't go negative
   const grnStockApplied = order.type === "GRN" && (order.grnStatus === "APPROVED" || order.grnStatus === null);
-  if ((grnStockApplied && order.toLocationId) || (order.type === "TRANSFER" && order.toLocationId)) {
+  const transferStockApplied = order.type === "TRANSFER" && (order.transferStatus === "APPROVED" || order.transferStatus === null);
+  if ((grnStockApplied && order.toLocationId) || (transferStockApplied && order.toLocationId)) {
     const locationId = order.toLocationId!;
     const productIds = order.lines.map((l) => l.productId);
     const stockRows = await prisma.stock.findMany({
@@ -67,12 +80,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           where: { productId: line.productId, locationId: order.toLocationId },
           data: { quantity: { decrement: line.quantity } },
         });
-      } else if (order.type === "GOODS_OUT" && order.fromLocationId) {
+      } else if (order.type === "GOODS_OUT" && order.fromLocationId && (order.goodsOutStatus === "APPROVED" || order.goodsOutStatus === null)) {
         await tx.stock.updateMany({
           where: { productId: line.productId, locationId: order.fromLocationId },
           data: { quantity: { increment: line.quantity } },
         });
-      } else if (order.type === "TRANSFER" && order.fromLocationId && order.toLocationId) {
+      } else if (transferStockApplied && order.fromLocationId && order.toLocationId) {
         await tx.stock.updateMany({
           where: { productId: line.productId, locationId: order.fromLocationId },
           data: { quantity: { increment: line.quantity } },

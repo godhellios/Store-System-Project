@@ -11,8 +11,11 @@ const TYPE_BADGE: Record<string, string> = {
   ADJUSTMENT: "bg-gray-100 text-gray-600",
 };
 const CANCELLED_BADGE = "bg-red-100 text-red-700";
-const GRN_PENDING_BADGE = "bg-amber-100 text-amber-700";
-const GRN_REJECTED_BADGE = "bg-red-100 text-red-600";
+const PENDING_BADGE = "bg-amber-100 text-amber-700";
+const REJECTED_BADGE = "bg-red-100 text-red-600";
+// Keep aliases for backwards compat
+const GRN_PENDING_BADGE = PENDING_BADGE;
+const GRN_REJECTED_BADGE = REJECTED_BADGE;
 const TYPE_LABEL: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "Goods Out", TRANSFER: "Transfer", ADJUSTMENT: "Adjustment",
 };
@@ -91,13 +94,13 @@ export default async function OrdersPage({
                       CANCELLED
                     </span>
                   )}
-                  {!o.cancelledAt && o.grnStatus === "PENDING" && (
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${GRN_PENDING_BADGE}`}>
+                  {!o.cancelledAt && (o.grnStatus === "PENDING" || o.goodsOutStatus === "PENDING" || o.transferStatus === "PENDING") && (
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${PENDING_BADGE}`}>
                       PENDING
                     </span>
                   )}
-                  {!o.cancelledAt && o.grnStatus === "REJECTED" && (
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${GRN_REJECTED_BADGE}`}>
+                  {!o.cancelledAt && (o.grnStatus === "REJECTED" || o.goodsOutStatus === "REJECTED" || o.transferStatus === "REJECTED") && (
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${REJECTED_BADGE}`}>
                       REJECTED
                     </span>
                   )}
@@ -154,13 +157,13 @@ export default async function OrdersPage({
                             CANCELLED
                           </span>
                         )}
-                        {!o.cancelledAt && o.grnStatus === "PENDING" && (
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${GRN_PENDING_BADGE}`}>
+                        {!o.cancelledAt && (o.grnStatus === "PENDING" || o.goodsOutStatus === "PENDING" || o.transferStatus === "PENDING") && (
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${PENDING_BADGE}`}>
                             PENDING
                           </span>
                         )}
-                        {!o.cancelledAt && o.grnStatus === "REJECTED" && (
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${GRN_REJECTED_BADGE}`}>
+                        {!o.cancelledAt && (o.grnStatus === "REJECTED" || o.goodsOutStatus === "REJECTED" || o.transferStatus === "REJECTED") && (
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${REJECTED_BADGE}`}>
                             REJECTED
                           </span>
                         )}

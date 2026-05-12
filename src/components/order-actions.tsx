@@ -11,12 +11,16 @@ export function OrderActions({
   cancelledAt,
   adjustmentStatus,
   grnStatus,
+  goodsOutStatus,
+  transferStatus,
 }: {
   orderId: string;
   userRole: string;
   cancelledAt?: string | null;
   adjustmentStatus?: string | null;
   grnStatus?: string | null;
+  goodsOutStatus?: string | null;
+  transferStatus?: string | null;
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -73,10 +77,13 @@ export function OrderActions({
   }
 
   const isAdmin = userRole === "ADMIN";
-  const isPendingReview = adjustmentStatus === "PENDING" || grnStatus === "PENDING";
+  const isPendingReview = adjustmentStatus === "PENDING" || grnStatus === "PENDING" || goodsOutStatus === "PENDING" || transferStatus === "PENDING";
   const canReview = isAdmin && !cancelledAt && isPendingReview;
-  const canEdit = ["ADMIN", "STAFF"].includes(userRole) && !cancelledAt && grnStatus !== "REJECTED";
-  const canCancel = isAdmin && !cancelledAt && adjustmentStatus !== "PENDING" && grnStatus !== "PENDING";
+  const canEdit = ["ADMIN", "STAFF"].includes(userRole) && !cancelledAt &&
+    grnStatus !== "REJECTED" && goodsOutStatus !== "REJECTED" && transferStatus !== "REJECTED";
+  const canCancel = isAdmin && !cancelledAt &&
+    adjustmentStatus !== "PENDING" && grnStatus !== "PENDING" &&
+    goodsOutStatus !== "PENDING" && transferStatus !== "PENDING";
   const canDelete = isAdmin;
 
   if (!canReview && !canEdit && !canCancel && !canDelete) return null;
@@ -95,7 +102,7 @@ export function OrderActions({
         reviewOpen ? (
           <div className="flex flex-col gap-2 border border-blue-200 bg-blue-50 rounded-xl px-4 py-3 min-w-[260px]">
             <p className="text-xs font-semibold text-blue-800">
-              {grnStatus === "PENDING" ? "Review this GRN?" : "Review this adjustment?"}
+              {grnStatus === "PENDING" ? "Review this GRN?" : goodsOutStatus === "PENDING" ? "Review this Goods Out?" : transferStatus === "PENDING" ? "Review this Transfer?" : "Review this adjustment?"}
             </p>
             <textarea
               value={reviewNote}

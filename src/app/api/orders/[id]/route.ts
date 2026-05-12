@@ -49,8 +49,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const isPendingAdjustment = order.type === "ADJUSTMENT" && order.adjustmentStatus === "PENDING";
   const isPendingGrn = order.type === "GRN" && order.grnStatus === "PENDING";
-  if (!isPendingAdjustment && !isPendingGrn)
-    return NextResponse.json({ error: "Only pending adjustment or GRN orders can be reviewed" }, { status: 400 });
+  const isPendingGoodsOut = order.type === "GOODS_OUT" && order.goodsOutStatus === "PENDING";
+  const isPendingTransfer = order.type === "TRANSFER" && order.transferStatus === "PENDING";
+  if (!isPendingAdjustment && !isPendingGrn && !isPendingGoodsOut && !isPendingTransfer)
+    return NextResponse.json({ error: "Only pending orders can be reviewed" }, { status: 400 });
 
   const reviewFields = { reviewedByName: session.user.name ?? null, reviewedAt: new Date(), reviewNote: note ?? null };
 
@@ -74,6 +76,118 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     } else {
       await prisma.order.update({ where: { id }, data: { grnStatus: "REJECTED", ...reviewFields } });
       writeAuditLog({ session, action: "REJECT_GRN", description: `Rejected ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
+    }
+    return NextResponse.json({ success: true });
+  }
+
+  // ── Goods Out approve / reject ────────────────────────────────────────────
+  if (isPendingGoodsOut) {
+    if (action === "approve") {
+      if (order.fromLocationId) {
+        // Re-validate stock at approval time (stock may have changed since order was created)
+        const stockRows = await prisma.stock.findMany({
+          where: { productId: { in: order.lines.map((l) => l.productId) }, locationId: order.fromLocationId },
+          include: { product: { select: { name: true } } },
+        });
+        const stockMap = new Map(stockRows.map((s) => [s.productId, s]));
+        const insufficient: string[] = [];
+        for (const line of order.lines) {
+          const available = stockMap.get(line.productId)?.quantity ?? 0;
+          if (available < line.quantity) {
+            const name = stockMap.get(line.productId)?.product.name ?? line.productId;
+            insufficient.push(`"${name}" — available: ${available}, requested: ${line.quantity}`);
+          }
+        }
+        if (insufficient.length)
+          return NextResponse.json({ error: `Insufficient stock:\n${insufficient.join("\n")}` }, { status: 400 });
+      }
+      await prisma.$transaction(async (tx) => {
+        for (const line of order.lines) {
+          if (!order.fromLocationId) continue;
+          await tx.stock.update({
+            where: { productId_locationId: { productId: line.productId, locationId: order.fromLocationId } },
+            data: { quantity: { decrement: line.quantity } },
+          });
+        }
+        await tx.order.update({ where: { id }, data: { goodsOutStatus: "APPROVED", ...reviewFields } });
+      });
+      writeAuditLog({ session, action: "APPROVE_GOODS_OUT", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
+      // Fire reorder alerts after stock decrement
+      if (order.fromLocationId) {
+        prisma.stock.findMany({
+          where: { productId: { in: order.lines.map((l) => l.productId) }, locationId: order.fromLocationId, product: { reorderPoint: { gt: 0 } } },
+          include: { product: { select: { name: true, sku: true, reorderPoint: true } } },
+        }).then((stockRows) => {
+          const belowReorder = stockRows.filter((s) => s.quantity <= s.product.reorderPoint);
+          if (!belowReorder.length) return;
+          sendPushNotification({
+            title: `⚠️ Low Stock Alert — ${belowReorder.length} item${belowReorder.length !== 1 ? "s" : ""} at reorder point`,
+            body: belowReorder.map((s) => `${s.product.name} (${s.product.sku}): ${s.quantity} left`).join(", "),
+            url: `/dashboard`,
+          });
+        }).catch(() => {});
+      }
+    } else {
+      await prisma.order.update({ where: { id }, data: { goodsOutStatus: "REJECTED", ...reviewFields } });
+      writeAuditLog({ session, action: "REJECT_GOODS_OUT", description: `Rejected ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
+    }
+    return NextResponse.json({ success: true });
+  }
+
+  // ── Transfer approve / reject ─────────────────────────────────────────────
+  if (isPendingTransfer) {
+    if (action === "approve") {
+      if (order.fromLocationId) {
+        const stockRows = await prisma.stock.findMany({
+          where: { productId: { in: order.lines.map((l) => l.productId) }, locationId: order.fromLocationId },
+          include: { product: { select: { name: true } } },
+        });
+        const stockMap = new Map(stockRows.map((s) => [s.productId, s]));
+        const insufficient: string[] = [];
+        for (const line of order.lines) {
+          const available = stockMap.get(line.productId)?.quantity ?? 0;
+          if (available < line.quantity) {
+            const name = stockMap.get(line.productId)?.product.name ?? line.productId;
+            insufficient.push(`"${name}" — available: ${available}, requested: ${line.quantity}`);
+          }
+        }
+        if (insufficient.length)
+          return NextResponse.json({ error: `Insufficient stock:\n${insufficient.join("\n")}` }, { status: 400 });
+      }
+      await prisma.$transaction(async (tx) => {
+        for (const line of order.lines) {
+          if (!order.fromLocationId || !order.toLocationId) continue;
+          await tx.stock.update({
+            where: { productId_locationId: { productId: line.productId, locationId: order.fromLocationId } },
+            data: { quantity: { decrement: line.quantity } },
+          });
+          await tx.stock.upsert({
+            where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
+            create: { productId: line.productId, locationId: order.toLocationId, quantity: line.quantity },
+            update: { quantity: { increment: line.quantity } },
+          });
+        }
+        await tx.order.update({ where: { id }, data: { transferStatus: "APPROVED", ...reviewFields } });
+      });
+      writeAuditLog({ session, action: "APPROVE_TRANSFER", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
+      // Fire reorder alerts after stock decrement from source
+      if (order.fromLocationId) {
+        prisma.stock.findMany({
+          where: { productId: { in: order.lines.map((l) => l.productId) }, locationId: order.fromLocationId, product: { reorderPoint: { gt: 0 } } },
+          include: { product: { select: { name: true, sku: true, reorderPoint: true } } },
+        }).then((stockRows) => {
+          const belowReorder = stockRows.filter((s) => s.quantity <= s.product.reorderPoint);
+          if (!belowReorder.length) return;
+          sendPushNotification({
+            title: `⚠️ Low Stock Alert — ${belowReorder.length} item${belowReorder.length !== 1 ? "s" : ""} at reorder point`,
+            body: belowReorder.map((s) => `${s.product.name} (${s.product.sku}): ${s.quantity} left`).join(", "),
+            url: `/dashboard`,
+          });
+        }).catch(() => {});
+      }
+    } else {
+      await prisma.order.update({ where: { id }, data: { transferStatus: "REJECTED", ...reviewFields } });
+      writeAuditLog({ session, action: "REJECT_TRANSFER", description: `Rejected ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
     }
     return NextResponse.json({ success: true });
   }
@@ -149,6 +263,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: "Approved or rejected adjustments cannot be edited" }, { status: 400 });
   if (existing?.type === "GRN" && existing.grnStatus === "REJECTED")
     return NextResponse.json({ error: "Rejected GRN orders cannot be edited" }, { status: 400 });
+  if (existing?.type === "GOODS_OUT" && existing.goodsOutStatus === "REJECTED")
+    return NextResponse.json({ error: "Rejected Goods Out orders cannot be edited" }, { status: 400 });
+  if (existing?.type === "TRANSFER" && existing.transferStatus === "REJECTED")
+    return NextResponse.json({ error: "Rejected Transfer orders cannot be edited" }, { status: 400 });
 
   const body = await req.json();
   const { customer, reference, notes, lines } = body as {
@@ -172,7 +290,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
         // 1. Reverse stock for all existing lines (skip if stock was never applied)
         const skipStock = (current.type === "ADJUSTMENT" && current.adjustmentStatus === "PENDING") ||
-                          (current.type === "GRN" && current.grnStatus === "PENDING");
+                          (current.type === "GRN" && current.grnStatus === "PENDING") ||
+                          (current.type === "GOODS_OUT" && current.goodsOutStatus === "PENDING") ||
+                          (current.type === "TRANSFER" && current.transferStatus === "PENDING");
         for (const old of current.lines) {
           if (skipStock) continue;
           if (current.type === "GRN" && current.toLocationId) {
@@ -316,12 +436,12 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
           where: { productId: line.productId, locationId: order.toLocationId },
           data: { quantity: { decrement: line.quantity } },
         });
-      } else if (order.type === "GOODS_OUT" && order.fromLocationId) {
+      } else if (order.type === "GOODS_OUT" && order.fromLocationId && (order.goodsOutStatus === "APPROVED" || order.goodsOutStatus === null)) {
         await tx.stock.updateMany({
           where: { productId: line.productId, locationId: order.fromLocationId },
           data: { quantity: { increment: line.quantity } },
         });
-      } else if (order.type === "TRANSFER" && order.fromLocationId && order.toLocationId) {
+      } else if (order.type === "TRANSFER" && order.fromLocationId && order.toLocationId && (order.transferStatus === "APPROVED" || order.transferStatus === null)) {
         await tx.stock.updateMany({
           where: { productId: line.productId, locationId: order.fromLocationId },
           data: { quantity: { increment: line.quantity } },
