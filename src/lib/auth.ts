@@ -3,6 +3,9 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
+// Set to true to re-enable these roles
+const ROLES_ENABLED = { OPERATOR: false, VIEWER: false };
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
@@ -41,6 +44,9 @@ export const authOptions: NextAuthOptions = {
           });
           return null;
         }
+
+        if (!ROLES_ENABLED[user.role as keyof typeof ROLES_ENABLED] && user.role in ROLES_ENABLED)
+          throw new Error("This role is currently disabled. Please contact your administrator.");
 
         // Successful login — reset lockout counters
         if (user.failedLoginAttempts > 0 || user.lockedUntil) {
