@@ -211,17 +211,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
     }
 
-    await prisma.$transaction(async (tx) => {
-      for (const line of order.lines) {
-        if (!order.toLocationId) continue;
-        await tx.stock.upsert({
-          where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
-          create: { productId: line.productId, locationId: order.toLocationId, quantity: line.quantity },
-          update: { quantity: { increment: line.quantity } },
-        });
-      }
-      await tx.order.update({ where: { id }, data: { adjustmentStatus: "APPROVED", ...reviewFields } });
-    });
+    try {
+      await prisma.$transaction(async (tx) => {
+        for (const line of order.lines) {
+          if (!order.toLocationId) continue;
+          await tx.stock.upsert({
+            where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
+            create: { productId: line.productId, locationId: order.toLocationId, quantity: line.quantity },
+            update: { quantity: { increment: line.quantity } },
+          });
+        }
+        await tx.order.update({ where: { id }, data: { adjustmentStatus: "APPROVED", ...reviewFields } });
+      });
+    } catch (err) {
+      console.error("Adjustment approval failed:", err);
+      return NextResponse.json({
+        error: err instanceof Error ? err.message : "Failed to approve adjustment — please try again",
+      }, { status: 500 });
+    }
     writeAuditLog({ session, action: "APPROVE_ADJUSTMENT", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
 
     // Reorder alert on negative-adjustment lines

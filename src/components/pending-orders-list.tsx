@@ -96,19 +96,24 @@ export function PendingOrdersList() {
 
   async function doAction(id: string, action: "approve" | "reject", note?: string) {
     setProcessingId(id);
-    const res = await fetch(`/api/orders/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, note: note?.trim() || undefined }),
-    });
-    const data = await res.json();
-    setProcessingId(null);
-    setRejectingId(null);
-    setRejectNote("");
-    if (!res.ok) { toast.error(data.error ?? "Failed"); return; }
-    toast.success(action === "approve" ? "Approved — stock updated" : "Rejected");
-    await load();
-    router.refresh();
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, note: note?.trim() || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(data.error ?? `Error ${res.status}`); return; }
+      toast.success(action === "approve" ? "Approved — stock updated" : "Rejected");
+      await load();
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setProcessingId(null);
+      setRejectingId(null);
+      setRejectNote("");
+    }
   }
 
   if (loading) return <div className="text-center py-12 text-slate-400 text-sm">Loading…</div>;

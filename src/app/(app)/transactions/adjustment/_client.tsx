@@ -144,10 +144,12 @@ export function AdjustmentClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, note: reviewNote[orderId] ?? "" }),
       });
-      const data = await res.json();
-      if (!res.ok) { toast.error(data.error ?? "Failed"); return; }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(data.error ?? `Error ${res.status}`); return; }
       toast.success(action === "approve" ? "Adjustment approved — stock updated" : "Adjustment rejected");
       router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Request failed");
     } finally {
       setReviewing(null);
     }
