@@ -23,13 +23,14 @@ function orderStatus(order: OrderRow): "PENDING" | "REJECTED" | null {
 export default async function MovementsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ locationId?: string; from?: string; to?: string; page?: string }>;
+  searchParams: Promise<{ locationId?: string; from?: string; to?: string; page?: string; hideRejected?: string }>;
 }) {
   await requireAdmin();
   const [params, t] = await Promise.all([searchParams, getT()]);
   const locationId = params.locationId ?? "";
   const from = params.from ?? "";
   const to = params.to ?? "";
+  const hideRejected = params.hideRejected === "1";
   const page = Math.max(1, parseInt(params.page ?? "1"));
   const perPage = 50;
 
@@ -56,6 +57,9 @@ export default async function MovementsPage({
     prisma.location.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
 
+  const visibleMovements = hideRejected
+    ? movements.filter((m) => orderStatus(m.order) !== "REJECTED")
+    : movements;
   const pages = Math.ceil(total / perPage);
 
   return (
@@ -76,15 +80,19 @@ export default async function MovementsPage({
         </select>
         <input type="date" name="from" defaultValue={from} className="px-3 py-2 border border-slate-300 rounded-lg text-sm" />
         <input type="date" name="to" defaultValue={to} className="px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer self-center">
+          <input type="checkbox" name="hideRejected" value="1" defaultChecked={hideRejected} className="rounded border-slate-300 text-blue-600" />
+          Hide rejected
+        </label>
         <button type="submit" className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700">{t("common.filter", "Filter")}</button>
-        {(locationId || from || to) && <Link href="/movements" className="text-sm px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">{t("common.clear", "Clear")}</Link>}
+        {(locationId || from || to || hideRejected) && <Link href="/movements" className="text-sm px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">{t("common.clear", "Clear")}</Link>}
       </form>
 
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
-        {movements.length === 0 ? (
+        {visibleMovements.length === 0 ? (
           <p className="text-center text-slate-400 text-xs py-10">{t("movements.noMovements", "No movements found")}</p>
-        ) : movements.map((m) => (
+        ) : visibleMovements.map((m) => (
           <div key={m.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
             <div className="flex items-center justify-between gap-2 mb-1.5">
               <div className="flex items-center gap-1.5">
@@ -140,9 +148,9 @@ export default async function MovementsPage({
               </tr>
             </thead>
             <tbody>
-              {movements.length === 0 ? (
+              {visibleMovements.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-xs">{t("movements.noMovements", "No movements found")}</td></tr>
-              ) : movements.map((m) => (
+              ) : visibleMovements.map((m) => (
                 <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-2.5 text-xs text-slate-500">
                     {m.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
@@ -200,7 +208,7 @@ export default async function MovementsPage({
       {pages > 1 && (
         <div className="flex gap-2 justify-center mt-4">
           {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
-            <Link key={p} href={`/movements?locationId=${locationId}&from=${from}&to=${to}&page=${p}`}
+            <Link key={p} href={`/movements?locationId=${locationId}&from=${from}&to=${to}&hideRejected=${hideRejected ? "1" : ""}&page=${p}`}
               className={`px-3 py-1 rounded text-xs ${p === page ? "bg-blue-600 text-white" : "border border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
               {p}
             </Link>

@@ -103,6 +103,12 @@ export function AdjustmentClient({
     const validLines = lines.filter((l) => l.productId && l.qty > 0);
     if (!validLines.length) { toast.error("Add at least one product with quantity"); return; }
 
+    const stillLoading = validLines.some((l) => l.stockLoading);
+    if (stillLoading) {
+      toast.error("Stock is still loading — please wait a moment then try again");
+      return;
+    }
+
     const wouldGoNegative = validLines.filter(
       (l) => l.direction === "remove" && l.currentStock !== null && l.currentStock - l.qty < 0
     );
