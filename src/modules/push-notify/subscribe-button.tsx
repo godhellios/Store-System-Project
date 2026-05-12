@@ -107,7 +107,7 @@ export function PushSubscribeButton({ vapidPublicKey }: { vapidPublicKey: string
       />
       <span className="text-sm text-slate-700 flex-1">
         {status === "subscribed"
-          ? "This device will receive a notification when a Goods Out is confirmed"
+          ? "This device will receive notifications for Goods Out, GRN pending approval, and low stock alerts"
           : "Notifications are off on this device"}
       </span>
       <button
