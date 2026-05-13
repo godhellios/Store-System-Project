@@ -70,6 +70,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Source location is required" }, { status: 400 });
   if (type === "TRANSFER" && (!fromLocationId || !toLocationId))
     return NextResponse.json({ error: "Both source and destination locations are required" }, { status: 400 });
+  if (type === "TRANSFER" && fromLocationId === toLocationId)
+    return NextResponse.json({ error: "Source and destination locations must be different" }, { status: 400 });
 
   if (type === "GRN") {
     const productIds = lines.map((l) => l.productId);
