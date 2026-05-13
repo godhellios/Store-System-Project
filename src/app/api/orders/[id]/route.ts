@@ -217,6 +217,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   // ── Adjustment approve / reject ───────────────────────────────────────────
   if (action === "approve") {
+    class InsufficientStockError extends Error {}
+
     try {
       await prisma.$transaction(async (tx) => {
         for (const line of order.lines) {
@@ -231,7 +233,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
           if (newQty < 0) {
             const product = await tx.product.findUnique({ where: { id: line.productId }, select: { name: true, sku: true } });
-            throw new Error(`Insufficient stock for "${product?.name ?? line.productId}" (${product?.sku ?? ""}): has ${currentQty}, adjustment would result in ${newQty}`);
+            throw new InsufficientStockError(`Insufficient stock for "${product?.name ?? line.productId}" (${product?.sku ?? ""}): has ${currentQty}, adjustment would result in ${newQty}`);
           }
 
           if (existing) {
@@ -248,6 +250,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         await tx.order.update({ where: { id }, data: { adjustmentStatus: "APPROVED", ...reviewFields } });
       });
     } catch (err) {
+      if (err instanceof InsufficientStockError) {
+        // Business rule violation — auto-reject so the order does not stay stuck as PENDING
+        await prisma.order.update({
+          where: { id },
+          data: { adjustmentStatus: "REJECTED", ...reviewFields, reviewNote: err.message },
+        });
+        writeAuditLog({ session, action: "REJECT_ADJUSTMENT", description: `Auto-rejected ${order.orderNumber} — ${err.message}`, entityId: id, entityType: "ORDER" });
+        return NextResponse.json({ error: err.message, autoRejected: true }, { status: 400 });
+      }
       console.error("Adjustment approval failed:", err);
       return NextResponse.json({
         error: err instanceof Error ? err.message : "Failed to approve adjustment — please try again",
