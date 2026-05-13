@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { viewerGuard } from "@/lib/role-guard";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -40,5 +41,6 @@ export async function POST(req: Request) {
   if (existing) return NextResponse.json({ error: "Category already exists" }, { status: 409 });
 
   const category = await prisma.category.create({ data: { name: name.trim(), code } });
+  writeAuditLog({ session, action: "CREATE_CATEGORY", description: `"${category.name}"${code ? ` (${code})` : ""}`, entityId: category.id, entityType: "CATEGORY" });
   return NextResponse.json(category, { status: 201 });
 }

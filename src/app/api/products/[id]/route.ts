@@ -92,6 +92,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       },
     });
 
+    writeAuditLog({
+      session,
+      action: "SUBMIT_PRODUCT_EDIT",
+      description: `"${existing.name}" (${existing.sku}) — submitted edit for admin review`,
+      entityId: id,
+      entityType: "PRODUCT",
+    });
+
     return NextResponse.json({ ...updated, _pendingSubmitted: true });
   }
 

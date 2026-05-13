@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -35,6 +36,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     },
     include: { parent: { select: { id: true, name: true } } },
   });
+  writeAuditLog({ session, action: "EDIT_UNIT", description: `"${unit.name}"${isActive !== undefined ? (isActive ? " — activated" : " — deactivated") : ""}`, entityId: id, entityType: "UNIT" });
   return NextResponse.json(unit);
 }
 
@@ -54,6 +56,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   if (childCount > 0)
     return NextResponse.json({ error: `Cannot delete — ${childCount} unit(s) are based on this unit. Remove those conversions first.` }, { status: 409 });
 
+  const deleted = await prisma.unit.findUnique({ where: { id }, select: { name: true } });
   await prisma.unit.delete({ where: { id } });
+  writeAuditLog({ session, action: "DELETE_UNIT", description: `"${deleted?.name ?? id}"`, entityId: id, entityType: "UNIT" });
   return new NextResponse(null, { status: 204 });
 }

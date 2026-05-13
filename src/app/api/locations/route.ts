@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -27,5 +28,6 @@ export async function POST(req: Request) {
   if (existing) return NextResponse.json({ error: "Location already exists" }, { status: 409 });
 
   const location = await prisma.location.create({ data: { name: name.trim(), type: type.trim() } });
+  writeAuditLog({ session, action: "CREATE_LOCATION", description: `"${location.name}" (${location.type})`, entityId: location.id, entityType: "LOCATION" });
   return NextResponse.json(location, { status: 201 });
 }

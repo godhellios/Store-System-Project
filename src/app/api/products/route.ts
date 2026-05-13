@@ -6,6 +6,7 @@ import { generateSku } from "@/lib/sku";
 import { generateBaseBarcode, generateUnitBarcode, validateBarcodeUniqueness } from "@/lib/barcode";
 import { findSimilarProducts } from "@/lib/duplicate-detect";
 import { viewerGuard } from "@/lib/role-guard";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -132,6 +133,14 @@ export async function POST(req: Request) {
         },
         include: { category: true, unit: true, unitConversions: true },
       });
+    });
+
+    writeAuditLog({
+      session,
+      action: isAdmin ? "CREATE_PRODUCT" : "SUBMIT_PRODUCT_DRAFT",
+      description: `"${product.name}" (${product.sku})${isAdmin ? "" : " — submitted as draft, pending approval"}`,
+      entityId: product.id,
+      entityType: "PRODUCT",
     });
 
     return NextResponse.json(product, { status: 201 });

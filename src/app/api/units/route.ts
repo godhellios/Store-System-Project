@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -44,5 +45,6 @@ export async function POST(req: Request) {
     },
     include: { parent: { select: { id: true, name: true } } },
   });
+  writeAuditLog({ session, action: "CREATE_UNIT", description: `"${unit.name}"${unit.parent ? ` (1 = ${conversionFactor} ${unit.parent.name})` : ""}`, entityId: unit.id, entityType: "UNIT" });
   return NextResponse.json(unit, { status: 201 });
 }

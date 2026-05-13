@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -24,6 +25,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       ...(isActive !== undefined ? { isActive } : {}),
     },
   });
+  writeAuditLog({ session, action: "EDIT_LOCATION", description: `"${location.name}"${isActive !== undefined ? (isActive ? " — activated" : " — deactivated") : ""}`, entityId: id, entityType: "LOCATION" });
   return NextResponse.json(location);
 }
 
@@ -45,6 +47,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   if (orderCount > 0 || movementCount > 0)
     return NextResponse.json({ error: "Cannot delete — location has order or movement history. Deactivate it instead." }, { status: 409 });
 
+  const deleted = await prisma.location.findUnique({ where: { id }, select: { name: true } });
   await prisma.location.delete({ where: { id } });
+  writeAuditLog({ session, action: "DELETE_LOCATION", description: `"${deleted?.name ?? id}"`, entityId: id, entityType: "LOCATION" });
   return new NextResponse(null, { status: 204 });
 }

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { viewerGuard } from "@/lib/role-guard";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -50,6 +51,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       ...(code !== undefined ? { code } : {}),
     },
   });
+  writeAuditLog({ session, action: "EDIT_CATEGORY", description: `"${category.name}"${isActive !== undefined ? (isActive ? " — activated" : " — deactivated") : ""}`, entityId: id, entityType: "CATEGORY" });
   return NextResponse.json(warning ? { ...category, warning } : category);
 }
 
@@ -67,6 +69,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     );
   }
 
+  const deleted = await prisma.category.findUnique({ where: { id }, select: { name: true } });
   await prisma.category.delete({ where: { id } });
+  writeAuditLog({ session, action: "DELETE_CATEGORY", description: `"${deleted?.name ?? id}"`, entityId: id, entityType: "CATEGORY" });
   return new NextResponse(null, { status: 204 });
 }
