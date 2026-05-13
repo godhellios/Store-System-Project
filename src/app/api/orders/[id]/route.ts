@@ -59,6 +59,31 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // ── GRN approve / reject ──────────────────────────────────────────────────
   if (isPendingGrn) {
     if (action === "approve") {
+      // Re-validate: products must still be active at approval time
+      const productIds = order.lines.map((l) => l.productId);
+      const inactiveProducts = await prisma.product.findMany({
+        where: { id: { in: productIds }, isActive: false },
+        select: { name: true, sku: true },
+      });
+      if (inactiveProducts.length > 0) {
+        return NextResponse.json({
+          error: `Cannot approve: the following products were deactivated after this GRN was submitted: ${inactiveProducts.map((p) => `"${p.name}" (${p.sku})`).join(", ")}`,
+        }, { status: 400 });
+      }
+
+      // Re-validate: destination location must still be active
+      if (order.toLocationId) {
+        const location = await prisma.location.findUnique({
+          where: { id: order.toLocationId },
+          select: { name: true, isActive: true },
+        });
+        if (!location?.isActive) {
+          return NextResponse.json({
+            error: `Cannot approve: destination location${location ? ` "${location.name}"` : ""} is no longer active`,
+          }, { status: 400 });
+        }
+      }
+
       await prisma.$transaction(async (tx) => {
         for (const line of order.lines) {
           if (!order.toLocationId) continue;
@@ -71,8 +96,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         await tx.order.update({ where: { id }, data: { grnStatus: "APPROVED", ...reviewFields } });
       });
       writeAuditLog({ session, action: "APPROVE_GRN", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
-
-      // Reorder alert: GRN increases stock, so no need to check reorder point here
     } else {
       await prisma.order.update({ where: { id }, data: { grnStatus: "REJECTED", ...reviewFields } });
       writeAuditLog({ session, action: "REJECT_GRN", description: `Rejected ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
