@@ -91,7 +91,39 @@ export const authOptions: NextAuthOptions = {
           token.loginAt = Date.now();
           token.sessionId = (user as unknown as { sessionId: string }).sessionId;
         }
+        token.checkedAt = Date.now();
+        return token;
       }
+
+      // Periodic re-validation every 5 minutes
+      const CHECK_INTERVAL_MS = 5 * 60 * 1000;
+      if (Date.now() - ((token.checkedAt as number | undefined) ?? 0) < CHECK_INTERVAL_MS) {
+        return token;
+      }
+
+      try {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { isActive: true, lockedUntil: true, activeSessionId: true, role: true },
+        });
+
+        if (!dbUser || !dbUser.isActive || (dbUser.lockedUntil && dbUser.lockedUntil > new Date())) {
+          token.error = "SessionInvalid";
+          return token;
+        }
+
+        // Non-ADMIN: check if this session was displaced by a newer login on another device
+        if (dbUser.role !== "ADMIN" && token.sessionId && dbUser.activeSessionId !== (token.sessionId as string)) {
+          token.error = "SessionDisplaced";
+          return token;
+        }
+
+        delete token.error;
+        token.checkedAt = Date.now();
+      } catch {
+        // DB unavailable — do not invalidate; retry on next request
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -100,6 +132,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string;
         if (token.loginAt) session.user.loginAt = token.loginAt as number;
         if (token.sessionId) session.user.sessionId = token.sessionId as string;
+        if (token.error) session.user.error = token.error as string;
       }
       return session;
     },

@@ -7,6 +7,7 @@ declare module "next-auth" {
       role: string;
       loginAt?: number;
       sessionId?: string;
+      error?: string;
     };
   }
 }
