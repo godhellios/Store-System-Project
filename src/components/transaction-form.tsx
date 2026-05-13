@@ -46,6 +46,7 @@ type FlowState =
   | { step: "idle" }
   | { step: "confirm" }
   | { step: "saving" }
+  | { step: "grn_done"; orderId: string; orderNumber: string; isPending: boolean; barcodeUrl: string }
   | { step: "pending_approval"; orderId: string; orderNumber: string }
   | { step: "whatsapp"; orderId: string; orderNumber: string; whatsappUrl: string }
   | { step: "print"; orderId: string; orderNumber: string }
@@ -393,12 +394,28 @@ export function TransactionForm({
     if (!res.ok) { toast.error(data.error ?? "Failed to save order"); return; }
     if (data.warnings?.length) data.warnings.forEach((w) => toast(w, { icon: "⚠️", duration: 6000 }));
     const isPending = data.order?.grnStatus === "PENDING" || data.order?.transferStatus === "PENDING";
+    localStorage.removeItem(DRAFT_KEY);
+
+    if (type === "GRN") {
+      const params = new URLSearchParams();
+      lines.forEach((l) => params.append("productId", l.productId));
+      params.set("copies", lines.map((l) => `${l.productId}:${Math.round(l.quantity * l.conversionFactor)}`).join(","));
+      setFlowState({
+        step: "grn_done",
+        orderId: data.order!.id,
+        orderNumber: data.order!.orderNumber,
+        isPending,
+        barcodeUrl: `/barcodes?${params.toString()}`,
+      });
+      return;
+    }
+
+    // TRANSFER
     if (isPending) {
       toast.success(`${data.order!.orderNumber} submitted — awaiting admin approval`, { duration: 5000 });
     } else {
       toast.success(`${data.order!.orderNumber} saved`);
     }
-    localStorage.removeItem(DRAFT_KEY);
     router.push(isPending ? `/orders/${data.order!.id}` : "/orders");
     router.refresh();
   }
@@ -812,6 +829,43 @@ export function TransactionForm({
                 </div>
               </>
             )}
+
+            {/* ── grn done ── */}
+            {flowState.step === "grn_done" && (() => {
+              const { orderId, orderNumber, isPending, barcodeUrl } = flowState;
+              return (
+                <>
+                  <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-800 mb-1">Barang Masuk Tersimpan!</h2>
+                  <p className="text-sm font-mono text-slate-500 mb-3">{orderNumber}</p>
+                  {isPending && (
+                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+                      Menunggu persetujuan Admin. Stok belum berubah.
+                    </p>
+                  )}
+                  <p className="text-sm text-slate-600 mb-5">Cetak label barcode untuk barang yang baru diterima?</p>
+                  <button
+                    onClick={() => { router.push(barcodeUrl); router.refresh(); }}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 mb-3"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Cetak Label Barcode
+                  </button>
+                  <button
+                    onClick={() => { router.push(isPending ? `/orders/${orderId}` : "/orders"); router.refresh(); }}
+                    className="w-full py-3 border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-xl transition-colors"
+                  >
+                    Selesai
+                  </button>
+                </>
+              );
+            })()}
 
             {/* ── pending approval ── */}
             {flowState.step === "pending_approval" && (() => {

@@ -10,17 +10,19 @@ export function BarcodePrintPanel({
   products: allProducts,
   categories,
   preselect,
+  initialCopies = {},
 }: {
   products: Product[];
   categories: Category[];
   preselect: string[];
+  initialCopies?: Record<string, number>;
 }) {
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [queue, setQueue] = useState<Map<string, Product>>(
     new Map(allProducts.filter((p) => preselect.includes(p.id)).map((p) => [p.id, p]))
   );
-  const [copies, setCopies] = useState<Record<string, number>>({});
+  const [copies, setCopies] = useState<Record<string, number>>(initialCopies);
 
   const searchResults = useMemo(() => {
     const term = q.trim().toLowerCase();
