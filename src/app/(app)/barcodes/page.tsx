@@ -14,23 +14,24 @@ export default async function BarcodesPage({
   const t = await getT();
   const { productId } = await searchParams;
 
-  const [categories, preselectProduct] = await Promise.all([
+  const [categories, products] = await Promise.all([
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    productId
-      ? prisma.product.findUnique({
-          where: { id: productId },
-          include: { category: true, unit: true, unitConversions: true },
-        })
-      : Promise.resolve(null),
+    prisma.product.findMany({
+      where: {
+        isActive: true,
+        AND: [{ OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }] }],
+      },
+      orderBy: { name: "asc" },
+      include: { category: true, unit: true, unitConversions: true },
+    }),
   ]);
 
-  const mergedProducts = preselectProduct ? [preselectProduct] : [];
   const preselect = productId ? [productId] : [];
 
   return (
     <div>
       <h1 className="text-base font-semibold text-slate-800 mb-5">{t("barcodes.title", "Barcode Labels")}</h1>
-      <BarcodePrintPanel products={mergedProducts} categories={categories} preselect={preselect} />
+      <BarcodePrintPanel products={products} categories={categories} preselect={preselect} />
     </div>
   );
 }
