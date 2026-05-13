@@ -133,6 +133,7 @@ export async function POST(req: Request) {
 
   const { adjustmentReason } = body as { adjustmentReason?: string };
   const isManualAdjustment = type === "ADJUSTMENT";
+  const isAdmin = session.user.role === "ADMIN";
   const warnings: string[] = [];
 
   let result!: { order: { id: string; orderNumber: string; fromLocationId: string | null }; txWarnings: string[] };
@@ -157,9 +158,9 @@ export async function POST(req: Request) {
           orderNumber, type, fromLocationId, toLocationId, customer, reference, notes,
           createdByName: session.user.name ?? null,
           ...(isManualAdjustment ? { adjustmentStatus: "PENDING", adjustmentReason: adjustmentReason ?? null } : {}),
-          ...(type === "GRN" ? { grnStatus: "PENDING" } : {}),
-          ...(type === "GOODS_OUT" && REQUIRE_APPROVAL.GOODS_OUT ? { goodsOutStatus: "PENDING" } : {}),
-          ...(type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER ? { transferStatus: "PENDING" } : {}),
+          ...(type === "GRN" && !isAdmin ? { grnStatus: "PENDING" } : {}),
+          ...(type === "GOODS_OUT" && REQUIRE_APPROVAL.GOODS_OUT && !isAdmin ? { goodsOutStatus: "PENDING" } : {}),
+          ...(type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER && !isAdmin ? { transferStatus: "PENDING" } : {}),
         },
       });
 
@@ -206,9 +207,16 @@ export async function POST(req: Request) {
         });
 
         if (type === "GRN") {
-          // Stock deferred — applied only when admin approves
+          if (isAdmin) {
+            await tx.stock.upsert({
+              where: { productId_locationId: { productId: line.productId, locationId: toLocationId! } },
+              create: { productId: line.productId, locationId: toLocationId!, quantity: line.quantity },
+              update: { quantity: { increment: line.quantity } },
+            });
+          }
+          // else: stock deferred — applied only when admin approves
         } else if (type === "GOODS_OUT") {
-          if (!REQUIRE_APPROVAL.GOODS_OUT) {
+          if (!REQUIRE_APPROVAL.GOODS_OUT || isAdmin) {
             await tx.stock.update({
               where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
               data: { quantity: { decrement: line.quantity } },
@@ -216,7 +224,7 @@ export async function POST(req: Request) {
           }
           // else: stock deferred until admin approves
         } else if (type === "TRANSFER") {
-          if (!REQUIRE_APPROVAL.TRANSFER) {
+          if (!REQUIRE_APPROVAL.TRANSFER || isAdmin) {
             await tx.stock.update({
               where: { productId_locationId: { productId: line.productId, locationId: fromLocationId! } },
               data: { quantity: { decrement: line.quantity } },
@@ -254,7 +262,7 @@ export async function POST(req: Request) {
 
   // ── push-notify module ──────────────────────────────────────────────────
   const totalQtyNotify = lines.reduce((s, l) => s + l.quantity, 0);
-  if (type === "GRN") {
+  if (type === "GRN" && !isAdmin) {
     sendPushNotification({
       title: `📥 GRN Pending Approval — ${result.order.orderNumber}`,
       body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQtyNotify} units — awaiting admin approval before stock is credited`,
@@ -267,7 +275,7 @@ export async function POST(req: Request) {
           .then((l) => l?.name ?? "")
           .catch(() => "")
       : "";
-    if (REQUIRE_APPROVAL.GOODS_OUT) {
+    if (REQUIRE_APPROVAL.GOODS_OUT && !isAdmin) {
       sendPushNotification({
         title: `🚚 Goods Out Pending Approval — ${result.order.orderNumber}`,
         body: `${lines.length} item${lines.length !== 1 ? "s" : ""} · ${totalQtyNotify} units${fromName ? ` from ${fromName}` : ""} — awaiting admin approval`,
@@ -288,7 +296,7 @@ export async function POST(req: Request) {
       url: `/orders/${result.order.id}`,
     }).catch(() => {});
   }
-  if (type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER) {
+  if (type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER && !isAdmin) {
     const fromName = result.order.fromLocationId
       ? await prisma.location.findUnique({ where: { id: result.order.fromLocationId }, select: { name: true } })
           .then((l) => l?.name ?? "")
@@ -303,7 +311,7 @@ export async function POST(req: Request) {
 
   // ── Reorder point alerts ─────────────────────────────────────────────────
   // Only fire after immediate stock decrements (when approval is bypassed)
-  const stockAppliedNow = (type === "GOODS_OUT" && !REQUIRE_APPROVAL.GOODS_OUT) || (type === "TRANSFER" && !REQUIRE_APPROVAL.TRANSFER);
+  const stockAppliedNow = (type === "GOODS_OUT" && (!REQUIRE_APPROVAL.GOODS_OUT || isAdmin)) || (type === "TRANSFER" && (!REQUIRE_APPROVAL.TRANSFER || isAdmin));
   if (stockAppliedNow && fromLocationId) {
     const productIds = lines.map((l) => l.productId);
     prisma.stock.findMany({
@@ -334,7 +342,7 @@ export async function POST(req: Request) {
   writeAuditLog({
     session,
     action: actionLabel[type] ?? "CREATE_ORDER",
-    description: `${result.order.orderNumber} — ${lines.length} line${lines.length !== 1 ? "s" : ""}${(isManualAdjustment || type === "GRN" || (type === "GOODS_OUT" && REQUIRE_APPROVAL.GOODS_OUT) || (type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER)) ? " (pending approval)" : ""}`,
+    description: `${result.order.orderNumber} — ${lines.length} line${lines.length !== 1 ? "s" : ""}${(isManualAdjustment || (!isAdmin && (type === "GRN" || (type === "GOODS_OUT" && REQUIRE_APPROVAL.GOODS_OUT) || (type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER)))) ? " (pending approval)" : ""}`,
     entityId: result.order.id,
     entityType: "ORDER",
   });
