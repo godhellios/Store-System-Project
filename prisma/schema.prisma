@@ -62,6 +62,8 @@ model LoginLog {
   lat       Float?
   lng       Float?
   createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // User-managed units of measure (editable from Settings)
@@ -135,6 +137,9 @@ model Product {
   movements       Movement[]
   opnameLines     OpnameLine[]
   unitConversions ProductUnitConversion[]
+
+  @@index([categoryId])
+  @@index([isActive, approvalStatus])
 }
 
 // Per-product packaging / larger-unit definitions
@@ -161,6 +166,7 @@ model Stock {
   updatedAt  DateTime @updatedAt
 
   @@unique([productId, locationId])
+  @@index([locationId])
 }
 
 // Parent order document (GRN / Goods Out / Transfer / Adjustment)
@@ -193,6 +199,12 @@ model Order {
 
   lines     OrderLine[]
   movements Movement[]
+
+  @@index([type, createdAt])
+  @@index([grnStatus])
+  @@index([goodsOutStatus])
+  @@index([transferStatus])
+  @@index([adjustmentStatus])
 }
 
 // Line items within an order
@@ -208,6 +220,8 @@ model OrderLine {
   notes     String?
 
   movements Movement[]
+
+  @@index([orderId])
 }
 
 // Individual stock movements — full audit trail
@@ -226,6 +240,10 @@ model Movement {
   quantity       Int
   type           MovementType
   createdAt      DateTime     @default(now())
+
+  @@index([productId, createdAt])
+  @@index([orderId])
+  @@index([createdAt])
 }
 
 // Stock opname (physical count) session per location
@@ -242,6 +260,9 @@ model OpnameSession {
   approvedAt     DateTime?
 
   lines OpnameLine[]
+
+  @@index([locationId, status])
+  @@index([createdAt])
 }
 
 // Append-only record of every significant write action in the system
@@ -255,6 +276,9 @@ model AuditLog {
   entityId    String?
   entityType  String?
   createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityId, entityType])
 }
 
 // App-wide key-value configuration store
