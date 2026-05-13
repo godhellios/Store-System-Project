@@ -6,6 +6,7 @@ import { nextOrderNumber } from "@/lib/order-number";
 import { MovementType } from "@/generated/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { viewerGuard } from "@/lib/role-guard";
+import { sendPushNotification } from "@/modules/push-notify/send";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -66,7 +67,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json(updated);
   }
 
-  // Approve — create adjustment orders for all discrepancies
+  // Approve — create PENDING adjustment orders for all discrepancies.
+  // Stock is NOT changed here; admin must separately approve each adjustment order.
   if (action === "approve") {
     if (session.user.role !== "ADMIN")
       return NextResponse.json({ error: "Only admins can approve opname sessions" }, { status: 403 });
@@ -79,35 +81,37 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       (l) => l.physicalQty !== null && l.difference !== null && l.difference !== 0
     );
 
+    // Generate order number before the transaction — nextOrderNumber uses the global
+    // prisma client which shares the same single-connection pool; calling it inside
+    // prisma.$transaction would deadlock because the transaction already holds the
+    // one available connection.
+    // Retry up to 3 times in case of order number collision (P2002 on orderNumber).
+    let pendingOrderId: string | null = null;
     if (discrepancies.length > 0) {
-      // Generate order number before the transaction — nextOrderNumber uses the global
-      // prisma client which shares the same single-connection pool; calling it inside
-      // prisma.$transaction would deadlock because the transaction already holds the
-      // one available connection.
-      // Retry up to 3 times in case of order number collision (P2002 on orderNumber).
       const MAX_RETRIES = 3;
       let attempt = 0;
       while (attempt < MAX_RETRIES) {
         const orderNumber = await nextOrderNumber("ADJUSTMENT");
         try {
-          await prisma.$transaction(async (tx) => {
+          pendingOrderId = await prisma.$transaction(async (tx) => {
             const order = await tx.order.create({
               data: {
                 orderNumber,
                 type: "ADJUSTMENT",
                 toLocationId: fullSession!.locationId,
-                notes: `Stock Opname approval: ${fullSession!.sessionNumber}`,
-                adjustmentStatus: "APPROVED",
+                notes: `Stock Opname: ${fullSession!.sessionNumber}`,
+                adjustmentStatus: "PENDING",
                 adjustmentReason: "Stock Opname",
-                reviewedByName: session.user.name ?? null,
-                reviewedAt: new Date(),
+                createdByName: session.user.name ?? null,
               },
             });
 
             for (const line of discrepancies) {
               const diff = line.difference!;
+              // Signed quantity: positive = increase stock, negative = decrease stock.
+              // The adjustment approval route applies: newQty = currentQty + line.quantity
               const orderLine = await tx.orderLine.create({
-                data: { orderId: order.id, productId: line.productId, quantity: Math.abs(diff) },
+                data: { orderId: order.id, productId: line.productId, quantity: diff },
               });
               await tx.movement.create({
                 data: {
@@ -119,12 +123,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                   type: MovementType.ADJUSTMENT,
                 },
               });
-              await tx.stock.upsert({
-                where: { productId_locationId: { productId: line.productId, locationId: fullSession!.locationId } },
-                create: { productId: line.productId, locationId: fullSession!.locationId, quantity: line.physicalQty! },
-                update: { quantity: { increment: diff } },
-              });
+              // Stock NOT updated here — deferred to admin approval of the adjustment order
             }
+            return order.id;
           });
           break; // success
         } catch (err) {
@@ -146,9 +147,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       data: { status: "APPROVED", approvedAt: new Date(), approvedByName: session.user.name ?? null },
     });
 
-    writeAuditLog({ session, action: "APPROVE_OPNAME", description: `Approved opname ${fullSession!.sessionNumber} — ${discrepancies.length} adjustment(s)`, entityId: id, entityType: "OPNAME" });
+    writeAuditLog({ session, action: "APPROVE_OPNAME", description: `Approved opname ${fullSession!.sessionNumber} — ${discrepancies.length} adjustment(s) pending review`, entityId: id, entityType: "OPNAME" });
 
-    return NextResponse.json(updated);
+    if (pendingOrderId) {
+      sendPushNotification({
+        title: `⚖️ Adjustment Pending Review — ${fullSession!.sessionNumber}`,
+        body: `${discrepancies.length} item${discrepancies.length !== 1 ? "s" : ""} need stock adjustment confirmation`,
+        url: `/orders/${pendingOrderId}`,
+      }).catch(() => {});
+    }
+
+    return NextResponse.json({ ...updated, pendingOrderId });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

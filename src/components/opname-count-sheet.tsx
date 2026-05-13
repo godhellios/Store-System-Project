@@ -59,9 +59,15 @@ export function OpnameCountSheet({ session }: { session: Session }) {
       body: JSON.stringify({ action: "approve" }),
     });
     if (!res.ok) { toast.error("Failed to approve"); return; }
-    toast.success("Opname approved and stock adjusted");
+    const data = await res.json();
     setConfirmingApprove(false);
-    router.push("/opname");
+    if (data.pendingOrderId) {
+      toast.success("Opname disetujui. Adjustment menunggu konfirmasi stok.");
+      router.push(`/orders/${data.pendingOrderId}`);
+    } else {
+      toast.success("Opname disetujui — tidak ada selisih.");
+      router.push("/opname");
+    }
     router.refresh();
   }
 
@@ -209,17 +215,17 @@ export function OpnameCountSheet({ session }: { session: Session }) {
 
       {isReviewing && (
         <div className="flex gap-3 items-center flex-wrap">
-          <span className="text-xs text-slate-500">{discrepancies} discrepanc{discrepancies !== 1 ? "ies" : "y"} will generate adjustment orders on approval.</span>
+          <span className="text-xs text-slate-500">{discrepancies} selisih akan membuat adjustment order (status pending, stok belum berubah).</span>
           {confirmingApprove ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-600 font-medium">Approve and adjust stock?</span>
+              <span className="text-xs text-slate-600 font-medium">Setujui dan buat adjustment pending?</span>
               <button onClick={() => setConfirmingApprove(false)} className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
-              <button onClick={approve} className="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">Yes, approve</button>
+              <button onClick={approve} className="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">Ya, setujui</button>
             </div>
           ) : (
             <button onClick={() => setConfirmingApprove(true)}
               className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2 rounded-lg">
-              Approve & Adjust Stock
+              Setujui Opname
             </button>
           )}
         </div>
