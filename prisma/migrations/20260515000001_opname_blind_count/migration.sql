@@ -1,0 +1,3 @@
+ALTER TABLE "OpnameLine" ADD COLUMN "staffConfirmed" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "OpnameSession" ADD COLUMN "cancelNote" TEXT;
+ALTER TYPE "OpnameStatus" ADD VALUE IF NOT EXISTS 'CANCELLED';

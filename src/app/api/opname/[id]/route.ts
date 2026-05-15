@@ -45,17 +45,30 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // Update physical counts on lines
   if (action === "update-counts" && lines) {
     await prisma.$transaction(
-      lines.map((l: { id: string; physicalQty: number }) =>
+      lines.map((l: { id: string; physicalQty: number; staffConfirmed?: boolean }) =>
         prisma.opnameLine.update({
           where: { id: l.id },
           data: {
             physicalQty: l.physicalQty,
             difference: l.physicalQty - (opnameSession.lines.find((ol) => ol.id === l.id)?.bookQty ?? 0),
+            staffConfirmed: l.staffConfirmed ?? false,
           },
         })
       )
     );
     return NextResponse.json({ ok: true });
+  }
+
+  // Cancel with note (admin only, for REVIEWING sessions)
+  if (action === "cancel") {
+    if (session.user.role !== "ADMIN")
+      return NextResponse.json({ error: "Only admins can cancel sessions" }, { status: 403 });
+    const updated = await prisma.opnameSession.update({
+      where: { id },
+      data: { status: "CANCELLED", cancelNote: body.cancelNote ?? null },
+    });
+    writeAuditLog({ session, action: "CANCEL_OPNAME", description: `Cancelled opname ${opnameSession.sessionNumber}${body.cancelNote ? ` — ${body.cancelNote}` : ""}`, entityId: id, entityType: "OPNAME" });
+    return NextResponse.json(updated);
   }
 
   // Submit for review

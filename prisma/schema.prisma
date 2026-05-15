@@ -27,6 +27,7 @@ enum OpnameStatus {
   IN_PROGRESS
   REVIEWING
   APPROVED
+  CANCELLED
 }
 
 enum UserRole {
@@ -258,8 +259,9 @@ model OpnameSession {
   sessionNumber String       @unique
   location      Location     @relation(fields: [locationId], references: [id])
   locationId    String
-  status        OpnameStatus @default(IN_PROGRESS)
-  notes         String?
+  status         OpnameStatus @default(IN_PROGRESS)
+  notes          String?
+  cancelNote     String?
   createdByName  String?
   approvedByName String?
   createdAt      DateTime     @default(now())
@@ -301,10 +303,11 @@ model OpnameLine {
   sessionId   String
   product     Product       @relation(fields: [productId], references: [id])
   productId   String
-  bookQty     Int
-  physicalQty Int?
-  difference  Int?
-  notes       String?
+  bookQty        Int
+  physicalQty    Int?
+  difference     Int?
+  notes          String?
+  staffConfirmed Boolean @default(false)
 
   @@unique([sessionId, productId])
 }
