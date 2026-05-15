@@ -158,6 +158,20 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             </div>
           ))}
 
+        {/* Staff Guide — visible to all roles */}
+        <div className="px-4 pt-3.5 pb-1 text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-300 font-semibold">
+          Help
+        </div>
+        <a
+          href="/staff-guide.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 py-2.5 border-l-[3px] border-transparent text-[13px] pl-4 hover:bg-slate-900 dark:hover:bg-slate-800 hover:text-slate-200 transition-colors"
+        >
+          <span>📖</span>
+          Staff Guide
+        </a>
+
         {/* Extra bottom padding so last item clears the mobile browser bar */}
         <div className="h-4" />
       </nav>

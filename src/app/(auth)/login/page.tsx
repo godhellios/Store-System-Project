@@ -112,9 +112,19 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-xs text-gray-400">
-          {t("login.footer", "© 2026 Mitra Ramah — MRIs v1.4.3")}
-        </p>
+        <div className="text-center space-y-1">
+          <a
+            href="/staff-guide.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-xs text-blue-500 hover:text-blue-700 hover:underline"
+          >
+            📖 Staff Guide
+          </a>
+          <p className="text-xs text-gray-400">
+            {t("login.footer", "© 2026 Mitra Ramah — MRIs v1.4.3")}
+          </p>
+        </div>
       </div>
     </div>
   );
