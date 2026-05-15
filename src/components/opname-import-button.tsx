@@ -5,7 +5,7 @@ import { OpnameImportModal } from "./opname-import-modal";
 
 type Location = { id: string; name: string };
 
-export function OpnameImportButton({ locations }: { locations: Location[] }) {
+export function OpnameImportButton({ locations, isAdmin }: { locations: Location[]; isAdmin: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -20,7 +20,7 @@ export function OpnameImportButton({ locations }: { locations: Location[] }) {
         </svg>
         Import Excel
       </button>
-      {open && <OpnameImportModal locations={locations} onClose={() => setOpen(false)} />}
+      {open && <OpnameImportModal locations={locations} isAdmin={isAdmin} onClose={() => setOpen(false)} />}
     </>
   );
 }

@@ -29,9 +29,11 @@ type Stage = "upload" | "preview" | "applying";
 
 export function OpnameImportModal({
   locations,
+  isAdmin,
   onClose,
 }: {
   locations: Location[];
+  isAdmin: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -92,6 +94,16 @@ export function OpnameImportModal({
   const hasErrors = (result?.errors.length ?? 0) > 0;
   const hasRows = (result?.rows.length ?? 0) > 0;
   const discrepancies = result?.rows.filter((r) => r.difference !== 0).length ?? 0;
+
+  // Sort: flagged rows first (largest abs diff), then matches alphabetically
+  const sortedRows = result ? [...result.rows].sort((a, b) => {
+    const aDiff = a.difference !== 0;
+    const bDiff = b.difference !== 0;
+    if (aDiff && !bDiff) return -1;
+    if (!aDiff && bDiff) return 1;
+    if (aDiff && bDiff) return Math.abs(b.difference) - Math.abs(a.difference);
+    return a.productName.localeCompare(b.productName);
+  }) : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -209,26 +221,39 @@ export function OpnameImportModal({
                     <thead>
                       <tr className="bg-slate-50 text-slate-500 uppercase tracking-wide border-b border-slate-200">
                         <th className="px-3 py-2 text-left font-medium">Product</th>
-                        <th className="px-3 py-2 text-right font-medium">System Stock</th>
+                        {isAdmin && <th className="px-3 py-2 text-right font-medium">System Stock</th>}
                         <th className="px-3 py-2 text-right font-medium">Physical Count</th>
-                        <th className="px-3 py-2 text-right font-medium">Difference</th>
+                        {isAdmin ? (
+                          <th className="px-3 py-2 text-right font-medium">Difference</th>
+                        ) : (
+                          <th className="px-3 py-2 text-center font-medium">Status</th>
+                        )}
                         <th className="px-3 py-2 text-left font-medium">Notes</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {result.rows.map((row) => {
+                      {sortedRows.map((row) => {
                         const diff = row.difference;
+                        const hasDisc = diff !== 0;
                         return (
-                          <tr key={row.productId} className={`border-t border-slate-100 ${diff !== 0 ? "bg-orange-50" : ""}`}>
+                          <tr key={row.productId} className={`border-t border-slate-100 ${hasDisc ? "bg-orange-50" : ""}`}>
                             <td className="px-3 py-2">
                               <div className="font-medium text-slate-800">{row.productName}</div>
                               <div className="text-slate-400 font-mono">{row.sku} · {row.unit}</div>
                             </td>
-                            <td className="px-3 py-2 text-right text-slate-600">{row.currentStock}</td>
+                            {isAdmin && <td className="px-3 py-2 text-right text-slate-600">{row.currentStock}</td>}
                             <td className="px-3 py-2 text-right font-semibold text-slate-800">{row.physicalQty}</td>
-                            <td className={`px-3 py-2 text-right font-bold ${diff === 0 ? "text-green-600" : diff > 0 ? "text-blue-600" : "text-red-600"}`}>
-                              {diff === 0 ? "✓" : diff > 0 ? `+${diff}` : diff}
-                            </td>
+                            {isAdmin ? (
+                              <td className={`px-3 py-2 text-right font-bold ${diff === 0 ? "text-green-600" : diff > 0 ? "text-blue-600" : "text-red-600"}`}>
+                                {diff === 0 ? "✓" : diff > 0 ? `+${diff}` : diff}
+                              </td>
+                            ) : (
+                              <td className="px-3 py-2 text-center">
+                                {hasDisc
+                                  ? <span className="text-amber-600 font-semibold">⚠</span>
+                                  : <span className="text-green-600 font-bold">✓</span>}
+                              </td>
+                            )}
                             <td className="px-3 py-2 text-slate-400">{row.notes || "—"}</td>
                           </tr>
                         );
