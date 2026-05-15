@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -21,8 +21,8 @@ export async function GET(req: Request) {
   const where = {
     isActive: true,
     AND: [
-      // Only ACTIVE (or legacy null) products visible in main list — DRAFTs live in /products/pending
-      { OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }] },
+      // Only ACTIVE (or legacy null) products visible in main list â€” DRAFTs live in /products/pending
+      { approvalStatus: "ACTIVE" as const },
       ...(q ? [{ OR: [
         { name: { contains: q, mode: "insensitive" as const } },
         { sku: { contains: q, mode: "insensitive" as const } },
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
   if (!categoryId) return NextResponse.json({ error: "Category is required" }, { status: 400 });
   if (!unitId) return NextResponse.json({ error: "Unit is required" }, { status: 400 });
 
-  // Fuzzy duplicate check — skipped when user explicitly confirms
+  // Fuzzy duplicate check â€” skipped when user explicitly confirms
   if (!force) {
     const duplicates = await findSimilarProducts(name.trim());
     if (duplicates.length > 0) {
@@ -138,7 +138,7 @@ export async function POST(req: Request) {
     writeAuditLog({
       session,
       action: isAdmin ? "CREATE_PRODUCT" : "SUBMIT_PRODUCT_DRAFT",
-      description: `"${product.name}" (${product.sku})${isAdmin ? "" : " — submitted as draft, pending approval"}`,
+      description: `"${product.name}" (${product.sku})${isAdmin ? "" : " â€” submitted as draft, pending approval"}`,
       entityId: product.id,
       entityType: "PRODUCT",
     });
@@ -152,3 +152,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 }
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -24,14 +24,47 @@ type StockRow = {
 type Props = {
   stock: StockRow[];
   categories: { id: string; name: string }[];
+  total: number;
+  page: number;
+  pageSize: number;
+  locationId: string;
+  initialQ: string;
+  initialCategoryId: string;
 };
 
-export function WarehouseStockTable({ stock, categories }: Props) {
+export function WarehouseStockTable({
+  stock,
+  categories,
+  total,
+  page,
+  pageSize,
+  locationId,
+  initialQ,
+  initialCategoryId,
+}: Props) {
   const router = useRouter();
-  const [q, setQ] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [q, setQ] = useState(initialQ);
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const totalPages = Math.ceil(total / pageSize);
+
+  const pushUrl = useCallback(
+    (overrides: { q?: string; categoryId?: string; page?: number }) => {
+      const params = new URLSearchParams({
+        locationId,
+        q: overrides.q ?? q,
+        categoryId: overrides.categoryId ?? categoryId,
+        page: String(overrides.page ?? 1),
+      });
+      if (!params.get("q")) params.delete("q");
+      if (!params.get("categoryId")) params.delete("categoryId");
+      if (params.get("page") === "1") params.delete("page");
+      router.push(`/warehouse?${params.toString()}`);
+    },
+    [router, locationId, q, categoryId]
+  );
 
   async function deleteStock(stockId: string) {
     setDeletingId(stockId);
@@ -47,18 +80,7 @@ export function WarehouseStockTable({ stock, categories }: Props) {
     router.refresh();
   }
 
-  const filtered = stock.filter((s) => {
-    const matchQ =
-      !q ||
-      s.product.name.toLowerCase().includes(q.toLowerCase()) ||
-      s.product.sku.toLowerCase().includes(q.toLowerCase()) ||
-      s.product.barcode.toLowerCase().includes(q.toLowerCase());
-    const matchCat = !categoryId || s.product.category.id === categoryId;
-    return matchQ && matchCat;
-  });
-
-  const totalQty = filtered.reduce((sum, s) => sum + s.quantity, 0);
-  const lowCount = filtered.filter(
+  const lowCount = stock.filter(
     (s) => s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint
   ).length;
 
@@ -69,12 +91,13 @@ export function WarehouseStockTable({ stock, categories }: Props) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && pushUrl({ q })}
           placeholder="Search name, SKU, or barcode…"
           className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <select
           value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
+          onChange={(e) => { setCategoryId(e.target.value); pushUrl({ categoryId: e.target.value }); }}
           className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Categories</option>
@@ -82,10 +105,14 @@ export function WarehouseStockTable({ stock, categories }: Props) {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
+        <button
+          onClick={() => pushUrl({ q })}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg"
+        >
+          Search
+        </button>
         <div className="flex items-center gap-3 text-xs text-slate-500 px-1">
-          <span>{filtered.length} product{filtered.length !== 1 ? "s" : ""}</span>
-          <span>·</span>
-          <span>{totalQty} units total</span>
+          <span>{total} product{total !== 1 ? "s" : ""}</span>
           {lowCount > 0 && (
             <>
               <span>·</span>
@@ -97,9 +124,9 @@ export function WarehouseStockTable({ stock, categories }: Props) {
 
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
-        {filtered.length === 0 ? (
+        {stock.length === 0 ? (
           <p className="text-center text-xs text-slate-400 py-10">No items found</p>
-        ) : filtered.map((s) => {
+        ) : stock.map((s) => {
           const isLow = s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
           return (
             <div
@@ -137,7 +164,6 @@ export function WarehouseStockTable({ stock, categories }: Props) {
                   <span className="text-xs text-slate-400">· reorder at {s.product.reorderPoint}</span>
                 )}
               </div>
-              {/* Action buttons */}
               <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
                 <Link
                   href={`/products/${s.product.id}`}
@@ -190,13 +216,13 @@ export function WarehouseStockTable({ stock, categories }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {stock.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-xs text-slate-400">
                     No items found
                   </td>
                 </tr>
-              ) : filtered.map((s) => {
+              ) : stock.map((s) => {
                 const isLow = s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
                 const rowBg = !s.product.isActive
                   ? "opacity-50"
@@ -275,6 +301,29 @@ export function WarehouseStockTable({ stock, categories }: Props) {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>{total} products · page {page} of {totalPages}</span>
+            <div className="flex gap-1">
+              <button
+                disabled={page <= 1}
+                onClick={() => pushUrl({ page: page - 1 })}
+                className="px-3 py-1.5 border border-slate-300 rounded-lg disabled:opacity-40 hover:bg-slate-50"
+              >
+                ← Prev
+              </button>
+              <button
+                disabled={page >= totalPages}
+                onClick={() => pushUrl({ page: page + 1 })}
+                className="px-3 py-1.5 border border-slate-300 rounded-lg disabled:opacity-40 hover:bg-slate-50"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

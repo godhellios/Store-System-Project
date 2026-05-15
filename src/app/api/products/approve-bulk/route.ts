@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -39,13 +39,13 @@ export async function POST(req: Request) {
 
   // Handle pending edit requests on ACTIVE products (reject = discard; approve = require individual review)
   // Bulk reject simply discards the pending changes. Bulk approve of edits is not supported here
-  // because each edit's pendingChanges must be applied individually — use the single /approve endpoint.
+  // because each edit's pendingChanges must be applied individually â€” use the single /approve endpoint.
   let editResult = { count: 0 };
   if (action === "reject") {
     editResult = await prisma.product.updateMany({
       where: {
         id: { in: ids },
-        OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }],
+        approvalStatus: "ACTIVE",
         pendingChangedAt: { not: null },
       },
       data: reviewData,
@@ -60,3 +60,4 @@ export async function POST(req: Request) {
     editRequestsSkipped,
   });
 }
+

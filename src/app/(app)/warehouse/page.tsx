@@ -4,14 +4,17 @@ import { blockOperator } from "@/lib/role-guard";
 import { WarehouseStockTable } from "./stock-table";
 import { getT } from "@/modules/i18n";
 
+const PAGE_SIZE = 100;
+
 export default async function WarehousePage({
   searchParams,
 }: {
-  searchParams: Promise<{ locationId?: string }>;
+  searchParams: Promise<{ locationId?: string; q?: string; categoryId?: string; page?: string }>;
 }) {
   await blockOperator();
   const t = await getT();
-  const { locationId } = await searchParams;
+  const { locationId, q, categoryId, page: pageStr } = await searchParams;
+  const page = Math.max(1, parseInt(pageStr ?? "1") || 1);
 
   const [locations, categories] = await Promise.all([
     prisma.location.findMany({
@@ -24,13 +27,29 @@ export default async function WarehousePage({
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
 
-  const stock = locationId
-    ? await prisma.stock.findMany({
-        where: { locationId },
-        include: { product: { include: { category: true, unit: true } } },
-        orderBy: { product: { name: "asc" } },
-      })
-    : [];
+  const productFilter = {
+    ...(categoryId ? { categoryId } : {}),
+    ...(q ? {
+      OR: [
+        { name: { contains: q, mode: "insensitive" as const } },
+        { sku: { contains: q, mode: "insensitive" as const } },
+        { barcode: { contains: q, mode: "insensitive" as const } },
+      ],
+    } : {}),
+  };
+
+  const [stock, total] = locationId
+    ? await Promise.all([
+        prisma.stock.findMany({
+          where: { locationId, product: productFilter },
+          include: { product: { include: { category: true, unit: true } } },
+          orderBy: { product: { name: "asc" } },
+          skip: (page - 1) * PAGE_SIZE,
+          take: PAGE_SIZE,
+        }),
+        prisma.stock.count({ where: { locationId, product: productFilter } }),
+      ])
+    : [[] as Parameters<typeof WarehouseStockTable>[0]["stock"], 0];
 
   const selectedLocation = locations.find((l) => l.id === locationId) ?? null;
 
@@ -99,7 +118,16 @@ export default async function WarehousePage({
               {t("warehouse.deselect", "✕ Deselect")}
             </Link>
           </div>
-          <WarehouseStockTable stock={stock} categories={categories} />
+          <WarehouseStockTable
+            stock={stock}
+            categories={categories}
+            total={total}
+            page={page}
+            pageSize={PAGE_SIZE}
+            locationId={locationId!}
+            initialQ={q ?? ""}
+            initialCategoryId={categoryId ?? ""}
+          />
         </div>
       ) : (
         <p className="text-sm text-slate-400 text-center py-10">

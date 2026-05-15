@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
     prisma.product.findMany({
       where: {
         isActive: true,
-        OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }],
+        approvalStatus: "ACTIVE",
         ...(locationProductIds !== undefined ? { id: { in: locationProductIds } } : {}),
       },
       include: { category: true, unit: true },
@@ -115,7 +115,7 @@ export async function GET(req: Request) {
 
   // Add a legend row at the bottom
   const legendRow = sheet.addRow([
-    "← Do not edit columns A–H. Fill in column I with physical counted quantities.",
+    "â† Do not edit columns Aâ€“H. Fill in column I with physical counted quantities.",
   ]);
   legendRow.getCell(1).font = { italic: true, color: { argb: "FF888888" }, size: 9 };
   sheet.mergeCells(`A${legendRow.number}:J${legendRow.number}`);
@@ -132,7 +132,7 @@ export async function GET(req: Request) {
       formulae: [0],
       errorStyle: "stop",
       errorTitle: "Invalid Quantity",
-      error: "Physical Count Qty must be a whole number ≥ 0",
+      error: "Physical Count Qty must be a whole number â‰¥ 0",
     };
   });
 
@@ -151,3 +151,4 @@ export async function GET(req: Request) {
     },
   });
 }
+

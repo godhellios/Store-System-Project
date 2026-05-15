@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -24,7 +24,7 @@ type SavedProduct = {
   colorVariant: string | null;
   category: { name: string };
   unit: { name: string };
-  approvalStatus: string | null;
+  approvalStatus: string;
 };
 type SimilarProduct = { id: string; name: string; sku: string; score: number };
 
@@ -173,7 +173,7 @@ export function ProductForm({
     const url = isEdit ? `/api/products/${product!.id}` : "/api/products";
     const method = isEdit ? "PUT" : "POST";
 
-    // In create mode, sku + barcode are server-generated — don't send them
+    // In create mode, sku + barcode are server-generated â€” don't send them
     const payload = isEdit
       ? { ...form, reorderPoint: parseInt(form.reorderPoint) || 0, imageUrl: form.imageUrl || null, unitConversions: conversions.map((c) => ({ name: c.name, conversionFactor: c.conversionFactor, barcode: c.barcode || null })) }
       : { name: form.name, categoryId: form.categoryId, unitId: form.unitId, reorderPoint: parseInt(form.reorderPoint) || 0, colorVariant: form.colorVariant, description: form.description, imageUrl: form.imageUrl || null, unitConversions: conversions.map((c) => ({ name: c.name, conversionFactor: c.conversionFactor, barcode: c.barcode || null })), force };
@@ -239,25 +239,25 @@ export function ProductForm({
     }
   }
 
-  // ── Post-save card ────────────────────────────────────────────────────────
+  // â”€â”€ Post-save card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (savedProduct) {
     const isDraft = savedProduct.approvalStatus === "DRAFT";
     return (
       <div className="max-w-2xl">
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <div className="flex items-center gap-3 mb-5">
-            <span className="text-2xl">{isDraft ? "⏳" : "✅"}</span>
+            <span className="text-2xl">{isDraft ? "â³" : "âœ…"}</span>
             <div>
               <div className="font-semibold text-slate-800 text-sm">
                 {isDraft
                   ? t("productForm.submittedForApproval", "Submitted for approval")
-                  : t("productForm.saved", "Product saved")} — {savedProduct.name}{savedProduct.colorVariant ? ` ${savedProduct.colorVariant}` : ""}
+                  : t("productForm.saved", "Product saved")} â€” {savedProduct.name}{savedProduct.colorVariant ? ` ${savedProduct.colorVariant}` : ""}
               </div>
               <div className="text-xs text-slate-500 mt-0.5">
                 {t("productForm.code", "Code:")} <span className="font-mono">{savedProduct.sku}</span>
                 {!isDraft && (
                   <>
-                    &nbsp;·&nbsp;
+                    &nbsp;Â·&nbsp;
                     Barcode: <span className="font-mono">{savedProduct.barcode}</span>
                   </>
                 )}
@@ -281,16 +281,16 @@ export function ProductForm({
                 />
                 <div className="font-mono text-[10px] text-slate-500 tracking-wider">{savedProduct.barcode}</div>
                 <div className="text-xs font-semibold text-center text-slate-700">
-                  {savedProduct.name}{savedProduct.colorVariant ? ` — ${savedProduct.colorVariant}` : ""}
+                  {savedProduct.name}{savedProduct.colorVariant ? ` â€” ${savedProduct.colorVariant}` : ""}
                 </div>
-                <div className="text-[10px] text-slate-400">{savedProduct.unit.name} · {savedProduct.sku}</div>
+                <div className="text-[10px] text-slate-400">{savedProduct.unit.name} Â· {savedProduct.sku}</div>
               </div>
               <div className="flex flex-col gap-2">
                 <Link
                   href={`/barcodes?productId=${savedProduct.id}`}
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-lg transition-colors"
                 >
-                  🖨 {t("productForm.printLabel", "Print Label")}
+                  ðŸ–¨ {t("productForm.printLabel", "Print Label")}
                 </Link>
               </div>
             </div>
@@ -307,7 +307,7 @@ export function ProductForm({
               href="/products"
               className="px-4 py-2 text-xs border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
             >
-              {t("productForm.backToProducts", "← Back to Products")}
+              {t("productForm.backToProducts", "â† Back to Products")}
             </Link>
           </div>
         </div>
@@ -315,13 +315,13 @@ export function ProductForm({
     );
   }
 
-  // ── Duplicate warning modal ───────────────────────────────────────────────
+  // â”€â”€ Duplicate warning modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (duplicates !== null) {
     return (
       <div className="max-w-2xl">
         <div className="bg-white rounded-xl border border-amber-300 p-6">
           <div className="flex items-center gap-3 mb-4">
-            <span className="text-xl">⚠️</span>
+            <span className="text-xl">âš ï¸</span>
             <div>
               <div className="font-semibold text-slate-800 text-sm">Similar products found</div>
               <div className="text-xs text-slate-500 mt-0.5">These products have similar names. Please confirm this is a new product.</div>
@@ -344,7 +344,7 @@ export function ProductForm({
               disabled={saving}
               className="bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
             >
-              {saving ? "Submitting…" : "Submit Anyway"}
+              {saving ? "Submittingâ€¦" : "Submit Anyway"}
             </button>
             <button
               onClick={() => setDuplicates(null)}
@@ -358,14 +358,14 @@ export function ProductForm({
     );
   }
 
-  // ── Main form ─────────────────────────────────────────────────────────────
+  // â”€â”€ Main form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 p-6 max-w-2xl space-y-5">
-      {/* Pending edit banner — edit mode, non-admin, has pending */}
+      {/* Pending edit banner â€” edit mode, non-admin, has pending */}
       {isEdit && hasPendingEdit && !isAdmin && (
         <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <span className="text-amber-500 text-base leading-none mt-0.5">⏳</span>
+            <span className="text-amber-500 text-base leading-none mt-0.5">â³</span>
             <div>
               <div className="text-xs font-semibold text-amber-700">Edit pending admin approval</div>
               <div className="text-xs text-amber-600 mt-0.5">Your changes have been submitted and are awaiting review.</div>
@@ -377,15 +377,15 @@ export function ProductForm({
             disabled={cancellingPending}
             className="text-xs text-amber-700 hover:text-red-600 underline flex-shrink-0 disabled:opacity-50"
           >
-            {cancellingPending ? "Cancelling…" : "Cancel pending edit"}
+            {cancellingPending ? "Cancellingâ€¦" : "Cancel pending edit"}
           </button>
         </div>
       )}
 
-      {/* Approval notice — create mode, non-admin */}
+      {/* Approval notice â€” create mode, non-admin */}
       {!isEdit && !isAdmin && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-3">
-          <span className="text-amber-500 text-base leading-none mt-0.5">⏳</span>
+          <span className="text-amber-500 text-base leading-none mt-0.5">â³</span>
           <div>
             <div className="text-xs font-semibold text-amber-700">Requires Admin Approval</div>
             <div className="text-xs text-amber-600 mt-0.5">
@@ -395,10 +395,10 @@ export function ProductForm({
         </div>
       )}
 
-      {/* Barcode auto-generate notice — create mode, admin */}
+      {/* Barcode auto-generate notice â€” create mode, admin */}
       {!isEdit && isAdmin && (
         <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex items-start gap-3">
-          <span className="text-green-600 text-base leading-none mt-0.5">▣</span>
+          <span className="text-green-600 text-base leading-none mt-0.5">â–£</span>
           <div>
             <div className="text-xs font-semibold text-green-700">{t("productForm.barcodeAutoTitle", "Barcode Auto-Generated")}</div>
             <div className="text-xs text-green-600 mt-0.5">
@@ -429,11 +429,11 @@ export function ProductForm({
           ) : (
             <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 min-h-[38px]">
               {skuLoading ? (
-                <span className="text-xs text-slate-400 animate-pulse">Loading preview…</span>
+                <span className="text-xs text-slate-400 animate-pulse">Loading previewâ€¦</span>
               ) : previewSku ? (
                 <span className="font-mono text-sm text-slate-700">{previewSku}</span>
               ) : form.categoryId ? (
-                <span className="text-xs text-red-500">Category has no code — set it in Settings</span>
+                <span className="text-xs text-red-500">Category has no code â€” set it in Settings</span>
               ) : (
                 <span className="text-xs text-slate-400">Select a category to see preview</span>
               )}
@@ -444,7 +444,7 @@ export function ProductForm({
           )}
         </div>
 
-        {/* Barcode — edit mode only (admin can correct; read-only in create mode) */}
+        {/* Barcode â€” edit mode only (admin can correct; read-only in create mode) */}
         {isEdit && (
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">{t("productForm.barcode", "Barcode *")}</label>
@@ -457,7 +457,7 @@ export function ProductForm({
           <label className="block text-xs font-medium text-slate-600 mb-1">{t("productForm.category", "Category *")}</label>
           <select value={form.categoryId} onChange={(e) => set("categoryId", e.target.value)} required
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">{t("productForm.selectCategory", "Select category…")}</option>
+            <option value="">{t("productForm.selectCategory", "Select categoryâ€¦")}</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
@@ -466,7 +466,7 @@ export function ProductForm({
           <label className="block text-xs font-medium text-slate-600 mb-1">{t("productForm.baseUnit", "Base Unit *")}</label>
           <select value={form.unitId} onChange={(e) => { set("unitId", e.target.value); setConversions([]); }} required
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">{t("productForm.selectUnit", "Select unit…")}</option>
+            <option value="">{t("productForm.selectUnit", "Select unitâ€¦")}</option>
             {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
         </div>
@@ -482,17 +482,17 @@ export function ProductForm({
           <label className="block text-xs font-medium text-slate-600 mb-1">{t("productForm.colorVariant", "Color / Variant")}</label>
           <input value={form.colorVariant} onChange={(e) => set("colorVariant", e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g. Black, White, Red…" />
+            placeholder="e.g. Black, White, Redâ€¦" />
         </div>
 
         <div className="col-span-2">
           <label className="block text-xs font-medium text-slate-600 mb-1">{t("productForm.descriptionNotes", "Description / Notes")}</label>
           <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            placeholder={t("productForm.descPlaceholder", "Optional details about this product…")} />
+            placeholder={t("productForm.descPlaceholder", "Optional details about this productâ€¦")} />
         </div>
 
-        {/* ── Packaging / Higher Units ─────────────────────────── */}
+        {/* â”€â”€ Packaging / Higher Units â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="col-span-2">
           <label className="block text-xs font-medium text-slate-600 mb-1">{t("productForm.packagingUnits", "Packaging Units")}</label>
           <p className="text-xs text-slate-400 mb-2">
@@ -539,7 +539,7 @@ export function ProductForm({
                         {!c.barcode && <span className="ml-2 text-slate-300 font-normal italic">barcode auto</span>}
                       </span>
                       <button type="button" onClick={() => startEdit(i)} className="text-slate-500 hover:text-blue-600 hover:underline">{t("common.edit", "Edit")}</button>
-                      <button type="button" onClick={() => removeConversion(i)} className="text-red-400 hover:text-red-600 leading-none text-sm font-medium">×</button>
+                      <button type="button" onClick={() => removeConversion(i)} className="text-red-400 hover:text-red-600 leading-none text-sm font-medium">Ã—</button>
                     </>
                   )}
                 </div>
@@ -625,7 +625,7 @@ export function ProductForm({
                 disabled={uploading}
                 className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               >
-                {uploading ? t("productForm.uploading", "Uploading…") : form.imageUrl ? t("productForm.changeImage", "Change image") : t("productForm.uploadImage", "Upload image")}
+                {uploading ? t("productForm.uploading", "Uploadingâ€¦") : form.imageUrl ? t("productForm.changeImage", "Change image") : t("productForm.uploadImage", "Upload image")}
               </button>
               {form.imageUrl && (
                 <button
@@ -639,7 +639,7 @@ export function ProductForm({
                   {t("productForm.removeImage", "Remove")}
                 </button>
               )}
-              <p className="text-xs text-slate-400">{t("productForm.imageHint", "JPG, PNG, WEBP or GIF · max 5 MB")}</p>
+              <p className="text-xs text-slate-400">{t("productForm.imageHint", "JPG, PNG, WEBP or GIF Â· max 5 MB")}</p>
             </div>
           </div>
         </div>
@@ -648,7 +648,7 @@ export function ProductForm({
       {!isEdit && !previewSku && !!form.categoryId && !skuLoading && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-xs text-red-700">
           <span className="font-semibold shrink-0">Cannot save:</span>
-          <span>The selected category has no code. Go to <strong>Settings → Categories</strong> and set a code for it first.</span>
+          <span>The selected category has no code. Go to <strong>Settings â†’ Categories</strong> and set a code for it first.</span>
         </div>
       )}
 
@@ -656,14 +656,14 @@ export function ProductForm({
         <button type="submit" disabled={saving || uploading || (!isEdit && !previewSku && !!form.categoryId)}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
           {saving
-            ? t("productForm.saving", "Saving…")
+            ? t("productForm.saving", "Savingâ€¦")
             : isEdit && isAdmin
               ? t("productForm.saveChanges", "Save Changes")
               : isEdit && !isAdmin
-                ? "⏳ Submit Changes for Approval"
+                ? "â³ Submit Changes for Approval"
                 : isAdmin
-                  ? t("productForm.saveAndBarcode", "✓ Save & Generate Barcode")
-                  : t("productForm.submitForApproval", "⏳ Submit for Approval")}
+                  ? t("productForm.saveAndBarcode", "âœ“ Save & Generate Barcode")
+                  : t("productForm.submitForApproval", "â³ Submit for Approval")}
         </button>
         <button type="button" onClick={() => router.back()}
           className="px-5 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
@@ -673,3 +673,4 @@ export function ProductForm({
     </form>
   );
 }
+

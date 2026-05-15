@@ -7,6 +7,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/modules/i18n/LanguageSwitcher";
 import { useT } from "@/modules/i18n/provider";
 
+function clearDrafts() {
+  ["GOODS_OUT", "GRN", "TRANSFER", "ADJUSTMENT"].forEach((type) =>
+    localStorage.removeItem(`mris_draft_${type}`)
+  );
+}
+
 export function AppShell({
   children,
   userName,
@@ -43,6 +49,7 @@ export function AppShell({
   useEffect(() => {
     if (userRole === "ADMIN") return;
     if (!sessionStorage.getItem("session_alive")) {
+      clearDrafts();
       signOut({ callbackUrl: "/login" });
       return;
     }
@@ -51,6 +58,7 @@ export function AppShell({
     // 10 hours covers any overnight gap between shifts.
     if (loginAt && Date.now() - loginAt > 10 * 60 * 60 * 1000) {
       sessionStorage.removeItem("session_alive");
+      clearDrafts();
       signOut({ callbackUrl: "/login" });
     }
   }, [userRole, loginAt]);
@@ -64,6 +72,7 @@ export function AppShell({
         const data = await res.json();
         if (!data.valid) {
           sessionStorage.removeItem("session_alive");
+          clearDrafts();
           signOut({ callbackUrl: "/login?reason=displaced" });
         }
       } catch {

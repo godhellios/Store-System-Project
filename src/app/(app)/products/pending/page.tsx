@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -13,7 +13,7 @@ type PendingProduct = {
   barcode: string;
   colorVariant: string | null;
   description: string | null;
-  approvalStatus: string | null;
+  approvalStatus: string;
   pendingChanges: unknown;
   pendingChangedBy: string | null;
   pendingChangedAt: string | null;
@@ -96,7 +96,7 @@ export default function PendingApprovalPage() {
     if (!res.ok) { toast.error(data.error ?? "Failed"); return; }
     toast.success(`${action === "approve" ? "Approved" : "Rejected"} ${data.updated} product${data.updated !== 1 ? "s" : ""}`);
     if (data.editRequestsSkipped > 0) {
-      toast(`${data.editRequestsSkipped} edit request${data.editRequestsSkipped !== 1 ? "s" : ""} skipped — open each one to approve changes individually`, { icon: "⚠️" });
+      toast(`${data.editRequestsSkipped} edit request${data.editRequestsSkipped !== 1 ? "s" : ""} skipped â€” open each one to approve changes individually`, { icon: "âš ï¸" });
     }
     if (approvedProducts.length > 0) {
       setPrintQueue((q) => [...q, ...approvedProducts.map((p) => ({ id: p.id, name: p.name, barcode: p.barcode, colorVariant: p.colorVariant }))]);
@@ -110,7 +110,7 @@ export default function PendingApprovalPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
         <div className="flex items-center gap-3">
-          <Link href="/products" className="text-xs text-slate-500 hover:underline">← Products</Link>
+          <Link href="/products" className="text-xs text-slate-500 hover:underline">â† Products</Link>
           <h1 className="text-base font-semibold text-slate-800">Pending Approval</h1>
           {!loading && (
             <span className="bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full">{products.length}</span>
@@ -138,7 +138,7 @@ export default function PendingApprovalPage() {
             {bulkAction === "approve" ? `Approve ${selected.size} item${selected.size !== 1 ? "s" : ""}?` : `Reject ${selected.size} item${selected.size !== 1 ? "s" : ""}?`}
           </p>
           <textarea value={bulkNote} onChange={(e) => setBulkNote(e.target.value)}
-            placeholder="Optional note…" rows={2}
+            placeholder="Optional noteâ€¦" rows={2}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-3" />
           <div className="flex gap-2">
             <button onClick={() => doBulk(bulkAction, bulkNote)}
@@ -151,14 +151,14 @@ export default function PendingApprovalPage() {
         </div>
       )}
 
-      {/* Print label prompt — shown after approvals */}
+      {/* Print label prompt â€” shown after approvals */}
       {printQueue.length > 0 && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-green-600 text-base">✅</span>
+              <span className="text-green-600 text-base">âœ…</span>
               <span className="text-sm font-semibold text-green-800">
-                {printQueue.length === 1 ? "Product approved" : `${printQueue.length} products approved`} — print barcode label{printQueue.length !== 1 ? "s" : ""}?
+                {printQueue.length === 1 ? "Product approved" : `${printQueue.length} products approved`} â€” print barcode label{printQueue.length !== 1 ? "s" : ""}?
               </span>
             </div>
             <button onClick={() => setPrintQueue([])} className="text-xs text-green-600 hover:text-green-800 underline">Dismiss</button>
@@ -167,14 +167,14 @@ export default function PendingApprovalPage() {
             {printQueue.map((p) => (
               <div key={p.id} className="flex items-center justify-between bg-white border border-green-100 rounded-lg px-3 py-2">
                 <div>
-                  <span className="text-sm font-medium text-slate-800">{p.name}{p.colorVariant ? ` — ${p.colorVariant}` : ""}</span>
+                  <span className="text-sm font-medium text-slate-800">{p.name}{p.colorVariant ? ` â€” ${p.colorVariant}` : ""}</span>
                   <span className="ml-2 text-xs font-mono text-slate-400">{p.barcode}</span>
                 </div>
                 <Link
                   href={`/barcodes?productId=${p.id}`}
                   className="text-xs bg-violet-600 hover:bg-violet-700 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
                 >
-                  🖨 Print Label
+                  ðŸ–¨ Print Label
                 </Link>
               </div>
             ))}
@@ -185,7 +185,7 @@ export default function PendingApprovalPage() {
                 href={`/barcodes?productId=${printQueue[0].id}`}
                 className="text-xs text-green-700 hover:underline font-medium"
               >
-                Print all labels one by one →
+                Print all labels one by one â†’
               </Link>
             </div>
           )}
@@ -193,10 +193,10 @@ export default function PendingApprovalPage() {
       )}
 
       {loading ? (
-        <div className="text-center py-16 text-slate-400 text-sm">Loading…</div>
+        <div className="text-center py-16 text-slate-400 text-sm">Loadingâ€¦</div>
       ) : products.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 px-6 py-16 text-center">
-          <div className="text-3xl mb-3">✅</div>
+          <div className="text-3xl mb-3">âœ…</div>
           <div className="text-sm font-semibold text-slate-700">All caught up</div>
           <div className="text-xs text-slate-400 mt-1">No products awaiting approval</div>
         </div>
@@ -227,8 +227,8 @@ export default function PendingApprovalPage() {
                     <td className="px-4 py-2.5">
                       <button onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
                         className="font-medium text-slate-800 text-xs text-left hover:text-blue-600">
-                        {p.name}{p.colorVariant ? ` — ${p.colorVariant}` : ""}
-                        <span className="ml-1 text-slate-400">{expandedId === p.id ? "▲" : "▼"}</span>
+                        {p.name}{p.colorVariant ? ` â€” ${p.colorVariant}` : ""}
+                        <span className="ml-1 text-slate-400">{expandedId === p.id ? "â–²" : "â–¼"}</span>
                       </button>
                       {p.unitConversions.length > 0 && (
                         <div className="text-[11px] text-slate-400 mt-0.5">
@@ -238,17 +238,17 @@ export default function PendingApprovalPage() {
                     </td>
                     <td className="px-4 py-2.5 font-mono text-xs text-blue-600">{p.sku}</td>
                     <td className="px-4 py-2.5"><PendingTypeBadge product={p} /></td>
-                    <td className="px-4 py-2.5 text-xs text-slate-600">{p.pendingChangedBy ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-600">{p.pendingChangedBy ?? "â€”"}</td>
                     <td className="px-4 py-2.5 text-xs text-slate-500">
                       {p.pendingChangedAt
                         ? new Date(p.pendingChangedAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
-                        : "—"}
+                        : "â€”"}
                     </td>
                     <td className="px-4 py-3">
                       {rejectingId === p.id ? (
                         <div className="flex flex-col gap-1.5 min-w-[200px]">
                           <input type="text" value={rejectNote} onChange={(e) => setRejectNote(e.target.value)}
-                            placeholder="Reason (optional)…"
+                            placeholder="Reason (optional)â€¦"
                             className="px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-red-500"
                             autoFocus
                             onKeyDown={(e) => { if (e.key === "Enter") doAction(p.id, "reject", rejectNote); if (e.key === "Escape") { setRejectingId(null); setRejectNote(""); } }}
@@ -256,7 +256,7 @@ export default function PendingApprovalPage() {
                           <div className="flex gap-1">
                             <button onClick={() => doAction(p.id, "reject", rejectNote)} disabled={processingId === p.id}
                               className="text-[11px] bg-red-500 hover:bg-red-600 text-white font-semibold px-2 py-1 rounded disabled:opacity-50">
-                              {processingId === p.id ? "…" : "Confirm"}
+                              {processingId === p.id ? "â€¦" : "Confirm"}
                             </button>
                             <button onClick={() => { setRejectingId(null); setRejectNote(""); }}
                               className="text-[11px] px-2 py-1 border border-slate-200 rounded text-slate-500 hover:bg-slate-50">Cancel</button>
@@ -266,7 +266,7 @@ export default function PendingApprovalPage() {
                         <div className="flex gap-2">
                           <button onClick={() => doAction(p.id, "approve")} disabled={processingId === p.id}
                             className="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors">
-                            {processingId === p.id ? "…" : "Approve"}
+                            {processingId === p.id ? "â€¦" : "Approve"}
                           </button>
                           <button onClick={() => setRejectingId(p.id)} disabled={processingId === p.id}
                             className="text-xs border border-red-300 text-red-500 hover:bg-red-50 font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors">
@@ -288,7 +288,7 @@ export default function PendingApprovalPage() {
                             <div><span className="text-slate-500">Barcode:</span> <span className="font-mono">{p.barcode}</span></div>
                             {p.description && <div><span className="text-slate-500">Notes:</span> {p.description}</div>}
                             {p.unitConversions.map((c) => (
-                              <div key={c.id} className="text-slate-600">↳ 1 {c.name} = {c.conversionFactor} {p.unit.name} {c.barcode && <span className="font-mono text-slate-400">· {c.barcode}</span>}</div>
+                              <div key={c.id} className="text-slate-600">â†³ 1 {c.name} = {c.conversionFactor} {p.unit.name} {c.barcode && <span className="font-mono text-slate-400">Â· {c.barcode}</span>}</div>
                             ))}
                           </div>
                         ) : (
@@ -296,7 +296,7 @@ export default function PendingApprovalPage() {
                             <div className="font-medium text-slate-600 mb-1">Proposed changes:</div>
                             {Object.entries((p.pendingChanges as Record<string, unknown>) ?? {}).map(([k, v]) => (
                               k !== "unitConversions" && (
-                                <div key={k}><span className="text-slate-400">{k}:</span> <span className="font-medium">{String(v ?? "—")}</span></div>
+                                <div key={k}><span className="text-slate-400">{k}:</span> <span className="font-medium">{String(v ?? "â€”")}</span></div>
                               )
                             ))}
                             {Array.isArray((p.pendingChanges as Record<string, unknown>)?.unitConversions) && (
@@ -316,3 +316,4 @@ export default function PendingApprovalPage() {
     </div>
   );
 }
+

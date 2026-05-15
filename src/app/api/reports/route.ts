@@ -70,7 +70,7 @@ export async function GET(req: Request) {
       },
       include: { product: { include: { unit: true } }, fromLocation: true, toLocation: true, order: true },
       orderBy: { createdAt: "desc" },
-      take: 1000,
+      ...(format !== "xlsx" ? { take: 1000 } : {}),
     });
 
     if (format === "xlsx") {

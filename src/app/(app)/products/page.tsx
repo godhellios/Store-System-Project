@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+﻿import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { blockOperator } from "@/lib/role-guard";
 import { ProductsBulkPanel } from "@/components/products-bulk-panel";
@@ -42,8 +42,8 @@ export default async function ProductsPage({
   const where = {
     ...(showInactive ? {} : { isActive: true }),
     AND: [
-      // Exclude DRAFT products from the main list — visible in /products/pending
-      { OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }] },
+      // Exclude DRAFT products from the main list â€” visible in /products/pending
+      { approvalStatus: "ACTIVE" as const },
       ...(q ? [{ OR: [
         { name: { contains: q, mode: "insensitive" as const } },
         { sku: { contains: q, mode: "insensitive" as const } },
@@ -80,7 +80,7 @@ export default async function ProductsPage({
         <h1 className="text-base font-semibold text-slate-800">{t("products.title", "Products")}</h1>
         <div className="flex gap-2">
           <Link href="/products/import" className="text-xs px-3 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
-            {t("products.bulkImport", "↑ Bulk Import")}
+            {t("products.bulkImport", "â†‘ Bulk Import")}
           </Link>
           <Link href="/products/add" className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors">
             + {t("nav.links.addProduct", "Add Product")}
@@ -105,7 +105,7 @@ export default async function ProductsPage({
             <option value="">{t("products.allLocations", "All Locations")}</option>
             {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
-          <input name="q" defaultValue={q} placeholder={t("products.searchPlaceholder", "Search name, code, barcode…")}
+          <input name="q" defaultValue={q} placeholder={t("products.searchPlaceholder", "Search name, code, barcodeâ€¦")}
             className="col-span-2 sm:col-auto px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-64" />
         </div>
         <div className="flex flex-wrap items-center gap-3 mt-2">
@@ -117,7 +117,7 @@ export default async function ProductsPage({
           <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
             <input key={`ls-${lowStock}`} type="checkbox" name="lowStock" value="1" defaultChecked={lowStock}
               className="w-4 h-4 accent-red-500" />
-            <span className={lowStock ? "text-red-600 font-medium" : ""}>{t("products.lowStockOnly", "⚠ Low stock only")}</span>
+            <span className={lowStock ? "text-red-600 font-medium" : ""}>{t("products.lowStockOnly", "âš  Low stock only")}</span>
           </label>
           <button type="submit" className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700">{t("products.search", "Search")}</button>
           {(q || categoryId || unitId || locationId || showInactive || lowStock) && (
@@ -129,12 +129,12 @@ export default async function ProductsPage({
       <ProductsBulkPanel products={products} userRole={userRole} locationId={locationId} />
 
       {pages > 1 && (() => {
-        const slots: (number | "…")[] = [];
+        const slots: (number | "â€¦")[] = [];
         const near = new Set<number>([1, pages]);
         for (let i = Math.max(2, page - 2); i <= Math.min(pages - 1, page + 2); i++) near.add(i);
         let prev = 0;
         for (const n of [...near].sort((a, b) => a - b)) {
-          if (n - prev > 1) slots.push("…");
+          if (n - prev > 1) slots.push("â€¦");
           slots.push(n);
           prev = n;
         }
@@ -142,11 +142,11 @@ export default async function ProductsPage({
           <div className="flex items-center gap-1 justify-center mt-5">
             <Link href={`/products?${baseQs}&page=${page - 1}`}
               className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${page === 1 ? "pointer-events-none opacity-30 border-slate-200 text-slate-400" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
-              ← {t("common.previous", "Prev")}
+              â† {t("common.previous", "Prev")}
             </Link>
             {slots.map((s, i) =>
-              s === "…" ? (
-                <span key={`e${i}`} className="px-2 text-xs text-slate-400">…</span>
+              s === "â€¦" ? (
+                <span key={`e${i}`} className="px-2 text-xs text-slate-400">â€¦</span>
               ) : (
                 <Link key={s} href={`/products?${baseQs}&page=${s}`}
                   className={`min-w-[32px] text-center px-2 py-1.5 rounded-lg text-xs border transition-colors ${s === page ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
@@ -156,14 +156,15 @@ export default async function ProductsPage({
             )}
             <Link href={`/products?${baseQs}&page=${page + 1}`}
               className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${page === pages ? "pointer-events-none opacity-30 border-slate-200 text-slate-400" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
-              {t("common.next", "Next")} →
+              {t("common.next", "Next")} â†’
             </Link>
           </div>
         );
       })()}
       <p className="text-xs text-slate-400 mt-3 text-right">
-        {(page - 1) * perPage + 1}–{Math.min(page * perPage, total)} {t("products.of", "of")} {total} {t("products.label", "products")}
+        {(page - 1) * perPage + 1}â€“{Math.min(page * perPage, total)} {t("products.of", "of")} {total} {t("products.label", "products")}
       </p>
     </div>
   );
 }
+

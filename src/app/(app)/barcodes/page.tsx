@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+﻿import { prisma } from "@/lib/prisma";
 import { BarcodePrintPanel } from "@/components/barcode-print-panel";
 import { blockOperator } from "@/lib/role-guard";
 import { getT } from "@/modules/i18n";
@@ -19,7 +19,7 @@ export default async function BarcodesPage({
     prisma.product.findMany({
       where: {
         isActive: true,
-        AND: [{ OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }] }],
+        AND: [{ approvalStatus: "ACTIVE" as const }],
       },
       orderBy: { name: "asc" },
       include: { category: true, unit: true, unitConversions: true },
@@ -49,3 +49,4 @@ export default async function BarcodesPage({
     </div>
   );
 }
+

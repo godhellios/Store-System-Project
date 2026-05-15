@@ -19,7 +19,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const userRole = session.user.role;
 
   const { id } = await params;
-  const [order, waSetting, t] = await Promise.all([
+  const [order, t] = await Promise.all([
     prisma.order.findUnique({
       where: { id },
       include: {
@@ -28,11 +28,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         lines: { include: { product: { include: { category: true, unit: true } } }, orderBy: { id: "asc" } },
       },
     }),
-    prisma.systemSetting.findUnique({ where: { key: "whatsapp_number" } }),
     getT(),
   ]);
   if (!order) notFound();
-  const whatsappNumber = waSetting?.value ?? "6281283118487";
 
   return (
     <div className="max-w-3xl">
@@ -129,27 +127,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <div className="flex items-center gap-2 flex-wrap">
           {order.type === "GOODS_OUT" && !order.cancelledAt && (
             <>
-              {order.whatsappSentAt && (
-                <span className="text-[10px] px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
-                  {t("orderDetail.waSent", "WA Sent")}
-                </span>
-              )}
               {order.printedAt && (
                 <span className="text-[10px] px-2 py-1 bg-slate-100 text-slate-600 rounded-full font-medium">
                   {t("orderDetail.printed", "Printed")}
                 </span>
               )}
-              <GoodsOutDetailActions
-                orderId={id}
-                orderNumber={order.orderNumber}
-                customer={order.customer}
-                fromLocationName={order.fromLocation?.name ?? null}
-                lines={order.lines}
-                notes={order.notes}
-                whatsappNumber={whatsappNumber}
-                createdAt={order.createdAt}
-                savedBy={order.createdByName}
-              />
+              <GoodsOutDetailActions orderId={id} />
             </>
           )}
           <OrderActions

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+﻿import { notFound } from "next/navigation";
 import { BULK_IMAGE_UPLOAD_ENABLED } from "@/modules/bulk-image-upload/feature-flag";
 import { blockOperator } from "@/lib/role-guard";
 import { prisma } from "@/lib/prisma";
@@ -9,7 +9,7 @@ export default async function BulkImageUploadPage() {
   await blockOperator();
 
   const products = await prisma.product.findMany({
-    where: { isActive: true, OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }] },
+    where: { isActive: true, approvalStatus: "ACTIVE" },
     select: { id: true, sku: true, name: true, imageUrl: true },
     orderBy: { name: "asc" },
   });
@@ -23,3 +23,4 @@ export default async function BulkImageUploadPage() {
     </div>
   );
 }
+

@@ -48,17 +48,15 @@ type FlowState =
   | { step: "saving" }
   | { step: "grn_done"; orderId: string; orderNumber: string; isPending: boolean; barcodeUrl: string }
   | { step: "pending_approval"; orderId: string; orderNumber: string }
-  | { step: "whatsapp"; orderId: string; orderNumber: string; whatsappUrl: string }
   | { step: "print"; orderId: string; orderNumber: string }
   | { step: "done"; orderNumber: string }
   | { step: "error"; message: string; onRetry: (() => void) | null };
 
-// Maps flow step to the 0-based progress index (Save=0, WhatsApp=1, Print=2)
+// Maps flow step to the 0-based progress index (Save=0, Print=1)
 function progressIndex(step: FlowState["step"]): number {
   if (step === "saving") return 0;
-  if (step === "whatsapp") return 1;
-  if (step === "print") return 2;
-  if (step === "done") return 3;
+  if (step === "print") return 1;
+  if (step === "done") return 2;
   return -1; // pending_approval, confirm, idle, error — no progress bar
 }
 
@@ -68,7 +66,6 @@ function StepProgress({ step }: { step: FlowState["step"] }) {
   if (current < 0) return null;
   const labels = [
     t("transactionForm.steps.save", "Save"),
-    t("transactionForm.steps.whatsapp", "WhatsApp"),
     t("transactionForm.steps.print", "Print"),
   ];
   return (
@@ -100,61 +97,12 @@ function StepProgress({ step }: { step: FlowState["step"] }) {
   );
 }
 
-function buildWhatsAppUrl({
-  orderNumber,
-  customer,
-  fromLocationName,
-  lines,
-  notes,
-  whatsappNumber,
-  savedBy,
-}: {
-  orderNumber: string;
-  customer: string;
-  fromLocationName: string;
-  lines: LineItem[];
-  notes: string;
-  whatsappNumber: string;
-  savedBy?: string;
-}): string {
-  const date = new Date().toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  const totalBaseUnits = lines.reduce((s, l) => s + Math.round(l.quantity * l.conversionFactor), 0);
-
-  const itemLines = lines.map((l, i) => {
-    const baseQty = Math.round(l.quantity * l.conversionFactor);
-    return l.conversionFactor !== 1
-      ? `${i + 1}. ${l.name} — ${l.quantity} ${l.inputUnitName} (= ${baseQty} ${l.baseUnitName})`
-      : `${i + 1}. ${l.name} — ${l.quantity} ${l.baseUnitName}`;
-  });
-
-  const parts = [
-    `*SURAT JALAN / DELIVERY ORDER*`,
-    `No. DO: *${orderNumber}*`,
-    `Tanggal: ${date}`,
-    ...(savedBy          ? [`Oleh: *${savedBy}*`]               : []),
-    ...(customer        ? [`Customer: *${customer}*`]           : []),
-    ...(fromLocationName ? [`Dari: ${fromLocationName}`]         : []),
-    ``,
-    `*DAFTAR BARANG:*`,
-    ...itemLines,
-    ``,
-    `Total: *${lines.length} item* | *${totalBaseUnits} unit*`,
-    ...(notes ? [`Catatan: ${notes}`] : []),
-    ``,
-    `_MRIs – Mitra Ramah Inventory System_`,
-  ];
-
-  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(parts.join("\n"))}`;
-}
-
 export function TransactionForm({
   type,
   locations,
-  whatsappNumber = "6281283118487",
 }: {
   type: TransactionType;
   locations: Location[];
-  whatsappNumber?: string;
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -468,23 +416,10 @@ export function TransactionForm({
       return;
     }
 
-    const fromLocationName = locations.find((l) => l.id === fromLocationId)?.name ?? "";
-    const whatsappUrl = buildWhatsAppUrl({ orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, savedBy: session?.user?.name ?? undefined });
-    setFlowState({ step: "whatsapp", orderId, orderNumber, whatsappUrl });
-  }
-
-  // ── Goods Out step 2: send WhatsApp ─────────────────────────────────────
-  function handleWhatsApp(orderId: string, orderNumber: string, whatsappUrl: string) {
-    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-    fetch(`/api/orders/${orderId}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ whatsappSentAt: true }),
-    }).catch(() => {});
     setFlowState({ step: "print", orderId, orderNumber });
   }
 
-  // ── Goods Out step 3: print DO ───────────────────────────────────────────
+  // ── Goods Out step 2: print DO ───────────────────────────────────────────
   function handlePrint(orderId: string, orderNumber: string) {
     window.open(`/orders/${orderId}/print`, "_blank", "noopener,noreferrer");
     setFlowState({ step: "done", orderNumber });
@@ -815,7 +750,7 @@ export function TransactionForm({
                   <p className="text-xs text-slate-400 mb-0.5">Customer: {customer}</p>
                 )}
                 <p className="text-xs text-amber-600 font-medium mt-3 mb-5">
-                  {t("transactionForm.flow.afterSaving", "After saving: order will be sent for admin approval. WhatsApp and print available from the order detail page.")}
+                  {t("transactionForm.flow.afterSaving", "After saving: order will be sent for admin approval. Print is available from the order detail page.")}
                 </p>
                 <div className="flex gap-3">
                   <button onClick={() => setFlowState({ step: "idle" })}
@@ -910,35 +845,6 @@ export function TransactionForm({
               </>
             )}
 
-            {/* ── whatsapp ── */}
-            {flowState.step === "whatsapp" && (() => {
-              const { orderId, orderNumber, whatsappUrl } = flowState;
-              return (
-                <>
-                  <StepProgress step="whatsapp" />
-                  <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <h2 className="text-lg font-bold text-slate-800 mb-1">{t("transactionForm.flow.savedTitle", "Order Saved!")}</h2>
-                  <p className="text-sm font-mono text-slate-500 mb-4">{orderNumber}</p>
-                  <p className="text-sm text-slate-600 mb-5">
-                    {t("transactionForm.flow.sendWADesc", "Send the Delivery Order to WhatsApp. The print preview will open automatically.")}
-                  </p>
-                  <button
-                    onClick={() => handleWhatsApp(orderId, orderNumber, whatsappUrl)}
-                    className="w-full py-3 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                    </svg>
-                    {t("transactionForm.flow.sendWA", "Send to WhatsApp")}
-                  </button>
-                </>
-              );
-            })()}
-
             {/* ── print ── */}
             {flowState.step === "print" && (() => {
               const { orderId, orderNumber } = flowState;
@@ -950,7 +856,7 @@ export function TransactionForm({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <h2 className="text-lg font-bold text-slate-800 mb-1">{t("transactionForm.flow.waSentTitle", "WhatsApp Sent!")}</h2>
+                  <h2 className="text-lg font-bold text-slate-800 mb-1">{t("transactionForm.flow.savedTitle", "Order Saved!")}</h2>
                   <p className="text-sm font-mono text-slate-500 mb-4">{orderNumber}</p>
                   <p className="text-sm text-slate-600 mb-5">
                     {t("transactionForm.flow.printDesc", "Open the print preview to print or save the Delivery Order.")}
@@ -980,7 +886,7 @@ export function TransactionForm({
                 <h2 className="text-lg font-bold text-slate-800 mb-1">{t("transactionForm.flow.doneTitle", "Transaction Complete!")}</h2>
                 <p className="text-sm font-mono text-slate-500 mb-2">{flowState.orderNumber}</p>
                 <p className="text-xs text-slate-400 mb-6">
-                  {t("transactionForm.flow.doneSub", "Order saved, DO sent to WhatsApp, and print preview opened.")}
+                  {t("transactionForm.flow.doneSub", "Order saved and print preview opened.")}
                 </p>
                 <button
                   onClick={() => { router.push("/orders"); router.refresh(); }}

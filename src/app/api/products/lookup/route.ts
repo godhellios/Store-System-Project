@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const q = decodeURIComponent(raw);
 
   // Only scannable by active products (DRAFT products cannot be used in transactions)
-  const activeFilter = { OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }] };
+  const activeFilter = { approvalStatus: "ACTIVE" as const };
 
   const include = {
     category: true,
@@ -51,3 +51,4 @@ export async function GET(req: Request) {
 
   return NextResponse.json({ error: "Product not found" }, { status: 404 });
 }
+

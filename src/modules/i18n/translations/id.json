@@ -54,7 +54,7 @@
   },
   "app": {
     "title": "MRIs — Mitra Ramah Inventory System",
-    "footer": "© 2026 Mitra Ramah — Semua hak dilindungi | MRIs v1.3.5",
+    "footer": "© 2026 Mitra Ramah — Semua hak dilindungi | MRIs v1.4.3",
     "openNav": "Buka Menu",
     "closeMenu": "Tutup menu",
     "geo": {
@@ -65,7 +65,8 @@
       "firefox": "klik ikon kunci → Izinkan Lokasi",
       "safari": "Pengaturan → Safari → Lokasi → Izinkan",
       "android": "Pengaturan → Aplikasi → Browser → Izin → Lokasi",
-      "retry": "Coba Lagi"
+      "retry": "Coba Lagi",
+      "skip": "Lewati (lokasi tidak akan dicatat)"
     }
   },
   "login": {
@@ -76,7 +77,7 @@
     "signIn": "Masuk",
     "invalidCredentials": "Email atau kata sandi salah.",
     "displaced": "Sesi Anda digantikan oleh login dari perangkat lain. Silakan login kembali.",
-    "footer": "© 2026 Mitra Ramah — MRIs v1.3.5"
+    "footer": "© 2026 Mitra Ramah — MRIs v1.4.3"
   },
   "dashboard": {
     "totalProducts": "Total Produk",
@@ -297,6 +298,18 @@
       "doneBy": "Dilakukan Oleh",
       "created": "Dibuat",
       "approved": "Disetujui"
+    },
+    "sheet": {
+      "product": "Produk",
+      "category": "Kategori",
+      "bookQty": "Qty Sistem",
+      "physicalQty": "Qty Fisik",
+      "difference": "Selisih",
+      "unit": "Satuan",
+      "notes": "Catatan",
+      "saveDraft": "Simpan Draft",
+      "saving": "Menyimpan…",
+      "submitForReview": "Ajukan untuk Review"
     }
   },
   "barcodes": {

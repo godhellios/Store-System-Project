@@ -5,6 +5,15 @@ import { prisma } from "@/lib/prisma";
 import { MovementType, OrderType } from "@/generated/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { sendPushNotification } from "@/modules/push-notify/send";
+import {
+  checkSufficientStock,
+  applyGrnApproval,
+  applyGoodsOutApproval,
+  applyTransferApproval,
+  applyAdjustmentApproval,
+  InsufficientStockError,
+  type StockTx,
+} from "@/lib/stock";
 
 const MOVEMENT_TYPE: Record<OrderType, MovementType> = {
   GRN: MovementType.IN,
@@ -85,13 +94,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
 
       await prisma.$transaction(async (tx) => {
-        for (const line of order.lines) {
-          if (!order.toLocationId) continue;
-          await tx.stock.upsert({
-            where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
-            create: { productId: line.productId, locationId: order.toLocationId, quantity: line.quantity },
-            update: { quantity: { increment: line.quantity } },
-          });
+        if (order.toLocationId) {
+          await applyGrnApproval(tx as unknown as StockTx, order.lines, order.toLocationId);
         }
         await tx.order.update({ where: { id }, data: { grnStatus: "APPROVED", ...reviewFields } });
       });
@@ -112,25 +116,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           where: { productId: { in: order.lines.map((l) => l.productId) }, locationId: order.fromLocationId },
           include: { product: { select: { name: true } } },
         });
-        const stockMap = new Map(stockRows.map((s) => [s.productId, s]));
-        const insufficient: string[] = [];
-        for (const line of order.lines) {
-          const available = stockMap.get(line.productId)?.quantity ?? 0;
-          if (available < line.quantity) {
-            const name = stockMap.get(line.productId)?.product.name ?? line.productId;
-            insufficient.push(`"${name}" — available: ${available}, requested: ${line.quantity}`);
-          }
-        }
-        if (insufficient.length)
-          return NextResponse.json({ error: `Insufficient stock:\n${insufficient.join("\n")}` }, { status: 400 });
+        const stockMap = new Map(
+          stockRows.map((s) => [s.productId, { quantity: s.quantity, name: s.product.name }]),
+        );
+        const shortages = checkSufficientStock(order.lines, stockMap);
+        if (shortages.length)
+          return NextResponse.json({ error: `Insufficient stock:\n${shortages.join("\n")}` }, { status: 400 });
       }
       await prisma.$transaction(async (tx) => {
-        for (const line of order.lines) {
-          if (!order.fromLocationId) continue;
-          await tx.stock.update({
-            where: { productId_locationId: { productId: line.productId, locationId: order.fromLocationId } },
-            data: { quantity: { decrement: line.quantity } },
-          });
+        if (order.fromLocationId) {
+          await applyGoodsOutApproval(tx as unknown as StockTx, order.lines, order.fromLocationId);
         }
         await tx.order.update({ where: { id }, data: { goodsOutStatus: "APPROVED", ...reviewFields } });
       });
@@ -165,30 +160,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           where: { productId: { in: order.lines.map((l) => l.productId) }, locationId: order.fromLocationId },
           include: { product: { select: { name: true } } },
         });
-        const stockMap = new Map(stockRows.map((s) => [s.productId, s]));
-        const insufficient: string[] = [];
-        for (const line of order.lines) {
-          const available = stockMap.get(line.productId)?.quantity ?? 0;
-          if (available < line.quantity) {
-            const name = stockMap.get(line.productId)?.product.name ?? line.productId;
-            insufficient.push(`"${name}" — available: ${available}, requested: ${line.quantity}`);
-          }
-        }
-        if (insufficient.length)
-          return NextResponse.json({ error: `Insufficient stock:\n${insufficient.join("\n")}` }, { status: 400 });
+        const stockMap = new Map(
+          stockRows.map((s) => [s.productId, { quantity: s.quantity, name: s.product.name }]),
+        );
+        const shortages = checkSufficientStock(order.lines, stockMap);
+        if (shortages.length)
+          return NextResponse.json({ error: `Insufficient stock:\n${shortages.join("\n")}` }, { status: 400 });
       }
       await prisma.$transaction(async (tx) => {
-        for (const line of order.lines) {
-          if (!order.fromLocationId || !order.toLocationId) continue;
-          await tx.stock.update({
-            where: { productId_locationId: { productId: line.productId, locationId: order.fromLocationId } },
-            data: { quantity: { decrement: line.quantity } },
-          });
-          await tx.stock.upsert({
-            where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
-            create: { productId: line.productId, locationId: order.toLocationId, quantity: line.quantity },
-            update: { quantity: { increment: line.quantity } },
-          });
+        if (order.fromLocationId && order.toLocationId) {
+          await applyTransferApproval(tx as unknown as StockTx, order.lines, order.fromLocationId, order.toLocationId);
         }
         await tx.order.update({ where: { id }, data: { transferStatus: "APPROVED", ...reviewFields } });
       });
@@ -217,35 +198,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   // ── Adjustment approve / reject ───────────────────────────────────────────
   if (action === "approve") {
-    class InsufficientStockError extends Error {}
-
     try {
       await prisma.$transaction(async (tx) => {
-        for (const line of order.lines) {
-          if (!order.toLocationId) continue;
-
-          const existing = await tx.stock.findUnique({
-            where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
-            select: { quantity: true },
-          });
-          const currentQty = existing?.quantity ?? 0;
-          const newQty = currentQty + line.quantity;
-
-          if (newQty < 0) {
-            const product = await tx.product.findUnique({ where: { id: line.productId }, select: { name: true, sku: true } });
-            throw new InsufficientStockError(`Insufficient stock for "${product?.name ?? line.productId}" (${product?.sku ?? ""}): has ${currentQty}, adjustment would result in ${newQty}`);
-          }
-
-          if (existing) {
-            await tx.stock.update({
-              where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
-              data: { quantity: newQty },
-            });
-          } else {
-            await tx.stock.create({
-              data: { productId: line.productId, locationId: order.toLocationId, quantity: newQty },
-            });
-          }
+        if (order.toLocationId) {
+          await applyAdjustmentApproval(tx as unknown as StockTx, order.lines, order.toLocationId);
         }
         await tx.order.update({ where: { id }, data: { adjustmentStatus: "APPROVED", ...reviewFields } });
       });
@@ -322,6 +278,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     // Full order edit: reverse old stock, replace lines, apply new stock
     if (!lines.length) return NextResponse.json({ error: "At least one line is required" }, { status: 400 });
 
+    // C2: capture old state for audit log before transaction
+    const [oldLines, newProductSkus] = await Promise.all([
+      prisma.orderLine.findMany({
+        where: { orderId: id },
+        include: { product: { select: { name: true, sku: true } } },
+      }),
+      prisma.product.findMany({
+        where: { id: { in: lines.map((l) => l.productId) } },
+        select: { id: true, sku: true },
+      }),
+    ]);
+    const productSkuMap = new Map(newProductSkus.map((p) => [p.id, p.sku]));
+
     try {
       await prisma.$transaction(async (tx) => {
         const current = await tx.order.findUnique({
@@ -364,6 +333,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           }
         }
 
+        // C1: stock sufficiency check for new GOODS_OUT/TRANSFER lines after reversal
+        if (!skipStock && (current.type === "GOODS_OUT" || current.type === "TRANSFER") && current.fromLocationId) {
+          const productIds = lines!.map((l) => l.productId);
+          const stockRows = await tx.stock.findMany({
+            where: { productId: { in: productIds }, locationId: current.fromLocationId },
+            include: { product: { select: { name: true } } },
+          });
+          const stockMap = new Map(
+            stockRows.map((s) => [s.productId, { quantity: s.quantity, name: s.product.name }]),
+          );
+          const shortages = checkSufficientStock(lines!, stockMap);
+          if (shortages.length > 0) {
+            throw new Error(`Insufficient stock:\n${shortages.join("\n")}`);
+          }
+        }
+
         // 2. Delete old movements and lines
         await tx.movement.deleteMany({ where: { orderId: id } });
         await tx.orderLine.deleteMany({ where: { orderId: id } });
@@ -400,6 +385,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
               toLocationId: current.toLocationId ?? null,
               quantity: line.quantity,
               type: MOVEMENT_TYPE[current.type],
+              createdAt: current.createdAt, // C3: preserve original order timestamp
             },
           });
 
@@ -432,8 +418,21 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       });
     } catch (err) {
       console.error("Order update failed:", err);
-      return NextResponse.json({ error: "Failed to update order — please try again" }, { status: 500 });
+      const msg = err instanceof Error ? err.message : "Failed to update order — please try again";
+      const status = msg.startsWith("Insufficient stock") ? 400 : 500;
+      return NextResponse.json({ error: msg }, { status });
     }
+
+    // C2: audit log for full line edit
+    const oldDesc = oldLines.map((l) => `${l.product.sku}:${l.quantity}`).join(", ");
+    const newDesc = lines.map((l) => `${productSkuMap.get(l.productId) ?? l.productId}:${l.quantity}`).join(", ");
+    writeAuditLog({
+      session,
+      action: "EDIT_ORDER",
+      description: `Edited ${existing?.orderNumber ?? id} — lines: [${oldDesc}] → [${newDesc}]`,
+      entityId: id,
+      entityType: "ORDER",
+    });
 
     return NextResponse.json({ success: true });
   }
@@ -455,6 +454,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       }
     }
     return updated;
+  });
+
+  // C2: audit log for metadata-only edit
+  writeAuditLog({
+    session,
+    action: "EDIT_ORDER",
+    description: `Edited ${order.orderNumber} — metadata (customer/reference/notes)`,
+    entityId: id,
+    entityType: "ORDER",
   });
 
   return NextResponse.json(order);

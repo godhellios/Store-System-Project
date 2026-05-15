@@ -217,6 +217,9 @@ export async function POST(req: Request) {
       if (raw.imageUrl !== undefined) changes.imageUrl = raw.imageUrl.trim() || null;
 
       if (!isAdmin) {
+        if (row.parsedUnitConversions?.length) {
+          changes.unitConversions = row.parsedUnitConversions;
+        }
         const product = await prisma.product.update({
           where: { id: existingProduct!.id },
           data: { pendingChanges: changes as Prisma.InputJsonValue, pendingChangedBy: submitterName, pendingChangedAt: new Date() },

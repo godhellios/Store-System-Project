@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     isActive: true,
     ...(categoryId ? { categoryId } : {}),
     AND: [
-      { OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }] },
+      { approvalStatus: "ACTIVE" as const },
       ...(textFilter ? [textFilter] : []),
     ],
   };
@@ -42,3 +42,5 @@ export async function GET(req: Request) {
     return NextResponse.json([], { status: 200 });
   }
 }
+
+

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MovementType, OrderType } from "@/generated/prisma";
+import { checkSufficientStock } from "@/lib/stock";
 // ── push-notify module ──────────────────────────────────────────────────────
 import { sendPushNotification } from "@/modules/push-notify/send";
 // ────────────────────────────────────────────────────────────────────────────
@@ -98,21 +99,16 @@ export async function POST(req: Request) {
     const locationId = fromLocationId!;
     const stockRecords = await prisma.stock.findMany({
       where: { productId: { in: lines.map((l) => l.productId) }, locationId },
-      include: { product: true },
+      include: { product: { select: { name: true } } },
     });
-    const stockMap = new Map(stockRecords.map((s) => [s.productId, s]));
-    const insufficient: string[] = [];
-    for (const line of lines) {
-      const available = stockMap.get(line.productId)?.quantity ?? 0;
-      if (available < line.quantity) {
-        const name = stockMap.get(line.productId)?.product.name ?? line.productId;
-        insufficient.push(`"${name}" — available: ${available}, requested: ${line.quantity}`);
-      }
-    }
-    if (insufficient.length > 0)
+    const stockMap = new Map(
+      stockRecords.map((s) => [s.productId, { quantity: s.quantity, name: s.product.name }]),
+    );
+    const shortages = checkSufficientStock(lines, stockMap);
+    if (shortages.length > 0)
       return NextResponse.json(
-        { error: `Insufficient stock:\n${insufficient.join("\n")}` },
-        { status: 400 }
+        { error: `Insufficient stock:\n${shortages.join("\n")}` },
+        { status: 400 },
       );
   }
   // ─────────────────────────────────────────────────────────────────────────
