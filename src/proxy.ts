@@ -96,6 +96,6 @@ export const config = {
     // Rate-limited auth endpoint (excluded from the broad pattern below).
     "/api/auth/signin",
     // All app routes except static assets, the login page, and other auth endpoints.
-    "/((?!login|api/auth|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|api/auth|_next/static|_next/image|favicon.ico|staff-guide.html).*)",
   ],
 };
