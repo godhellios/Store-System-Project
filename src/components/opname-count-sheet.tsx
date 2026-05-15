@@ -160,10 +160,7 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
       <div>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
           <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-500">
-            <span>
-              {filledCount}/{session.lines.length} terhitung
-              {hasUnresolvedMismatch && " · ⚠ ada item belum dikonfirmasi"}
-            </span>
+            <span>{filledCount}/{session.lines.length} terhitung</span>
             <span className="font-medium text-yellow-600">IN PROGRESS</span>
           </div>
 
@@ -265,14 +262,11 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
         </div>
 
         <div className="flex gap-3 flex-wrap items-center">
-          {hasUnresolvedMismatch && (
-            <span className="text-xs text-amber-600 w-full">⚠ Konfirmasi semua item yang tidak sesuai sebelum submit</span>
-          )}
           <button onClick={saveCounts} disabled={saving}
             className="px-5 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50">
             {saving ? "Saving…" : "Save Draft"}
           </button>
-          <button onClick={submitForReview} disabled={saving || filledCount === 0 || hasUnresolvedMismatch}
+          <button onClick={submitForReview} disabled={saving || filledCount === 0}
             className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg">
             Submit for Review
           </button>
