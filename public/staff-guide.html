@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panduan Visual Staff — MRIS v1.4.3</title>
+<style>
+  /* ── Base ── */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #1e293b; font-size: 14px; }
+
+  /* ── Print ── */
+  @media print {
+    body { background: white; font-size: 12px; }
+    .page-break { page-break-before: always; }
+    .no-print { display: none; }
+    .screen-wrapper { break-inside: avoid; }
+    h2.section-title { break-before: page; }
+  }
+
+  /* ── Layout ── */
+  .container { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
+
+  /* ── Cover ── */
+  .cover {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    color: white; text-align: center; padding: 60px 40px; border-radius: 16px; margin-bottom: 40px;
+  }
+  .cover h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+  .cover .sub { font-size: 16px; opacity: 0.85; margin-bottom: 24px; }
+  .cover .version { background: rgba(255,255,255,0.2); display: inline-block; padding: 6px 20px; border-radius: 99px; font-size: 13px; font-weight: 600; }
+
+  /* ── TOC ── */
+  .toc { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 36px; }
+  .toc h3 { font-size: 13px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+  .toc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .toc-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f8fafc; border-radius: 8px; }
+  .toc-num { width: 24px; height: 24px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .toc-label { font-size: 13px; font-weight: 500; color: #374151; }
+
+  /* ── Section ── */
+  h2.section-title {
+    font-size: 18px; font-weight: 800; color: #1e293b;
+    border-left: 4px solid #3b82f6; padding-left: 12px;
+    margin: 40px 0 20px;
+  }
+  .section-intro { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #1d4ed8; line-height: 1.6; }
+
+  /* ── Screen wrapper ── */
+  .screen-wrapper { margin-bottom: 32px; }
+  .screen-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 8px; }
+
+  /* ── Annotation container ── */
+  .annotated { position: relative; display: inline-block; width: 100%; }
+
+  /* ── Mock screen chrome ── */
+  .browser-chrome {
+    background: #e2e8f0; border-radius: 10px 10px 0 0; padding: 10px 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .browser-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .browser-dot.red { background: #ef4444; }
+  .browser-dot.yellow { background: #f59e0b; }
+  .browser-dot.green { background: #22c55e; }
+  .browser-url { background: white; border-radius: 6px; flex: 1; padding: 4px 10px; font-size: 11px; color: #64748b; margin-left: 8px; }
+
+  /* ── Screen content ── */
+  .screen {
+    background: white; border: 2px solid #e2e8f0; border-top: none;
+    border-radius: 0 0 10px 10px; overflow: hidden; position: relative;
+  }
+
+  /* ── Sidebar ── */
+  .app-layout { display: flex; min-height: 420px; }
+  .sidebar {
+    width: 188px; background: #0f172a; flex-shrink: 0;
+    display: flex; flex-direction: column; padding: 16px 0;
+  }
+  .sidebar-logo { padding: 0 16px 16px; border-bottom: 1px solid #1e293b; }
+  .sidebar-logo-text { color: #f1f5f9; font-size: 13px; font-weight: 700; }
+  .sidebar-logo-sub { color: #64748b; font-size: 10px; margin-top: 2px; }
+  .sidebar-section { padding: 12px 16px 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; }
+  .sidebar-link {
+    display: flex; align-items: center; gap-: 8px; padding: 8px 16px;
+    font-size: 12px; color: #94a3b8; cursor: pointer;
+  }
+  .sidebar-link.active { background: #1e3a5f; color: #60a5fa; border-right: 3px solid #3b82f6; }
+  .sidebar-link:hover { color: #cbd5e1; }
+  .sidebar-spacer { flex: 1; }
+  .sidebar-logout { padding: 12px 16px; border-top: 1px solid #1e293b; font-size: 12px; color: #64748b; cursor: pointer; }
+
+  /* ── Main content ── */
+  .main-content { flex: 1; padding: 20px; background: #f8fafc; overflow: auto; }
+  .page-title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 16px; }
+
+  /* ── Cards ── */
+  .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .location-card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; }
+  .location-card.selected { border-color: #3b82f6; background: #eff6ff; }
+  .location-name { font-size: 12px; font-weight: 700; color: #1e293b; }
+  .location-stats { display: flex; gap: 16px; margin-top: 8px; }
+  .stat-num { font-size: 20px; font-weight: 800; color: #374151; }
+  .stat-label { font-size: 9px; text-transform: uppercase; color: #9ca3af; }
+
+  /* ── Form elements ── */
+  .form-group { margin-bottom: 10px; }
+  .form-label { font-size: 11px; font-weight: 600; color: #64748b; display: block; margin-bottom: 4px; }
+  .form-select { width: 100%; padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; color: #374151; background: white; }
+  .form-input { width: 100%; padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; color: #374151; }
+
+  /* ── Scan bar ── */
+  .scan-bar { background: #f0fdf4; border-bottom: 1px solid #bbf7d0; padding: 12px 16px; display: flex; gap: 12px; align-items: flex-start; }
+  .scan-icon { font-size: 22px; }
+  .scan-field { flex: 1; }
+  .scan-field-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #16a34a; margin-bottom: 4px; }
+  .scan-input { width: 100%; padding: 6px 10px; border: 1.5px solid #16a34a; border-radius: 7px; font-size: 13px; color: #374151; }
+  .search-name-field { flex: 1; }
+  .search-name-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 4px; }
+  .search-name-input { width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 13px; color: #374151; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table.items { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.items th { background: #f8fafc; color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding: 7px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+  table.items td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; color: #374151; }
+  table.items tr:last-child td { border-bottom: none; }
+  .qty-input { width: 60px; padding: 4px 8px; border: 1.5px solid #3b82f6; border-radius: 6px; font-size: 13px; text-align: right; }
+  .unit-select { padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; }
+  .base-qty { font-size: 11px; color: #3b82f6; font-weight: 600; }
+  .stock-ok { color: #16a34a; font-weight: 700; font-size: 12px; }
+  .stock-low { color: #ef4444; font-weight: 700; font-size: 12px; }
+
+  /* ── Footer bar ── */
+  .form-footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .footer-summary { font-size: 12px; color: #64748b; }
+  .btn-primary { background: #2563eb; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-secondary { background: white; color: #374151; border: 1px solid #d1d5db; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-danger { background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-green { background: #16a34a; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-black { background: #1e293b; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+  /* ── Login screen ── */
+  .login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 32px; background: #f8fafc; min-height: 380px; }
+  .login-logo { text-align: center; margin-bottom: 32px; }
+  .login-logo-icon { width: 56px; height: 56px; background: #2563eb; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+  .login-logo-icon svg { width: 28px; height: 28px; fill: white; }
+  .login-title { font-size: 20px; font-weight: 800; color: #1e293b; }
+  .login-sub { font-size: 13px; color: #64748b; margin-top: 4px; }
+  .login-form { background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px; width: 100%; max-width: 360px; }
+  .login-field { margin-bottom: 14px; }
+  .login-label { font-size: 12px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px; }
+  .login-input { width: 100%; padding: 9px 12px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; color: #374151; }
+  .login-input.focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  .login-btn { width: 100%; background: #2563eb; color: white; border: none; padding: 11px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 4px; }
+  .login-footer { text-align: center; margin-top: 20px; font-size: 11px; color: #9ca3af; }
+
+  /* ── Flow modal ── */
+  .modal-overlay { background: rgba(0,0,0,0.4); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10; border-radius: 0 0 10px 10px; }
+  .modal { background: white; border-radius: 14px; padding: 28px; text-align: center; max-width: 320px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+  .modal-icon { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+  .modal-icon.success { background: #dcfce7; }
+  .modal-icon.print { background: #dbeafe; }
+  .modal-title { font-size: 16px; font-weight: 800; color: #1e293b; margin-bottom: 6px; }
+  .modal-sub { font-size: 12px; color: #64748b; margin-bottom: 18px; }
+  .modal-order { font-size: 12px; font-family: monospace; color: #64748b; margin-bottom: 18px; }
+  .progress-bar { display: flex; align-items: center; margin-bottom: 20px; padding: 0 8px; }
+  .progress-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+  .progress-circle { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .progress-circle.done { background: #2563eb; color: white; }
+  .progress-circle.active { background: #dbeafe; color: #2563eb; border: 2px solid #2563eb; }
+  .progress-circle.pending { background: #f1f5f9; color: #94a3b8; }
+  .progress-line { flex: 1; height: 2px; background: #e2e8f0; margin: 0 4px; margin-bottom: 20px; }
+  .progress-line.done { background: #2563eb; }
+  .progress-label { font-size: 10px; color: #64748b; }
+  .progress-label.active { color: #2563eb; font-weight: 600; }
+
+  /* ── Opname table ── */
+  .opname-row-ok td { }
+  .opname-row-diff td { background: #fef2f2; }
+  .opname-diff-pos { color: #16a34a; font-weight: 700; font-size: 12px; }
+  .opname-diff-neg { color: #ef4444; font-weight: 700; font-size: 12px; }
+
+  /* ── Dashboard cards ── */
+  .dash-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .dash-card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; }
+  .dash-card-label { font-size: 10px; color: #64748b; margin-bottom: 6px; font-weight: 600; }
+  .dash-card-num { font-size: 24px; font-weight: 800; color: #1e293b; }
+  .dash-card-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+  .dash-card.alert .dash-card-num { color: #ef4444; }
+
+  /* ── Annotation markers ── */
+  .ann {
+    position: absolute; z-index: 20;
+  }
+  .ann-circle {
+    width: 26px; height: 26px; background: #ef4444; color: white;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; box-shadow: 0 2px 8px rgba(239,68,68,0.5);
+    border: 2px solid white;
+  }
+  .ann-arrow-right::after {
+    content: '→'; font-size: 20px; color: #ef4444; font-weight: 900;
+    text-shadow: 0 1px 4px rgba(239,68,68,0.4);
+  }
+  .ann-arrow-down::after {
+    content: '↓'; font-size: 20px; color: #ef4444; font-weight: 900;
+  }
+
+  /* ── Highlight box (red dashed) ── */
+  .highlight {
+    position: absolute; border: 2.5px dashed #ef4444;
+    border-radius: 8px; pointer-events: none; z-index: 15;
+    background: rgba(239,68,68,0.04);
+  }
+  .highlight.green { border-color: #16a34a; background: rgba(22,163,74,0.04); }
+  .highlight.blue { border-color: #2563eb; background: rgba(37,99,235,0.04); }
+
+  /* ── Callout boxes ── */
+  .callout-list { list-style: none; }
+  .callout-list li {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: white; border: 1px solid #e2e8f0;
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 8px;
+  }
+  .callout-num {
+    width: 22px; height: 22px; flex-shrink: 0;
+    background: #ef4444; color: white; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; margin-top: 1px;
+  }
+  .callout-num.blue { background: #2563eb; }
+  .callout-num.green { background: #16a34a; }
+  .callout-num.orange { background: #f59e0b; }
+  .callout-text { font-size: 13px; color: #374151; line-height: 1.55; }
+  .callout-text strong { color: #1e293b; }
+  .callout-text .warn { color: #ef4444; font-weight: 700; }
+
+  /* ── Warning box ── */
+  .warn-box {
+    background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 10px;
+    padding: 12px 16px; display: flex; gap: 10px; align-items: flex-start; margin-top: 12px;
+  }
+  .warn-icon { font-size: 18px; flex-shrink: 0; }
+  .warn-text { font-size: 13px; color: #991b1b; line-height: 1.55; }
+  .warn-text strong { font-weight: 800; }
+
+  .ok-box {
+    background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px;
+    padding: 12px 16px; display: flex; gap: 10px; align-items: flex-start; margin-top: 12px;
+  }
+  .ok-text { font-size: 13px; color: #14532d; line-height: 1.55; }
+
+  /* ── Section divider ── */
+  .divider { border: none; border-top: 2px solid #e2e8f0; margin: 36px 0; }
+
+  /* ── Step flow diagram ── */
+  .flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 14px 0; }
+  .flow-step {
+    background: #dbeafe; color: #1d4ed8; padding: 6px 14px; border-radius: 99px;
+    font-size: 12px; font-weight: 700;
+  }
+  .flow-step.done { background: #dcfce7; color: #14532d; }
+  .flow-arrow { color: #94a3b8; font-size: 16px; font-weight: 700; }
+
+  /* ── Checklist ── */
+  .checklist { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-top: 12px; }
+  .checklist h4 { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .check-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; padding: 5px 0; border-bottom: 1px solid #f1f5f9; }
+  .check-item:last-child { border-bottom: none; }
+  .check-box { width: 16px; height: 16px; border: 2px solid #d1d5db; border-radius: 4px; flex-shrink: 0; }
+
+  /* ── Badge ── */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge-pending { background: #fef9c3; color: #854d0e; }
+  .badge-ok { background: #dcfce7; color: #14532d; }
+  .badge-low { background: #fee2e2; color: #991b1b; }
+
+  /* ── No-print toolbar ── */
+  .toolbar { position: fixed; top: 16px; right: 16px; display: flex; gap: 8px; z-index: 100; }
+  .toolbar button { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(37,99,235,0.4); }
+  .toolbar button.secondary { background: white; color: #374151; border: 1px solid #d1d5db; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+  /* ── Form header row ── */
+  .form-header { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+</style>
+</head>
+<body>
+
+<div class="toolbar no-print">
+  <button onclick="window.print()">🖨 Cetak / Simpan PDF</button>
+</div>
+
+<div class="container">
+
+  <!-- COVER -->
+  <div class="cover">
+    <h1>Panduan Visual Staff</h1>
+    <div class="sub">Sistem Inventaris MRIS — Mitra Ramah</div>
+    <div class="sub" style="font-size:14px; margin-bottom:20px;">Panduan bergambar untuk operasional harian gudang / toko</div>
+    <div class="version">Versi v1.4.3 · 2026 · Hanya untuk Penggunaan Internal</div>
+  </div>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>Daftar Isi</h3>
+    <div class="toc-grid">
+      <div class="toc-item"><div class="toc-num">1</div><div class="toc-label">Login dan Logout</div></div>
+      <div class="toc-item"><div class="toc-num">2</div><div class="toc-label">Cari Barang &amp; Scan Barcode</div></div>
+      <div class="toc-item"><div class="toc-num">3</div><div class="toc-label">Cek Stok (menu Gudang)</div></div>
+      <div class="toc-item"><div class="toc-num">4</div><div class="toc-label">Barang Masuk (GRN)</div></div>
+      <div class="toc-item"><div class="toc-num">5</div><div class="toc-label">Barang Keluar &amp; Cetak Surat Jalan</div></div>
+      <div class="toc-item"><div class="toc-num">6</div><div class="toc-label">Pindah Stok</div></div>
+      <div class="toc-item"><div class="toc-num">7</div><div class="toc-label">Penyesuaian Stok</div></div>
+      <div class="toc-item"><div class="toc-num">8</div><div class="toc-label">Stock Opname</div></div>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SECTION 1: LOGIN -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h2 class="section-title">1. Login dan Logout</h2>
+  <div class="section-intro">Lakukan login setiap pagi sebelum mulai kerja, dan logout setiap selesai bekerja.</div>
+
+  <div class="screen-wrapper">
+    <div class="screen-label">Tampilan: Halaman Login</div>
+    <div class="browser-chrome">
+      <div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div>
+      <div class="browser-url">https://mris-beryl.vercel.app/login</div>
+    </div>
+    <div class="screen" style="position:relative;">
+      <div class="login-screen">
+        <div class="login-logo">
+          <div class="login-logo-icon">
+            <svg viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="2" fill="#1d4ed8"/></svg>
+          </div>
+          <div class="login-title">MRIs</div>
+          <div class="login-sub">Mitra Ramah Inventory System</div>
+        </div>
+        <div class="login-form" style="position:relative;">
+          <div class="login-field">
+            <label class="login-label">Email</label>
+            <input class="login-input" value="staff@mitraramah.com" readonly style="color:#374151;">
+          </div>
+          <div class="login-field">
+            <label class="login-label">Password</label>
+            <input class="login-input focus" value="••••••••" readonly>
+          </div>
+          <button class="login-btn">Masuk</button>
+
+          <!-- Annotations -->
+          <div style="position:absolute; top:-10px; right:-44px; display:flex; align-items:center; gap:6px;">
+            <div class="ann-circle" style="background:#ef4444;">1</div>
+          </div>
+          <div style="position:absolute; top:52px; right:-44px; display:flex; align-items:center; gap:6px;">
+            <div class="ann-circle" style="background:#ef4444;">2</div>
+          </div>
+          <div style="position:absolute; bottom:0px; right:-44px; display:flex; align-items:center; gap:6px;">
+            <div class="ann-circle" style="background:#ef4444;">3</div>
+          </div>
+        </div>
+        <div class="login-footer">© 2026 Mitra Ramah — MRIs v1.4.3</div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="callout-list">
+    <li><div class="callout-num">1</div><div class="callout-text"><strong>Email:</strong> Ketik email kamu yang diberikan oleh penanggung jawab. Contoh: staff@mitraramah.com</div></li>
+    <li><div class="callout-num">2</div><div class="callout-text"><strong>Password:</strong> Ketik password dengan hati-hati. Perhatikan huruf besar/kecil (A ≠ a).</div></li>
+    <li><div class="callout-num">3</div><div class="callout-text"><strong>Tombol MASUK:</strong> Klik ini untuk login. Kalau berhasil, halaman Dasbor akan muncul.</div></li>
+  </ul>
+
+  <div class="warn-box">
+    <div class="warn-icon">⚠️</div>
+    <div class="warn-text"><strong>Jika muncul "Akun terkunci"</strong> — jangan coba login lagi. Langsung laporkan ke penanggung jawab.<br><br><strong>Jika muncul "Sesi digantikan dari perangkat lain"</strong> — ini artinya ada orang yang pakai akunmu. Login ulang, dan jangan biarkan orang lain memakai akunmu.</div>
+  </div>
+
+  <div style="margin-top:28px;">
+    <div class="screen-wrapper">
+      <div class="screen-label">Cara Logout — Tombol ada di BAWAH menu kiri</div>
+      <div class="browser-chrome">
+        <div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div>
+        <div class="browser-url">https://mris-beryl.vercel.app/dashboard</div>
+      </div>
+      <div class="screen">
+        <div class="app-layout" style="min-height:280px;">
+          <div class="sidebar">
+            <div class="sidebar-logo">
+              <div class="sidebar-logo-text">MRIs</div>
+              <div class="sidebar-logo-sub">Mitra Ramah</div>
+            </div>
+            <div class="sidebar-section">Utama</div>
+            <div class="sidebar-link active">📊 Dasbor</div>
+            <div class="sidebar-link">📦 Produk</div>
+            <div class="sidebar-section">Transaksi</div>
+            <div class="sidebar-link">⬇ Barang Masuk</div>
+            <div class="sidebar-link">⬆ Barang Keluar</div>
+            <div class="sidebar-link">↔ Pindah Stok</div>
+            <div class="sidebar-section">Lainnya</div>
+            <div class="sidebar-link">🏪 Gudang</div>
+            <div class="sidebar-spacer"></div>
+            <div class="sidebar-logout" style="color:#60a5fa; background:#0f2040; position:relative;">
+              ⎋ Keluar
+              <div style="position:absolute; right:-36px; top:4px;" class="ann-circle" style="background:#ef4444;">★</div>
+            </div>
+          </div>
+          <div class="main-content">
+            <div class="page-title">Dasbor</div>
+            <div class="dash-grid">
+              <div class="dash-card"><div class="dash-card-label">Total Produk</div><div class="dash-card-num">247</div><div class="dash-card-sub">Semua lokasi</div></div>
+              <div class="dash-card"><div class="dash-card-label">Barang Masuk Hari Ini</div><div class="dash-card-num">3</div><div class="dash-card-sub">Diterima hari ini</div></div>
+              <div class="dash-card"><div class="dash-card-label">Barang Keluar Hari Ini</div><div class="dash-card-num">7</div><div class="dash-card-sub">Dikeluarkan hari ini</div></div>
+              <div class="dash-card alert"><div class="dash-card-label">Stok Menipis</div><div class="dash-card-num">4</div><div class="dash-card-sub">Di bawah reorder point</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="callout-list">
+      <li><div class="callout-num" style="background:#ef4444;">★</div><div class="callout-text"><strong>Tombol Keluar ada di PALING BAWAH menu sebelah kiri</strong> — bukan di pojok kanan atas. Gulir menu ke bawah kalau tidak terlihat. Selalu logout setelah selesai bekerja.</div></li>
+    </ul>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SECTION 2: CARI BARANG + SCAN -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h2 class="section-title">2. Cari Barang dan Scan Barcode</h2>
+  <div class="section-intro">Setiap transaksi dimulai dengan mencari barang yang benar. Ada 2 cara: scan barcode (lebih cepat) atau ketik nama/SKU.</div>
+
+  <div class="screen-wrapper">
+    <div class="screen-label">Tampilan: Area Scan dan Cari Barang (bagian atas form transaksi)</div>
+    <div class="browser-chrome">
+      <div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div>
+      <div class="browser-url">https://mris-beryl.vercel.app/transactions/goods-in</div>
+    </div>
+    <div class="screen" style="position:relative;">
+      <div class="app-layout" style="min-height:240px;">
+        <div class="sidebar" style="width:160px;">
+          <div class="sidebar-logo"><div class="sidebar-logo-text">MRIs</div></div>
+          <div class="sidebar-link">📦 Produk</div>
+          <div class="sidebar-link active">⬇ Barang Masuk</div>
+          <div class="sidebar-link">⬆ Barang Keluar</div>
+          <div class="sidebar-link">↔ Pindah Stok</div>
+        </div>
+        <div style="flex:1; padding:0;">
+          <div class="form-header">
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Lokasi Penerimaan *</div>
+              <select class="form-select" style="width:200px;"><option>Big Warehouse</option></select>
+            </div>
+          </div>
+          <div class="scan-bar" style="position:relative;">
+            <div class="scan-icon">⬛</div>
+            <div class="scan-field">
+              <div class="scan-field-label">SCAN / SKU</div>
+              <input class="scan-input" placeholder="Scan barcode atau ketik SKU…" readonly>
+            </div>
+            <div class="search-name-field">
+              <div class="search-name-label">CARI NAMA</div>
+              <input class="search-name-input" placeholder="Ketik nama barang…" readonly>
+            </div>
+
+            <!-- Annotations -->
+            <div style="position:absolute; top:-16px; left:50px;"><div class="ann-circle">A</div></div>
+            <div style="position:absolute; top:-16px; right:90px;"><div class="ann-circle" style="background:#2563eb;">B</div></div>
+          </div>
+          <div class="table-wrap">
+            <table class="items">
+              <thead><tr><th>#</th><th>Barang</th><th>Qty</th><th>Satuan</th><th>= Qty Dasar</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Benang 401 Hitam</td><td><input class="qty-input" value="2"></td><td><select class="unit-select"><option>box</option></select></td><td class="base-qty">= 24 roll</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="callout-list">
+    <li><div class="callout-num">A</div><div class="callout-text"><strong>SCAN / SKU (kolom hijau):</strong> Klik di sini, lalu arahkan scanner ke barcode barang. Barang langsung masuk ke daftar otomatis. <strong>Ini cara yang paling cepat dan akurat.</strong></div></li>
+    <li><div class="callout-num blue">B</div><div class="callout-text"><strong>CARI NAMA:</strong> Kalau scanner bermasalah, ketik nama barang, SKU, atau kode warna di sini. Daftar barang akan muncul, klik yang benar.</div></li>
+  </ul>
+
+  <div class="warn-box">
+    <div class="warn-icon">⚠️</div>
+    <div class="warn-text">
+      <strong>Setelah scan atau pilih barang — SELALU cek nama di layar.</strong><br>
+      <span style="margin-top:6px; display:block;">Contoh: <em>Resleting HLZ 20 <u>216</u></em> berbeda dengan <em>Resleting HLZ 20 <u>218</u></em>. Satu digit beda = barang yang berbeda!</span>
+      <span style="margin-top:6px; display:block; color:#b91c1c;">Kalau nama di layar tidak cocok dengan barang di tangan → STOP. Jangan lanjutkan.</span>
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SECTION 3: CEK STOK -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h2 class="section-title">3. Cek Stok Barang (menu Gudang)</h2>
+  <div class="section-intro">Cek stok sebelum mengeluarkan barang. Stok setiap lokasi berbeda — pastikan cek lokasi yang sesuai.</div>
+
+  <div class="screen-wrapper">
+    <div class="screen-label">Tampilan: Menu Gudang — pilih lokasi untuk lihat stok</div>
+    <div class="browser-chrome">
+      <div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div>
+      <div class="browser-url">https://mris-beryl.vercel.app/warehouse</div>
+    </div>
+    <div class="screen" style="position:relative;">
+      <div class="app-layout" style="min-height:300px;">
+        <div class="sidebar" style="width:160px;">
+          <div class="sidebar-logo"><div class="sidebar-logo-text">MRIs</div></div>
+          <div class="sidebar-link">📊 Dasbor</div>
+          <div class="sidebar-link active">🏪 Gudang</div>
+          <div class="sidebar-link">📦 Produk</div>
+        </div>
+        <div class="main-content" style="position:relative;">
+          <div class="page-title">Lokasi Gudang</div>
+          <div class="card-grid">
+            <div class="location-card">
+              <div class="location-name">Retail Store</div>
+              <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Toko</div>
+              <div class="location-stats">
+                <div><div class="stat-num">42</div><div class="stat-label">produk</div></div>
+                <div><div class="stat-num">318</div><div class="stat-label">unit total</div></div>
+              </div>
+            </div>
+            <div class="location-card selected">
+              <div class="location-name" style="color:#2563eb;">Big Warehouse</div>
+              <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Gudang Besar</div>
+              <div class="location-stats">
+                <div><div class="stat-num" style="color:#2563eb;">128</div><div class="stat-label">produk</div></div>
+                <div><div class="stat-num" style="color:#2563eb;">4.820</div><div class="stat-label">unit total</div></div>
+              </div>
+            </div>
+            <div class="location-card">
+              <div class="location-name">Medium Warehouse</div>
+              <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Gudang Sedang</div>
+              <div class="location-stats">
+                <div><div class="stat-num">77</div><div class="stat-label">produk</div></div>
+                <div><div class="stat-num">1.240</div><div class="stat-label">unit total</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stock table for selected location -->
+          <div class="table-wrap">
+            <table class="items">
+              <thead><tr><th>Barang</th><th>SKU</th><th>Kategori</th><th style="text-align:right;">Qty</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Benang 401 Hitam<br><span style="font-size:10px; font-family:monospace; color:#94a3b8;">BNG401HT-001</span></td><td style="font-family:monospace; font-size:11px; color:#2563eb;">BNG-401</td><td style="font-size:11px; color:#64748b;">Benang</td><td style="text-align:right;"><strong>50</strong> <span style="font-size:10px; color:#94a3b8;">roll</span></td><td><span class="badge badge-ok">OK</span></td></tr>
+                <tr style="background:#fef2f2;"><td>Resleting HLZ 20 216<br><span style="font-size:10px; font-family:monospace; color:#94a3b8;">RSL-HLZ20-216</span></td><td style="font-family:monospace; font-size:11px; color:#2563eb;">RSL-001</td><td style="font-size:11px; color:#64748b;">Resleting</td><td style="text-align:right;"><strong style="color:#ef4444;">3</strong> <span style="font-size:10px; color:#94a3b8;">pcs</span></td><td><span class="badge badge-low">Low</span></td></tr>
+                <tr><td>Kancing Hitam Bulat<br><span style="font-size:10px; font-family:monospace; color:#94a3b8;">KNC-HT-BLT</span></td><td style="font-family:monospace; font-size:11px; color:#2563eb;">KNC-001</td><td style="font-size:11px; color:#64748b;">Kancing</td><td style="text-align:right;"><strong>240</strong> <span style="font-size:10px; color:#94a3b8;">lusin</span></td><td><span class="badge badge-ok">OK</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Annotations -->
+          <div style="position:absolute; top:46px; left:174px;"><div class="ann-circle">1</div></div>
+          <div style="position:absolute; top:46px; left:284px;"><div class="ann-circle" style="background:#2563eb;">2</div></div>
+          <div style="position:absolute; top:46px; left:394px;"><div class="ann-circle" style="background:#64748b;">3</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="callout-list">
+    <li><div class="callout-num">1</div><div class="callout-text"><strong>Klik kartu lokasi</strong> untuk memilih lokasi yang ingin dicek. Lokasi yang dipilih akan berwarna biru (contoh: Big Warehouse di atas).</div></li>
+    <li><div class="callout-num blue">2</div><div class="callout-text"><strong>Kartu biru = lokasi yang sedang dipilih.</strong> Stok yang ditampilkan di bawah adalah stok di lokasi ini saja.</div></li>
+    <li><div class="callout-num" style="background:#64748b;">3</div><div class="callout-text"><strong>Badge status:</strong> <span style="background:#dcfce7; color:#14532d; padding:1px 6px; border-radius:99px; font-size:11px; font-weight:700;">OK</span> = stok aman. <span style="background:#fee2e2; color:#991b1b; padding:1px 6px; border-radius:99px; font-size:11px; font-weight:700;">Low</span> = stok rendah, perlu perhatian.</div></li>
+  </ul>
+
+  <div class="warn-box">
+    <div class="warn-icon">⚠️</div>
+    <div class="warn-text"><strong>Stok di setiap lokasi BERBEDA.</strong> Benang 401 di Big Warehouse: 50 roll ≠ Benang 401 di Retail Store: 10 roll. Pastikan kamu melihat stok di lokasi yang benar sesuai pekerjaanmu.</div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SECTION 4: BARANG MASUK -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h2 class="section-title">4. Barang Masuk (GRN)</h2>
+  <div class="section-intro">Digunakan saat barang dari supplier tiba dan sudah dicek kondisinya. Siapkan nota/surat jalan supplier sebelum mulai input.</div>
+
+  <div class="screen-wrapper">
+    <div class="screen-label">Tampilan: Form Barang Masuk</div>
+    <div class="browser-chrome">
+      <div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div>
+      <div class="browser-url">https://mris-beryl.vercel.app/transactions/goods-in</div>
+    </div>
+    <div class="screen" style="position:relative;">
+      <div class="app-layout" style="min-height:360px;">
+        <div class="sidebar" style="width:160px;">
+          <div class="sidebar-logo"><div class="sidebar-logo-text">MRIs</div></div>
+          <div class="sidebar-link active">⬇ Barang Masuk</div>
+          <div class="sidebar-link">⬆ Barang Keluar</div>
+          <div class="sidebar-link">↔ Pindah Stok</div>
+        </div>
+        <div style="flex:1; padding:0; position:relative;">
+          <div class="form-header" style="position:relative;">
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Lokasi Penerimaan *</div>
+              <select class="form-select" style="width:210px; border:2px solid #2563eb;"><option>Big Warehouse</option></select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Referensi</div>
+              <input class="form-input" placeholder="Opsional" style="width:140px;" readonly>
+            </div>
+            <!-- Annotation -->
+            <div style="position:absolute; top:6px; left:108px;"><div class="ann-circle">1</div></div>
+          </div>
+          <div class="scan-bar">
+            <div class="scan-icon">⬛</div>
+            <div class="scan-field">
+              <div class="scan-field-label">SCAN / SKU</div>
+              <input class="scan-input" placeholder="Scan barcode atau ketik SKU…" readonly>
+            </div>
+            <div class="search-name-field">
+              <div class="search-name-label">CARI NAMA</div>
+              <input class="search-name-input" placeholder="Ketik nama barang…" readonly>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="items">
+              <thead><tr><th>#</th><th>Barang</th><th style="text-align:right;">Qty</th><th>Satuan</th><th>= Qty Dasar</th><th>Catatan</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td>Benang 401 Hitam</td>
+                  <td style="text-align:right;"><input class="qty-input" value="2"></td>
+                  <td><select class="unit-select"><option>box</option><option>roll</option></select></td>
+                  <td class="base-qty">= 24 roll</td>
+                  <td><input style="width:80px; padding:4px 6px; border:1px solid #d1d5db; border-radius:6px; font-size:11px;" placeholder="" readonly></td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>Kancing Hitam Bulat</td>
+                  <td style="text-align:right;"><input class="qty-input" value="5"></td>
+                  <td><select class="unit-select"><option>crate</option><option>box</option></select></td>
+                  <td class="base-qty">= 60 box</td>
+                  <td><input style="width:80px; padding:4px 6px; border:1px solid #d1d5db; border-radius:6px; font-size:11px;" placeholder="" readonly></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="form-footer" style="position:relative;">
+            <div class="footer-summary">2 jenis barang · 84 unit dasar total</div>
+            <button class="btn-primary">✓ Simpan Pesanan</button>
+            <!-- Annotation -->
+            <div style="position:absolute; right:8px; top:-20px;"><div class="ann-circle">2</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="callout-list">
+    <li><div class="callout-num">1</div><div class="callout-text"><strong>PILIH LOKASI PENERIMAAN DULU</strong> sebelum scan barang apapun. Ini menentukan ke gudang mana stok akan masuk. Kalau lupa pilih lokasi, tombol Simpan tidak akan bisa diklik.</div></li>
+    <li><div class="callout-num">2</div><div class="callout-text"><strong>Kolom "= Qty Dasar" (warna biru)</strong> menampilkan perhitungan otomatis. Contoh: input 2 box, sistem tampilkan "= 24 roll". Ini untuk memastikan konversi satuan sudah benar.</div></li>
+  </ul>
+
+  <div style="background:#fefce8; border:1.5px solid #fde68a; border-radius:10px; padding:14px 16px; margin-top:12px;">
+    <div style="font-size:13px; font-weight:800; color:#92400e; margin-bottom:8px;">💡 Cara isi jumlah dan satuan yang benar:</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
+        <div style="font-size:12px; font-weight:700; color:#374151; margin-bottom:8px;">✅ BENAR</div>
+        <div style="font-size:12px; color:#374151; line-height:1.7;">Barang datang: <strong>2 box</strong> Benang 401<br>1 box = 12 roll<br>→ Pilih satuan: <strong>box</strong><br>→ Isi jumlah: <strong>2</strong><br>→ Sistem tampilkan: <em>= 24 roll</em></div>
+      </div>
+      <div style="background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px;">
+        <div style="font-size:12px; font-weight:700; color:#991b1b; margin-bottom:8px;">❌ SALAH</div>
+        <div style="font-size:12px; color:#991b1b; line-height:1.7;">Barang datang: <strong>2 box</strong><br>Tapi diisi:<br>→ Satuan: <strong>roll</strong><br>→ Jumlah: <strong>24</strong><br>→ Ini akan buat stok ganda!</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="checklist">
+    <h4>Checklist sebelum klik Simpan Pesanan</h4>
+    <div class="check-item"><div class="check-box"></div>Lokasi Penerimaan sudah dipilih</div>
+    <div class="check-item"><div class="check-box"></div>Semua nama barang sudah benar (cocok dengan nota supplier)</div>
+    <div class="check-item"><div class="check-box"></div>Jumlah sesuai nota supplier</div>
+    <div class="check-item"><div class="check-box"></div>Satuan sudah benar untuk setiap barang</div>
+    <div class="check-item"><div class="check-box"></div>Tidak ada barang dari nota yang terlewat</div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SECTION 5: BARANG KELUAR -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h2 class="section-title">5. Barang Keluar dan Cetak Surat Jalan</h2>
+  <div class="section-intro">Digunakan saat ada barang yang akan diberikan kepada pembeli. Ikuti alur ini sampai Surat Jalan dicetak sebelum menyerahkan barang.</div>
+
+  <div class="flow">
+    <div class="flow-step">① Isi Form</div><div class="flow-arrow">→</div>
+    <div class="flow-step">② Konfirmasi</div><div class="flow-arrow">→</div>
+    <div class="flow-step">③ Simpan</div><div class="flow-arrow">→</div>
+    <div class="flow-step">④ Cetak Surat Jalan</div><div class="flow-arrow">→</div>
+    <div class="flow-step done">⑤ Serahkan Barang</div>
+  </div>
+
+  <div class="screen-wrapper" style="margin-top:16px;">
+    <div class="screen-label">Tampilan: Form Barang Keluar — perhatikan indikator stok</div>
+    <div class="browser-chrome">
+      <div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div>
+      <div class="browser-url">https://mris-beryl.vercel.app/transactions/goods-out</div>
+    </div>
+    <div class="screen" style="position:relative;">
+      <div class="app-layout" style="min-height:360px;">
+        <div class="sidebar" style="width:160px;">
+          <div class="sidebar-logo"><div class="sidebar-logo-text">MRIs</div></div>
+          <div class="sidebar-link">⬇ Barang Masuk</div>
+          <div class="sidebar-link active">⬆ Barang Keluar</div>
+          <div class="sidebar-link">↔ Pindah Stok</div>
+        </div>
+        <div style="flex:1; padding:0; position:relative;">
+          <div class="form-header" style="position:relative;">
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Keluarkan Dari *</div>
+              <select class="form-select" style="width:180px; border:2px solid #2563eb;"><option>Retail Store</option></select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Nama Pelanggan</div>
+              <input class="form-input" placeholder="Opsional" value="Toko Makmur" style="width:140px;" readonly>
+            </div>
+            <!-- Annotation -->
+            <div style="position:absolute; top:6px; left:96px;"><div class="ann-circle">1</div></div>
+          </div>
+          <div class="scan-bar">
+            <div class="scan-icon">⬛</div>
+            <div class="scan-field">
+              <div class="scan-field-label">SCAN / SKU</div>
+              <input class="scan-input" placeholder="Scan barcode atau ketik SKU…" readonly>
+            </div>
+            <div class="search-name-field">
+              <div class="search-name-label">CARI NAMA</div>
+              <input class="search-name-input" placeholder="Ketik nama barang…" readonly>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="items">
+              <thead><tr><th>#</th><th>Barang</th><th style="text-align:right;">Qty</th><th>Satuan</th><th>= Qty Dasar</th><th>Tersedia</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>1</td><td>Benang 401 Hitam</td>
+                  <td style="text-align:right;"><input class="qty-input" value="3"></td>
+                  <td><select class="unit-select"><option>roll</option></select></td>
+                  <td class="base-qty">= 3 roll</td>
+                  <td class="stock-ok">✓ 10</td>
+                </tr>
+                <tr style="background:#fef2f2;">
+                  <td>2</td><td>Resleting HLZ 20 216</td>
+                  <td style="text-align:right;"><input class="qty-input" value="10" style="border-color:#ef4444;"></td>
+                  <td><select class="unit-select"><option>pcs</option></select></td>
+                  <td class="base-qty">= 10 pcs</td>
+                  <td class="stock-low">✗ 3</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Annotations for stock indicators -->
+          <div style="position:absolute; top:228px; right:8px;"><div class="ann-circle" style="background:#16a34a;">2</div></div>
+          <div style="position:absolute; top:258px; right:8px;"><div class="ann-circle" style="background:#ef4444;">3</div></div>
+          <div class="form-footer" style="position:relative;">
+            <div class="footer-summary">2 jenis barang</div>
+            <button class="btn-primary">✓ Simpan Pesanan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="callout-list">
+    <li><div class="callout-num">1</div><div class="callout-text"><strong>KELUARKAN DARI</strong> — pilih lokasi asal barang. Ini menentukan dari gudang mana stok akan dikurangi.</div></li>
+    <li><div class="callout-num green">2</div><div class="callout-text"><strong>✓ angka hijau</strong> = stok cukup. Aman untuk dilanjutkan. Angka ini menunjukkan berapa unit yang tersedia di lokasi.</div></li>
+    <li><div class="callout-num">3</div><div class="callout-text"><strong>✗ angka merah</strong> = <span class="warn">STOK TIDAK CUKUP. STOP.</span> Jangan klik Simpan. Cek jumlah yang diisi — mungkin terlalu banyak. Laporkan ke penanggung jawab.</div></li>
+  </ul>
+
+  <div style="margin-top:24px;">
+    <div class="screen-wrapper">
+      <div class="screen-label">Tampilan: Kotak Konfirmasi (muncul setelah klik Simpan Pesanan)</div>
+      <div class="screen" style="position:relative; min-height:320px;">
+        <div class="app-layout" style="min-height:320px; position:relative; opacity:0.3;">
+          <div class="sidebar" style="width:160px;"><div class="sidebar-logo"><div class="sidebar-logo-text">MRIs</div></div></div>
+          <div class="main-content"></div>
+        </div>
+        <div class="modal-overlay" style="border-radius:0 0 10px 10px;">
+          <div class="modal" style="position:relative;">
+            <div style="font-size:13px; font-weight:700; color:#1e293b; margin-bottom:12px;">Simpan Pesanan Barang Keluar ini?</div>
+            <div style="font-size:12px; color:#64748b; margin-bottom:16px;">Pastikan semua data sudah benar sebelum menyimpan.</div>
+            <div style="display:flex; gap:8px; justify-content:center;">
+              <button class="btn-secondary" style="font-size:12px;">Batal</button>
+              <button class="btn-primary" style="font-size:12px;">Ya, Simpan &amp; Lanjutkan</button>
+            </div>
+            <!-- Annotation -->
+            <div style="position:absolute; right:-40px; bottom:6px;"><div class="ann-circle">4</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="callout-list">
+      <li><div class="callout-num">4</div><div class="callout-text"><strong>Baca ringkasan konfirmasi.</strong> Kalau ada yang salah → klik <strong>Batal</strong> untuk kembali ke form dan perbaiki. Kalau sudah benar → klik <strong>Ya, Simpan &amp; Lanjutkan</strong>.</div></li>
+    </ul>
+  </div>
+
+  <div style="margin-top:24px;">
+    <div class="screen-wrapper">
+      <div class="screen-label">Tampilan: Langkah Cetak Surat Jalan (muncul setelah pesanan tersimpan)</div>
+      <div class="screen" style="position:relative; min-height:320px;">
+        <div class="app-layout" style="min-height:320px; position:relative; opacity:0.2;">
+          <div class="sidebar" style="width:160px;"><div class="sidebar-logo"><div class="sidebar-logo-text">MRIs</div></div></div>
+          <div class="main-content"></div>
+        </div>
+        <div class="modal-overlay" style="border-radius:0 0 10px 10px;">
+          <div class="modal" style="position:relative;">
+            <div class="progress-bar">
+              <div class="progress-step">
+                <div class="progress-circle done">✓</div>
+                <div class="progress-label">Simpan</div>
+              </div>
+              <div class="progress-line done"></div>
+              <div class="progress-step">
+                <div class="progress-circle active">2</div>
+                <div class="progress-label active">Cetak</div>
+              </div>
+            </div>
+            <div class="modal-icon success">
+              <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#16a34a" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div class="modal-title">Pesanan Tersimpan!</div>
+            <div class="modal-order">GO-20260515-008</div>
+            <div class="modal-sub">Buka pratinjau cetak untuk mencetak Surat Jalan.</div>
+            <button class="btn-black" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px; font-size:13px;">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              Cetak Surat Jalan
+            </button>
+            <!-- Annotation -->
+            <div style="position:absolute; right:-40px; bottom:6px;"><div class="ann-circle">5</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="callout-list">
+      <li><div class="callout-num">5</div><div class="callout-text"><strong>Tombol "Cetak Surat Jalan" (hitam)</strong> — klik ini untuk membuka halaman cetak. Tab baru akan terbuka. Tekan <kbd style="background:#f1f5f9; border:1px solid #d1d5db; padding:1px 6px; border-radius:4px; font-family:monospace; font-size:12px;">Ctrl+P</kbd> untuk cetak.</div></li>
+    </ul>
+    <div class="warn-box">
+      <div class="warn-icon">⚠️</div>
+      <div class="warn-text"><strong>Jangan serahkan barang sebelum Surat Jalan dicetak.</strong><br>Kalau tab cetak tidak terbuka → browser mungkin memblokir pop-up. Izinkan pop-up untuk mris-beryl.vercel.app, lalu coba klik cetak lagi.</div>
+    </div>
+  </div>
+
+  <div class="checklist">
+    <h4>Checklist sebelum klik Simpan Pesanan — Barang Keluar</h4>
+    <div class="check-item"><div class="check-box"></div>"Keluarkan Dari" (lokasi) sudah dipilih</div>
+    <div class="check-item"><div class="check-box"></div>Semua nama barang sudah benar</div>
+    <div class="check-item"><div class="check-box"></div>Jumlah sesuai permintaan pembeli</div>
+    <div class="check-item"><div class="check-box"></div>Satuan sudah benar</div>
+    <div class="check-item"><div class="check-box"></div>Semua indikator stok berwarna HIJAU (✓) — tidak ada yang merah (✗)</div>
+    <div class="check-item"><div class="check-box"></div>Surat Jalan sudah dicetak sebelum menyerahkan barang</div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SECTION 6: PINDAH STOK -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h2 class="section-title">6. Pindah Stok</h2>
+  <div class="section-intro">Digunakan untuk memindahkan stok dari satu gudang/lokasi ke lokasi lain. Selalu atas instruksi penanggung jawab.</div>
+
+  <div class="screen-wrapper">
+    <div class="screen-label">Tampilan: Form Pindah Stok</div>
+    <div class="browser-chrome">
+      <div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div>
+      <div class="browser-url">https://mris-beryl.vercel.app/transactions/transfer</div>
+    </div>
+    <div class="screen" style="position:relative;">
+      <div class="app-layout" style="min-height:300px;">
+        <div class="sidebar" style="width:160px;">
+          <div class="sidebar-logo"><div class="sidebar-logo-text">MRIs</div></div>
+          <div class="sidebar-link">⬇ Barang Masuk</div>
+          <div class="sidebar-link">⬆ Barang Keluar</div>
+          <div class="sidebar-link active">↔ Pindah Stok</div>
+        </div>
+        <div style="flex:1; padding:0; position:relative;">
+          <div class="form-header" style="position:relative;">
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Pindah Dari *</div>
+              <select class="form-select" style="width:160px; border:2px solid #ef4444;"><option>Big Warehouse</option></select>
+            </div>
+            <div style="font-size:18px; color:#94a3b8; align-self:flex-end; padding-bottom:6px;">→</div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Pindah Ke *</div>
+              <select class="form-select" style="width:160px; border:2px solid #16a34a;"><option>Retail Store</option></select>
+            </div>
+            <!-- Annotations -->
+            <div style="position:absolute; top:6px; left:86px;"><div class="ann-circle">1</div></div>
+            <div style="position:absolute; top:6px; left:290px;"><div class="ann-circle" style="background:#16a34a;">2</div></div>
+          </div>
+          <div class="scan-bar">
+            <div class="scan-icon">⬛</div>
+            <div class="scan-field">
+              <div class="scan-field-label">SCAN / SKU</div>
+              <input class="scan-input" placeholder="Scan barcode atau ketik SKU…" readonly>
+            </div>
+            <div class="search-name-field">
+              <div class="search-name-label">CARI NAMA</div>
+              <input class="search-name-input" placeholder="Ketik nama barang…" readonly>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="items">
+              <thead><tr><th>#</th><th>Barang</th><th style="text-align:right;">Qty</th><th>Satuan</th><th>= Qty Dasar</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Benang 401 Hitam</td><td style="text-align:right;"><input class="qty-input" value="10"></td><td><select class="unit-select"><option>roll</option></select></td><td class="base-qty">= 10 roll</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="form-footer"><div class="footer-summary">1 jenis barang</div><button class="btn-primary">✓ Simpan Pesanan</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="callout-list">
+    <li><div class="callout-num">1</div><div class="callout-text"><strong>Pindah Dari (merah)</strong> = lokasi ASAL barang diambil. Contoh: Big Warehouse.</div></li>
+    <li><div class="callout-num green">2</div><div class="callout-text"><strong>Pindah Ke (hijau)</strong> = lokasi TUJUAN barang dikirim. Contoh: Retail Store. <span class="warn">Harus berbeda dari Pindah Dari!</span></div></li>
+  </ul>
+
+  <div class="warn-box">
+    <div class="warn-icon">⚠️</div>
+    <div class="warn-text">
+      <strong>Input di sistem DULU → Tunggu konfirmasi → BARU pindahkan barang fisik.</strong><br>
+      Jangan angkut barang ke lokasi lain sebelum sistem berhasil dicatat. Kalau muncul <span style="background:#fef9c3; color:#854d0e; padding:1px 6px; border-radius:4px; font-size:12px; font-weight:700;">Menunggu Persetujuan Admin</span> — NORMAL. Tunggu dan laporkan.
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SECTION 7: PENYESUAIAN STOK -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h2 class="section-title">7. Penyesuaian Stok</h2>
+  <div class="section-intro">Digunakan untuk melaporkan barang rusak, hilang, atau koreksi stok. Selalu atas instruksi penanggung jawab. Stok BELUM berubah sampai Admin menyetujui.</div>
+
+  <div class="screen-wrapper">
+    <div class="screen-label">Tampilan: Form Penyesuaian Stok</div>
+    <div class="browser-chrome">
+      <div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div>
+      <div class="browser-url">https://mris-beryl.vercel.app/transactions/adjustment</div>
+    </div>
+    <div class="screen" style="position:relative;">
+      <div class="app-layout" style="min-height:320px;">
+        <div class="sidebar" style="width:160px;">
+          <div class="sidebar-logo"><div class="sidebar-logo-text">MRIs</div></div>
+          <div class="sidebar-link active">⚖ Penyesuaian Stok</div>
+        </div>
+        <div style="flex:1; padding:16px; position:relative;">
+          <div class="page-title" style="margin-bottom:12px;">Ajukan Penyesuaian Stok</div>
+          <div class="form-group">
+            <div class="form-label">Lokasi *</div>
+            <select class="form-select" style="width:200px;"><option>Big Warehouse</option></select>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Cari Produk</div>
+            <input class="form-input" placeholder="Cari produk berdasarkan nama atau SKU…" readonly style="width:300px;">
+          </div>
+          <div class="card" style="margin-top:4px;">
+            <div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:10px;">Benang 401 Hitam</div>
+            <div style="display:flex; gap:8px; margin-bottom:10px;" id="adj-btns">
+              <button class="btn-green" style="font-size:12px; padding:6px 14px; position:relative;">
+                + Tambah stok
+                <div style="position:absolute; top:-14px; right:-12px;"><div class="ann-circle">1</div></div>
+              </button>
+              <button class="btn-danger" style="font-size:12px; padding:6px 14px; position:relative;">
+                − Kurangi stok
+                <div style="position:absolute; top:-14px; right:-12px;"><div class="ann-circle">2</div></div>
+              </button>
+            </div>
+            <div style="display:flex; gap:8px; align-items:flex-end;">
+              <div class="form-group" style="margin:0;">
+                <div class="form-label">Jumlah</div>
+                <input class="form-input" value="3" style="width:80px;">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <div class="form-label">Alasan</div>
+                <select class="form-select" style="width:160px;">
+                  <option>Kerusakan</option>
+                  <option>Kehilangan / Hilang</option>
+                  <option>Koreksi Stok</option>
+                  <option>Retur dari Pelanggan</option>
+                  <option>Retur ke Supplier</option>
+                  <option>Stok Awal</option>
+                  <option>Lainnya</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:10px; background:#fef9c3; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; font-size:12px; color:#92400e;">
+            ℹ Permintaan ini akan dikirim ke Admin untuk ditinjau. Stok hanya berubah setelah disetujui.
+          </div>
+          <button class="btn-primary" style="margin-top:12px; font-size:13px;">Kirim untuk Disetujui</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="callout-list">
+    <li><div class="callout-num green">1</div><div class="callout-text"><strong>+ Tambah stok</strong> — digunakan kalau stok di sistem perlu dinaikkan (contoh: ada barang yang belum tercatat, retur dari pelanggan).</div></li>
+    <li><div class="callout-num">2</div><div class="callout-text"><strong>− Kurangi stok</strong> — digunakan kalau stok di sistem perlu diturunkan (contoh: barang rusak, hilang). <span class="warn">Kalau tidak yakin pilih mana, tanya penanggung jawab dulu.</span></div></li>
+  </ul>
+
+
+  <hr class="divider">
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SECTION 8: STOCK OPNAME -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h2 class="section-title">8. Stock Opname (Hitung Stok Fisik)</h2>
+  <div class="section-intro">Kegiatan menghitung semua barang secara fisik lalu memasukkan hasil hitungan ke sistem. Dilakukan atas instruksi penanggung jawab. Jangan lakukan transaksi lain selama opname berlangsung.</div>
+
+  <div class="screen-wrapper">
+    <div class="screen-label">Tampilan: Halaman Input Stock Opname</div>
+    <div class="browser-chrome">
+      <div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div>
+      <div class="browser-url">https://mris-beryl.vercel.app/stock-opname/[sesi-id]</div>
+    </div>
+    <div class="screen" style="position:relative;">
+      <div class="app-layout" style="min-height:380px;">
+        <div class="sidebar" style="width:160px;">
+          <div class="sidebar-logo"><div class="sidebar-logo-text">MRIs</div></div>
+          <div class="sidebar-link active">📋 Stock Opname</div>
+        </div>
+        <div style="flex:1; padding:0; position:relative;">
+          <div style="padding:14px 16px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:14px; font-weight:700; color:#1e293b;">Sesi #SON-20260515-001</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">Big Warehouse · <span class="badge badge-pending">IN PROGRESS</span></div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="items">
+              <thead>
+                <tr>
+                  <th>Barang</th>
+                  <th>Kategori</th>
+                  <th style="text-align:right;">Qty Sistem</th>
+                  <th style="text-align:right;">Qty Fisik</th>
+                  <th style="text-align:right;">Selisih</th>
+                  <th>Satuan</th>
+                  <th>Catatan</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="opname-row-ok">
+                  <td>Benang 401 Hitam</td><td style="font-size:11px; color:#64748b;">Benang</td>
+                  <td style="text-align:right;">50</td>
+                  <td style="text-align:right;"><input class="qty-input" value="47" style="border-color:#ef4444;"></td>
+                  <td style="text-align:right;" class="opname-diff-neg">−3</td>
+                  <td style="font-size:11px; color:#64748b;">roll</td>
+                  <td><input style="width:80px; padding:3px 6px; border:1px solid #d1d5db; border-radius:6px; font-size:11px;" placeholder="" readonly></td>
+                </tr>
+                <tr class="opname-row-ok">
+                  <td>Kancing Hitam Bulat</td><td style="font-size:11px; color:#64748b;">Kancing</td>
+                  <td style="text-align:right;">240</td>
+                  <td style="text-align:right;"><input class="qty-input" value="240"></td>
+                  <td style="text-align:right;" class="opname-diff-pos">0</td>
+                  <td style="font-size:11px; color:#64748b;">lusin</td>
+                  <td><input style="width:80px; padding:3px 6px; border:1px solid #d1d5db; border-radius:6px; font-size:11px;" placeholder="" readonly></td>
+                </tr>
+                <tr>
+                  <td>Resleting HLZ 20 216</td><td style="font-size:11px; color:#64748b;">Resleting</td>
+                  <td style="text-align:right;">20</td>
+                  <td style="text-align:right;"><input class="qty-input" placeholder="—" style="color:#94a3b8;"></td>
+                  <td style="text-align:right; color:#94a3b8;">—</td>
+                  <td style="font-size:11px; color:#64748b;">pcs</td>
+                  <td><input style="width:80px; padding:3px 6px; border:1px solid #d1d5db; border-radius:6px; font-size:11px;" placeholder="" readonly></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="form-footer" style="position:relative; gap:8px;">
+            <button class="btn-secondary" style="font-size:12px;">Save Draft</button>
+            <button class="btn-primary" style="font-size:12px;">Submit for Review</button>
+            <!-- Annotations -->
+            <div style="position:absolute; right:144px; top:-20px;"><div class="ann-circle" style="background:#f59e0b;">A</div></div>
+            <div style="position:absolute; right:8px; top:-20px;"><div class="ann-circle" style="background:#2563eb;">B</div></div>
+          </div>
+
+          <!-- Column annotations -->
+          <div style="position:absolute; top:40px; right:138px;"><div class="ann-circle" style="background:#64748b; width:20px; height:20px; font-size:10px;">C</div></div>
+          <div style="position:absolute; top:40px; right:96px;"><div class="ann-circle" style="background:#ef4444; width:20px; height:20px; font-size:10px;">D</div></div>
+          <div style="position:absolute; top:40px; right:46px;"><div class="ann-circle" style="background:#2563eb; width:20px; height:20px; font-size:10px;">E</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="callout-list">
+    <li><div class="callout-num" style="background:#64748b;">C</div><div class="callout-text"><strong>Qty Sistem</strong> = jumlah yang ada di catatan sistem saat ini. <span class="warn">JANGAN salin angka ini ke Qty Fisik. Hitung sendiri dari barang asli.</span></div></li>
+    <li><div class="callout-num">D</div><div class="callout-text"><strong>Qty Fisik</strong> = isi dengan hasil hitungan fisikmu yang sebenarnya. Hitung barang di rak satu per satu, lalu ketik angkanya di sini.</div></li>
+    <li><div class="callout-num blue">E</div><div class="callout-text"><strong>Selisih</strong> = dihitung otomatis. Angka merah (−) artinya stok fisik kurang dari sistem. Angka hijau (+) artinya lebih. Ini normal — laporkan ke Admin untuk ditindaklanjuti.</div></li>
+    <li><div class="callout-num orange">A</div><div class="callout-text"><strong>Save Draft</strong> = simpan sementara kalau perlu istirahat atau belum selesai menghitung. Data tidak hilang. Bisa dilanjutkan nanti.</div></li>
+    <li><div class="callout-num blue">B</div><div class="callout-text"><strong>Submit for Review</strong> = kirim ke Admin untuk ditinjau. Klik ini HANYA setelah SEMUA barang selesai dihitung dan diisi. Jangan submit kalau ada yang belum diisi.</div></li>
+  </ul>
+
+  <div class="warn-box">
+    <div class="warn-icon">⚠️</div>
+    <div class="warn-text">
+      <strong>Contoh benar:</strong> Sistem menunjukkan 50 roll, kamu hitung fisik dapat 47 roll → isi 47 di kolom Qty Fisik. Bukan 50.<br><br>
+      <strong>Jangan tebak angka. Jangan salin angka sistem. Hitung fisik yang asli.</strong>
+    </div>
+  </div>
+
+  <div class="checklist">
+    <h4>Checklist sebelum klik Submit for Review</h4>
+    <div class="check-item"><div class="check-box"></div>Semua barang di daftar sudah dihitung secara fisik</div>
+    <div class="check-item"><div class="check-box"></div>Semua angka fisik sudah diisi di kolom Qty Fisik</div>
+    <div class="check-item"><div class="check-box"></div>Tidak ada baris yang kolom Qty Fisik-nya masih kosong</div>
+    <div class="check-item"><div class="check-box"></div>Nama barang, satuan, dan lokasi sudah dicek</div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- KONDISI NORMAL & PESAN ERROR -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h2 class="section-title">Kondisi Normal dan Pesan Error</h2>
+  <div class="section-intro">Beberapa tampilan mungkin membingungkan. Berikut penjelasannya agar kamu tidak panik.</div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:24px;">
+    <div style="background:white; border:1.5px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+      <div style="background:#fef9c3; padding:10px 14px; font-size:12px; font-weight:700; color:#92400e;">🟡 Menunggu Persetujuan Admin</div>
+      <div style="padding:14px; font-size:13px; color:#374151; line-height:1.6;">
+        <strong>INI BUKAN ERROR.</strong> Transaksi sudah tersimpan dengan benar. Stok belum berubah karena perlu disetujui Admin dulu.<br><br>
+        <span style="color:#ef4444; font-weight:700;">Jangan input ulang transaksi yang sama.</span> Laporkan ke penanggung jawab bahwa transaksi sudah dikirim.
+      </div>
+    </div>
+    <div style="background:white; border:1.5px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+      <div style="background:#fef9c3; padding:10px 14px; font-size:12px; font-weight:700; color:#92400e;">🟡 Banner Kuning "Data belum selesai"</div>
+      <div style="padding:14px; font-size:13px; color:#374151; line-height:1.6;">
+        Muncul kalau kamu pernah buka form tapi belum disimpan dan browser ditutup.<br><br>
+        Cek isinya — kalau benar: lanjutkan. Kalau salah atau tidak dikenal: klik <strong>Hapus</strong>.
+      </div>
+    </div>
+    <div style="background:white; border:1.5px solid #fca5a5; border-radius:12px; overflow:hidden;">
+      <div style="background:#fee2e2; padding:10px 14px; font-size:12px; font-weight:700; color:#991b1b;">🔴 Stok Tidak Cukup (angka merah)</div>
+      <div style="padding:14px; font-size:13px; color:#374151; line-height:1.6;">
+        Stok di lokasi yang dipilih tidak cukup untuk jumlah yang diminta.<br><br>
+        Cek: <strong>jumlah</strong> → <strong>satuan</strong> → <strong>lokasi</strong>. Kalau masih tidak bisa, laporkan ke penanggung jawab.
+      </div>
+    </div>
+    <div style="background:white; border:1.5px solid #fca5a5; border-radius:12px; overflow:hidden;">
+      <div style="background:#fee2e2; padding:10px 14px; font-size:12px; font-weight:700; color:#991b1b;">🔴 Error Merah / Gagal Simpan</div>
+      <div style="padding:14px; font-size:13px; color:#374151; line-height:1.6;">
+        Ada masalah saat menyimpan.<br><br>
+        Screenshot layar → laporkan ke penanggung jawab. Jangan klik Simpan berulang kali.
+      </div>
+    </div>
+  </div>
+
+  <div class="warn-box">
+    <div class="warn-icon">🚨</div>
+    <div class="warn-text">
+      <strong>Kalau sudah terlanjur klik Simpan dan ada yang salah:</strong><br>
+      1. STOP. Jangan coba perbaiki sendiri.<br>
+      2. Catat: nomor transaksi, nama barang yang salah, jumlah yang salah, apa yang seharusnya benar.<br>
+      3. Laporkan segera ke penanggung jawab.<br>
+      4. Tunggu instruksi. Jangan buat transaksi baru untuk "menutupi" kesalahan.
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- CHECKLIST HARIAN -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h2 class="section-title">Checklist Harian Staff</h2>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:24px;">
+    <div style="background:white; border:1.5px solid #e2e8f0; border-radius:12px; padding:16px;">
+      <div style="font-size:13px; font-weight:800; color:#1e293b; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid #e2e8f0;">☀ PAGI — Sebelum mulai</div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Login ke sistem</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Cek Dasbor — ada stok menipis?</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Ada transaksi kemarin yang masih Menunggu Persetujuan?</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Laporkan ke penanggung jawab kalau ada yang perlu ditindak</span></div>
+    </div>
+    <div style="background:white; border:1.5px solid #e2e8f0; border-radius:12px; padding:16px;">
+      <div style="font-size:13px; font-weight:800; color:#1e293b; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid #e2e8f0;">🏢 SIANG — Sebelum setiap Simpan</div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Nama barang sudah benar</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Jumlah sudah benar</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Satuan sudah benar</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Lokasi/gudang sudah benar</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Stok cukup (untuk Barang Keluar)</span></div>
+    </div>
+    <div style="background:white; border:1.5px solid #e2e8f0; border-radius:12px; padding:16px;">
+      <div style="font-size:13px; font-weight:800; color:#1e293b; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid #e2e8f0;">🌙 SORE — Sebelum pulang</div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Semua transaksi hari ini sudah diinput</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Tidak ada barang keluar/masuk yang belum dicatat</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Selisih stok (kalau ada) sudah dilaporkan</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Logout dari sistem</span></div>
+      <div class="check-item" style="border:none; padding:5px 0;"><div class="check-box"></div><span style="font-size:12px;">Tutup browser</span></div>
+    </div>
+  </div>
+
+  <!-- Do / Don't -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+    <div style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:12px; padding:16px;">
+      <div style="font-size:13px; font-weight:800; color:#14532d; margin-bottom:10px;">✅ LAKUKAN</div>
+      <div style="font-size:12px; color:#14532d; line-height:2;">
+        ✓ Scan/cari dulu → cek nama → baru simpan<br>
+        ✓ Pilih lokasi DULU sebelum scan barang<br>
+        ✓ Cek nama barang di layar setelah scan<br>
+        ✓ Ikuti alur Barang Keluar sampai Surat Jalan dicetak<br>
+        ✓ Input sistem dulu sebelum pindah barang fisik<br>
+        ✓ Simpan transaksi di hari yang sama<br>
+        ✓ Lapor ke penanggung jawab kalau ada masalah<br>
+        ✓ Logout setelah selesai bekerja
+      </div>
+    </div>
+    <div style="background:#fef2f2; border:1.5px solid #fca5a5; border-radius:12px; padding:16px;">
+      <div style="font-size:13px; font-weight:800; color:#991b1b; margin-bottom:10px;">❌ JANGAN</div>
+      <div style="font-size:12px; color:#991b1b; line-height:2;">
+        ✗ Jangan pilih barang yang "kira-kira sama"<br>
+        ✗ Jangan input jumlah dari ingatan tanpa cek fisik<br>
+        ✗ Jangan skip pilih lokasi di bagian atas form<br>
+        ✗ Jangan serahkan barang sebelum Surat Jalan dicetak<br>
+        ✗ Jangan tunda input transaksi sampai besok<br>
+        ✗ Jangan coba perbaiki sendiri setelah klik Simpan<br>
+        ✗ Jangan klik Simpan berulang kali — bisa buat ganda<br>
+        ✗ Jangan diam kalau ada selisih stok<br>
+        ✗ Jangan pakai akun orang lain
+      </div>
+    </div>
+  </div>
+
+
+  <!-- FOOTER -->
+  <div style="text-align:center; margin-top:48px; padding:24px; background:white; border:1px solid #e2e8f0; border-radius:12px; color:#94a3b8; font-size:12px;">
+    <strong style="color:#374151;">Panduan Visual Staff · Mitra Ramah Inventory System · v1.4.3 · 2026</strong><br>
+    <span style="margin-top:4px; display:block;">Hanya untuk Penggunaan Internal · Dilarang disebarluaskan</span>
+  </div>
+
+</div>
+</body>
+</html>
