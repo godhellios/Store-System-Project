@@ -85,7 +85,6 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
   });
 
   const filledCount = session.lines.filter((l) => counts[l.id] !== "").length;
-  const hasUnresolvedMismatch = session.lines.some((l) => getLineStatus(l) === "mismatch");
   const discrepancies = session.lines.filter((l) => l.difference !== null && l.difference !== 0).length;
 
   async function saveCounts() {
