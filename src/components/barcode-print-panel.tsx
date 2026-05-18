@@ -87,12 +87,12 @@ export function BarcodePrintPanel({
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: Arial, sans-serif; background: #fff; }
           @page { size: A4 portrait; margin: 8mm; }
-          .grid { display: grid; grid-template-columns: repeat(4, 40mm); gap: 3mm; }
-          .label { width: 40mm; height: 30mm; border: 1px dashed #ccc; padding: 2.5mm 2.5mm; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1mm; overflow: hidden; }
-          .barcode-img { width: 35mm; height: auto; flex-shrink: 0; }
-          .barcode-num { font-family: monospace; font-size: 6.5pt; color: #555; letter-spacing: 0.5px; flex-shrink: 0; }
-          .product-name { font-size: 7.5pt; font-weight: 600; text-align: center; width: 36mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .unit { font-size: 6.5pt; color: #777; width: 36mm; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .grid { display: grid; grid-template-columns: repeat(3, 60mm); gap: 3mm; }
+          .label { width: 60mm; height: 40mm; border: 1px dashed #ccc; padding: 3mm; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1mm; overflow: hidden; }
+          .barcode-img { width: 52mm; height: auto; flex-shrink: 0; }
+          .barcode-num { font-family: monospace; font-size: 7pt; color: #555; letter-spacing: 0.5px; flex-shrink: 0; }
+          .product-name { font-size: 8pt; font-weight: 600; text-align: center; width: 54mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .unit { font-size: 7pt; color: #777; width: 54mm; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           @media print { body { -webkit-print-color-adjust: exact; } }
         </style>
       </head>
