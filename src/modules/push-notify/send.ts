@@ -38,6 +38,9 @@ export async function sendPushNotification(payload: PushPayload): Promise<void> 
     const r = results[i];
     if (r.status === "rejected") {
       const code = (r.reason as { statusCode?: number })?.statusCode;
+      if (code !== 410 && code !== 404) {
+        console.error("[push-notify] delivery failed", { statusCode: code, error: String(r.reason) });
+      }
       return code !== 410 && code !== 404;
     }
     return true;

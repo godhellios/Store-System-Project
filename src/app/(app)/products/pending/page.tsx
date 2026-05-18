@@ -13,7 +13,7 @@ type PendingProduct = {
   barcode: string;
   colorVariant: string | null;
   description: string | null;
-  approvalStatus: string | null;
+  approvalStatus: "DRAFT" | "ACTIVE" | "REJECTED" | null;
   pendingChanges: unknown;
   pendingChangedBy: string | null;
   pendingChangedAt: string | null;

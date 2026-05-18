@@ -24,7 +24,7 @@ type SavedProduct = {
   colorVariant: string | null;
   category: { name: string };
   unit: { name: string };
-  approvalStatus: string | null;
+  approvalStatus: "DRAFT" | "ACTIVE" | "REJECTED" | null;
 };
 type SimilarProduct = { id: string; name: string; sku: string; score: number };
 

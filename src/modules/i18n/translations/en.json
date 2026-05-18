@@ -297,6 +297,14 @@
       "doneBy": "Done By",
       "created": "Created",
       "approved": "Approved"
+    },
+    "countSheet": {
+      "colPhysical": "Physical Qty",
+      "colBook": "Book Qty",
+      "colDifference": "Difference",
+      "saveDraft": "Save Draft",
+      "saving": "Saving…",
+      "submitForReview": "Submit for Review"
     }
   },
   "barcodes": {

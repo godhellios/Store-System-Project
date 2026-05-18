@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     isActive: true,
     ...(categoryId ? { categoryId } : {}),
     AND: [
-      { OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }] },
+      { OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }] },
       ...(textFilter ? [textFilter] : []),
     ],
   };

@@ -179,7 +179,10 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       {/* ── Sign out ─ pinned at the bottom, never scrolls ── */}
       <div className="flex-shrink-0 border-t border-slate-700 dark:border-slate-800 p-4">
         <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => {
+            ["GRN","GOODS_OUT","TRANSFER","ADJUSTMENT"].forEach((t) => localStorage.removeItem(`mris_draft_${t}`));
+            signOut({ callbackUrl: "/login" });
+          }}
           className="w-full text-xs text-slate-500 hover:text-slate-300 text-left py-2 px-3 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-800 transition-colors"
         >
           ⎋ &nbsp;{t("common.signOut", "Sign out")}

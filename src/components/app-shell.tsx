@@ -39,11 +39,16 @@ export function AppShell({
     return () => window.removeEventListener("resize", close);
   }, []);
 
+  function clearDraftsAndSignOut(callbackUrl: string) {
+    ["GRN","GOODS_OUT","TRANSFER","ADJUSTMENT"].forEach((t) => localStorage.removeItem(`mris_draft_${t}`));
+    signOut({ callbackUrl });
+  }
+
   // Auto-logout non-admin users when tab or browser is closed and reopened
   useEffect(() => {
     if (userRole === "ADMIN") return;
     if (!sessionStorage.getItem("session_alive")) {
-      signOut({ callbackUrl: "/login" });
+      clearDraftsAndSignOut("/login");
       return;
     }
     // Catch Chrome/Edge session restore: loginAt comes from the JWT (server-side),
@@ -51,7 +56,7 @@ export function AppShell({
     // 10 hours covers any overnight gap between shifts.
     if (loginAt && Date.now() - loginAt > 10 * 60 * 60 * 1000) {
       sessionStorage.removeItem("session_alive");
-      signOut({ callbackUrl: "/login" });
+      clearDraftsAndSignOut("/login");
     }
   }, [userRole, loginAt]);
 
@@ -64,7 +69,7 @@ export function AppShell({
         const data = await res.json();
         if (!data.valid) {
           sessionStorage.removeItem("session_alive");
-          signOut({ callbackUrl: "/login?reason=displaced" });
+          clearDraftsAndSignOut("/login?reason=displaced");
         }
       } catch {
         // ignore network errors — don't kick out on flaky connection

@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { useT } from "@/modules/i18n/provider";
 
 type Line = {
   id: string;
@@ -26,6 +27,7 @@ type Session = {
 type LineStatus = "empty" | "match" | "mismatch" | "confirmed";
 
 export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdmin: boolean }) {
+  const t = useT();
   const router = useRouter();
   const isEditable = session.status === "IN_PROGRESS";
   const isReviewing = session.status === "REVIEWING";
@@ -210,7 +212,7 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
               <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
                 <th className="px-4 py-2.5 text-left font-medium">Product</th>
                 <th className="px-4 py-2.5 text-left font-medium">Category</th>
-                <th className="px-4 py-2.5 text-center font-medium">Physical Qty</th>
+                <th className="px-4 py-2.5 text-center font-medium">{t("opname.countSheet.colPhysical", "Physical Qty")}</th>
                 <th className="px-4 py-2.5 text-left font-medium">Unit</th>
                 <th className="px-4 py-2.5 text-left font-medium">Status</th>
               </tr>
@@ -263,11 +265,11 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
         <div className="flex gap-3 flex-wrap items-center">
           <button onClick={saveCounts} disabled={saving}
             className="px-5 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50">
-            {saving ? "Saving…" : "Save Draft"}
+            {saving ? t("opname.countSheet.saving", "Saving…") : t("opname.countSheet.saveDraft", "Save Draft")}
           </button>
           <button onClick={submitForReview} disabled={saving || filledCount === 0}
             className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg">
-            Submit for Review
+            {t("opname.countSheet.submitForReview", "Submit for Review")}
           </button>
         </div>
       </div>
@@ -364,9 +366,9 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
             <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
               <th className="px-4 py-2.5 text-left font-medium">Product</th>
               <th className="px-4 py-2.5 text-left font-medium">Category</th>
-              <th className="px-4 py-2.5 text-right font-medium">Book Qty</th>
-              <th className="px-4 py-2.5 text-center font-medium">Physical Qty</th>
-              <th className="px-4 py-2.5 text-right font-medium">Difference</th>
+              <th className="px-4 py-2.5 text-right font-medium">{t("opname.countSheet.colBook", "Book Qty")}</th>
+              <th className="px-4 py-2.5 text-center font-medium">{t("opname.countSheet.colPhysical", "Physical Qty")}</th>
+              <th className="px-4 py-2.5 text-right font-medium">{t("opname.countSheet.colDifference", "Difference")}</th>
               <th className="px-4 py-2.5 text-left font-medium">Unit</th>
               <th className="px-4 py-2.5 text-left font-medium">Notes</th>
             </tr>
@@ -419,11 +421,11 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
         <div className="flex gap-3">
           <button onClick={saveCounts} disabled={saving}
             className="px-5 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50">
-            {saving ? "Saving…" : "Save Draft"}
+            {saving ? t("opname.countSheet.saving", "Saving…") : t("opname.countSheet.saveDraft", "Save Draft")}
           </button>
           <button onClick={submitForReview} disabled={saving || filledCount === 0}
             className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg">
-            Submit for Review
+            {t("opname.countSheet.submitForReview", "Submit for Review")}
           </button>
         </div>
       )}

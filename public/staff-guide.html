@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Panduan Visual Staff — MRIS v1.4.3</title>
+<title>Panduan Visual Staff — MRIS v1.4.4</title>
 <style>
   /* ── Base ── */
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -298,7 +298,7 @@
     <h1>Panduan Visual Staff</h1>
     <div class="sub">Sistem Inventaris MRIS — Mitra Ramah</div>
     <div class="sub" style="font-size:14px; margin-bottom:20px;">Panduan bergambar untuk operasional harian gudang / toko</div>
-    <div class="version">Versi v1.4.3 · 2026 · Hanya untuk Penggunaan Internal</div>
+    <div class="version">Versi v1.4.4 · 2026 · Hanya untuk Penggunaan Internal</div>
   </div>
 
   <!-- TOC -->
@@ -313,6 +313,7 @@
       <div class="toc-item"><div class="toc-num">6</div><div class="toc-label">Pindah Stok</div></div>
       <div class="toc-item"><div class="toc-num">7</div><div class="toc-label">Penyesuaian Stok</div></div>
       <div class="toc-item"><div class="toc-num">8</div><div class="toc-label">Stock Opname</div></div>
+      <div class="toc-item"><div class="toc-num" style="background:#ef4444;">9</div><div class="toc-label">Kondisi Normal &amp; Pesan Error</div></div>
     </div>
   </div>
 
@@ -360,7 +361,7 @@
             <div class="ann-circle" style="background:#ef4444;">3</div>
           </div>
         </div>
-        <div class="login-footer">© 2026 Mitra Ramah — MRIs v1.4.3</div>
+        <div class="login-footer">© 2026 Mitra Ramah — MRIs v1.4.4</div>
       </div>
     </div>
   </div>
@@ -685,6 +686,7 @@
   <div class="checklist">
     <h4>Checklist sebelum klik Simpan Pesanan</h4>
     <div class="check-item"><div class="check-box"></div>Lokasi Penerimaan sudah dipilih</div>
+    <div class="check-item"><div class="check-box"></div>Nama supplier / nomor nota sudah diisi di kolom Referensi</div>
     <div class="check-item"><div class="check-box"></div>Semua nama barang sudah benar (cocok dengan nota supplier)</div>
     <div class="check-item"><div class="check-box"></div>Jumlah sesuai nota supplier</div>
     <div class="check-item"><div class="check-box"></div>Satuan sudah benar untuk setiap barang</div>
@@ -1023,6 +1025,24 @@
     <li><div class="callout-num">2</div><div class="callout-text"><strong>− Kurangi stok</strong> — digunakan kalau stok di sistem perlu diturunkan (contoh: barang rusak, hilang). <span class="warn">Kalau tidak yakin pilih mana, tanya penanggung jawab dulu.</span></div></li>
   </ul>
 
+  <div class="warn-box">
+    <div class="warn-icon">⚠️</div>
+    <div class="warn-text">
+      <strong>Penyesuaian stok BUKAN untuk mengoreksi kesalahan input transaksi.</strong><br>
+      Kalau kamu salah input Barang Masuk atau Barang Keluar → laporkan ke penanggung jawab, jangan ajukan penyesuaian untuk "menutup" selisih tersebut.<br><br>
+      <strong>Stok hanya berubah setelah Admin menyetujui.</strong> Jangan input ulang kalau belum disetujui.
+    </div>
+  </div>
+
+  <div class="checklist">
+    <h4>Checklist sebelum klik Kirim untuk Disetujui</h4>
+    <div class="check-item"><div class="check-box"></div>Lokasi sudah dipilih dengan benar</div>
+    <div class="check-item"><div class="check-box"></div>Produk yang dipilih benar-benar yang dimaksud (cek nama dan SKU)</div>
+    <div class="check-item"><div class="check-box"></div>Pilihan Tambah / Kurangi sudah sesuai</div>
+    <div class="check-item"><div class="check-box"></div>Jumlah dan alasan sudah diisi</div>
+    <div class="check-item"><div class="check-box"></div>Sudah dikonfirmasi ke penanggung jawab sebelum mengirim</div>
+  </div>
+
 
   <hr class="divider">
 
@@ -1139,10 +1159,10 @@
 
 
   <!-- ═══════════════════════════════════════════ -->
-  <!-- KONDISI NORMAL & PESAN ERROR -->
+  <!-- SECTION 9: KONDISI NORMAL & PESAN ERROR -->
   <!-- ═══════════════════════════════════════════ -->
-  <h2 class="section-title">Kondisi Normal dan Pesan Error</h2>
-  <div class="section-intro">Beberapa tampilan mungkin membingungkan. Berikut penjelasannya agar kamu tidak panik.</div>
+  <h2 class="section-title">9. Kondisi Normal dan Pesan Error</h2>
+  <div class="section-intro">Beberapa tampilan mungkin membingungkan. Berikut penjelasannya agar kamu tidak panik. <strong>Selalu screenshot dan laporkan ke penanggung jawab jika ada error yang tidak ada di daftar ini.</strong></div>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:24px;">
     <div style="background:white; border:1.5px solid #e2e8f0; border-radius:12px; overflow:hidden;">
@@ -1255,7 +1275,7 @@
 
   <!-- FOOTER -->
   <div style="text-align:center; margin-top:48px; padding:24px; background:white; border:1px solid #e2e8f0; border-radius:12px; color:#94a3b8; font-size:12px;">
-    <strong style="color:#374151;">Panduan Visual Staff · Mitra Ramah Inventory System · v1.4.3 · 2026</strong><br>
+    <strong style="color:#374151;">Panduan Visual Staff · Mitra Ramah Inventory System · v1.4.4 · 2026</strong><br>
     <span style="margin-top:4px; display:block;">Hanya untuk Penggunaan Internal · Dilarang disebarluaskan</span>
   </div>
 

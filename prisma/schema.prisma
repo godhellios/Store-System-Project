@@ -37,6 +37,12 @@ enum UserRole {
   OPERATOR
 }
 
+enum ProductApprovalStatus {
+  DRAFT
+  ACTIVE
+  REJECTED
+}
+
 // ─── Models ──────────────────────────────────────────────
 
 model User {
@@ -123,7 +129,7 @@ model Product {
   colorVariant String?
   description  String?
   isActive          Boolean   @default(true)
-  approvalStatus    String?   // DRAFT | ACTIVE | REJECTED  (null = legacy active)
+  approvalStatus    ProductApprovalStatus?  // null = legacy active (pre-approval-workflow products)
   pendingChanges    Json?     // proposed edit fields as JSON object
   pendingChangedBy  String?   // name of staff who submitted edit
   pendingChangedAt  DateTime? // when edit was submitted
