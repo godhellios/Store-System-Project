@@ -121,17 +121,24 @@ export function BulkImageUploadClient({ products }: { products: ProductSku[] }) 
       setProgress({ done, total: toUpload.length });
     }
 
-    const res = await fetch("/api/products/images/bulk", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ saves }),
-    });
-    const data: BulkSaveResult = await res.json();
-    setResult(data);
+    const SAVE_BATCH = 50;
+    let totalSaved = 0;
+    const allErrors: BulkSaveResult["errors"] = [];
+    for (let i = 0; i < saves.length; i += SAVE_BATCH) {
+      const res = await fetch("/api/products/images/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ saves: saves.slice(i, i + SAVE_BATCH) }),
+      });
+      const data: BulkSaveResult = await res.json();
+      totalSaved += data.saved;
+      allErrors.push(...data.errors);
+    }
+    setResult({ saved: totalSaved, failed: allErrors.length, errors: allErrors });
     setUploading(false);
 
-    if (data.failed === 0) toast.success(`${data.saved} image${data.saved !== 1 ? "s" : ""} uploaded`);
-    else toast(`${data.saved} uploaded, ${data.failed} failed`, { icon: "⚠️" });
+    if (allErrors.length === 0) toast.success(`${totalSaved} image${totalSaved !== 1 ? "s" : ""} uploaded`);
+    else toast(`${totalSaved} uploaded, ${allErrors.length} failed`, { icon: "⚠️" });
   }
 
   const matched = rows.filter((r) => r.status === "matched");
