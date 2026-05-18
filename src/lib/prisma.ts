@@ -5,11 +5,11 @@ import { PrismaClient } from "@/generated/prisma";
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 function createPrismaClient() {
-  const rawUrl = process.env.DATABASE_URL!;
+  const rawUrl = process.env.DATABASE_URL;
   const pool = new Pool({
     connectionString: rawUrl,
     max: 1,
-    ssl: rawUrl.includes("sslmode=disable") ? false : { rejectUnauthorized: false },
+    ssl: rawUrl?.includes("sslmode=disable") ? false : { rejectUnauthorized: false },
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({
