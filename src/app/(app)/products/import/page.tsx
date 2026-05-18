@@ -93,13 +93,25 @@ export default function BulkImportPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rows: classified, conflictDecisions: decisions }),
       });
-      const data = await res.json();
-      if (!res.ok) { toast.error(data.error); return; }
-      setResults(data.results);
-      setResultSummary({ ok: data.ok, skipped: data.skipped, errors: data.errors });
+      let data: Record<string, unknown>;
+      try {
+        data = await res.json();
+      } catch {
+        toast.error("Server did not respond — the import may have timed out. Try a smaller file or contact support.");
+        return;
+      }
+      if (!res.ok) {
+        toast.error(typeof data.error === "string" ? data.error : "Import failed — please try again");
+        return;
+      }
+      setResults((data.results as ApplyResult[]) ?? []);
+      setResultSummary({ ok: (data.ok as number) ?? 0, skipped: (data.skipped as number) ?? 0, errors: (data.errors as number) ?? 0 });
       setStep("done");
-      if (data.errors === 0) toast.success(`Import complete — ${data.ok} processed`);
+      if ((data.errors as number) === 0) toast.success(`Import complete — ${data.ok} processed`);
       else toast(`${data.ok} ok, ${data.errors} failed`, { icon: "⚠️" });
+    } catch (e) {
+      console.error("Import error:", e);
+      toast.error("Import failed — please try again");
     } finally {
       setApplying(false);
     }
