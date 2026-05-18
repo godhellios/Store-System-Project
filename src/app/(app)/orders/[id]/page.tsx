@@ -187,6 +187,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             {order.customer}
           </div>
         )}
+        {order.supplier && (
+          <div>
+            <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.supplier", "Supplier")}</span>
+            {order.supplier}
+          </div>
+        )}
         {order.reference && (
           <div>
             <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.reference", "Reference")}</span>

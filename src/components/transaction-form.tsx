@@ -176,6 +176,7 @@ export function TransactionForm({
   const [fromLocationId, setFromLocationId] = useState("");
   const [toLocationId, setToLocationId]     = useState("");
   const [customer, setCustomer]         = useState("");
+  const [supplier, setSupplier]         = useState("");
   const [reference, setReference]       = useState("");
   const [notes, setNotes]               = useState("");
   const [submitting, setSubmitting]     = useState(false);
@@ -194,10 +195,10 @@ export function TransactionForm({
   // Save draft on every form change (skips on first render until restore check completes)
   useEffect(() => {
     if (!draftChecked.current) return;
-    const hasContent = lines.length > 0 || fromLocationId || toLocationId || customer || reference || notes;
+    const hasContent = lines.length > 0 || fromLocationId || toLocationId || customer || supplier || reference || notes;
     if (!hasContent) { localStorage.removeItem(DRAFT_KEY); return; }
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ lines, fromLocationId, toLocationId, customer, reference, notes })); } catch {}
-  }, [lines, fromLocationId, toLocationId, customer, reference, notes, DRAFT_KEY]);
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ lines, fromLocationId, toLocationId, customer, supplier, reference, notes })); } catch {}
+  }, [lines, fromLocationId, toLocationId, customer, supplier, reference, notes, DRAFT_KEY]);
 
   // Restore draft on mount (defined after save effect so save effect runs first on mount)
   useEffect(() => {
@@ -205,11 +206,12 @@ export function TransactionForm({
       const saved = localStorage.getItem(DRAFT_KEY);
       if (saved) {
         const draft = JSON.parse(saved);
-        if (draft.lines?.length || draft.fromLocationId || draft.toLocationId || draft.customer || draft.reference || draft.notes) {
+        if (draft.lines?.length || draft.fromLocationId || draft.toLocationId || draft.customer || draft.supplier || draft.reference || draft.notes) {
           setLines((draft.lines ?? []).map((l: LineItem) => ({ ...l, stockByLocation: l.stockByLocation ?? [] })));
           setFromLocationId(draft.fromLocationId ?? "");
           setToLocationId(draft.toLocationId ?? "");
           setCustomer(draft.customer ?? "");
+          setSupplier(draft.supplier ?? "");
           setReference(draft.reference ?? "");
           setNotes(draft.notes ?? "");
           setDraftRestored(true);
@@ -221,7 +223,7 @@ export function TransactionForm({
 
   function clearDraft() {
     localStorage.removeItem(DRAFT_KEY);
-    setLines([]); setFromLocationId(""); setToLocationId(""); setCustomer(""); setReference(""); setNotes("");
+    setLines([]); setFromLocationId(""); setToLocationId(""); setCustomer(""); setSupplier(""); setReference(""); setNotes("");
     setDraftRestored(false);
   }
 
@@ -433,6 +435,7 @@ export function TransactionForm({
           fromLocationId: fromLocationId || undefined,
           toLocationId:   toLocationId   || undefined,
           customer:       customer       || undefined,
+          supplier:       supplier       || undefined,
           reference:      reference      || undefined,
           notes:          notes          || undefined,
           lines: lines.map((l) => ({
@@ -536,6 +539,14 @@ export function TransactionForm({
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.customerName", "Customer Name")}</label>
               <input value={customer} onChange={(e) => setCustomer(e.target.value)}
+                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+                placeholder={t("transactionForm.optional", "Optional")} />
+            </div>
+          )}
+          {type === "GRN" && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.supplierName", "Supplier Name")}</label>
+              <input value={supplier} onChange={(e) => setSupplier(e.target.value)}
                 className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
                 placeholder={t("transactionForm.optional", "Optional")} />
             </div>

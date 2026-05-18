@@ -320,8 +320,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: "Rejected Transfer orders cannot be edited" }, { status: 400 });
 
   const body = await req.json();
-  const { customer, reference, notes, lines } = body as {
+  const { customer, supplier, reference, notes, lines } = body as {
     customer?: string | null;
+    supplier?: string | null;
     reference?: string | null;
     notes?: string | null;
     lines?: Array<{ productId: string; quantity: number; inputQty?: number; inputUnit?: string; notes?: string | null }>;
@@ -382,6 +383,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           where: { id },
           data: {
             ...(customer !== undefined ? { customer: customer?.trim() || null } : {}),
+            ...(supplier !== undefined ? { supplier: supplier?.trim() || null } : {}),
             ...(reference !== undefined ? { reference: reference?.trim() || null } : {}),
             ...(notes !== undefined ? { notes: notes?.trim() || null } : {}),
           },

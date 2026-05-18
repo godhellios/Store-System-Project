@@ -180,6 +180,7 @@ model Order {
   toLocation     Location? @relation("OrderToLocation", fields: [toLocationId], references: [id])
   toLocationId   String?
   customer       String?
+  supplier       String?
   reference      String?
   notes          String?
   createdByName     String?
