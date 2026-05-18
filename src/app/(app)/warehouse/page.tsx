@@ -4,14 +4,18 @@ import { blockOperator } from "@/lib/role-guard";
 import { WarehouseStockTable } from "./stock-table";
 import { getT } from "@/modules/i18n";
 
+const PAGE_SIZE = 50;
+
 export default async function WarehousePage({
   searchParams,
 }: {
-  searchParams: Promise<{ locationId?: string }>;
+  searchParams: Promise<{ locationId?: string; q?: string; cat?: string; page?: string }>;
 }) {
   await blockOperator();
   const t = await getT();
-  const { locationId } = await searchParams;
+  const { locationId, q, cat, page } = await searchParams;
+
+  const pageNum = Math.max(1, parseInt(page ?? "1") || 1);
 
   const [locations, categories] = await Promise.all([
     prisma.location.findMany({
@@ -24,14 +28,38 @@ export default async function WarehousePage({
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
 
-  const stock = locationId
-    ? await prisma.stock.findMany({
-        where: { locationId },
-        include: { product: { include: { category: true, unit: true } } },
-        orderBy: { product: { name: "asc" } },
-      })
-    : [];
+  const stockWhere = locationId
+    ? {
+        locationId,
+        product: {
+          ...(cat ? { categoryId: cat } : {}),
+          ...(q
+            ? {
+                OR: [
+                  { name: { contains: q, mode: "insensitive" as const } },
+                  { sku: { contains: q, mode: "insensitive" as const } },
+                  { barcode: { contains: q, mode: "insensitive" as const } },
+                ],
+              }
+            : {}),
+        },
+      }
+    : undefined;
 
+  const [stock, totalCount] = locationId
+    ? await Promise.all([
+        prisma.stock.findMany({
+          where: stockWhere,
+          include: { product: { include: { category: true, unit: true } } },
+          orderBy: { product: { name: "asc" } },
+          take: PAGE_SIZE,
+          skip: (pageNum - 1) * PAGE_SIZE,
+        }),
+        prisma.stock.count({ where: stockWhere }),
+      ])
+    : [[], 0];
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const selectedLocation = locations.find((l) => l.id === locationId) ?? null;
 
   return (
@@ -99,7 +127,16 @@ export default async function WarehousePage({
               {t("warehouse.deselect", "✕ Deselect")}
             </Link>
           </div>
-          <WarehouseStockTable stock={stock} categories={categories} />
+          <WarehouseStockTable
+            stock={stock}
+            categories={categories}
+            locationId={locationId!}
+            q={q ?? ""}
+            categoryId={cat ?? ""}
+            page={pageNum}
+            totalPages={totalPages}
+            totalCount={totalCount}
+          />
         </div>
       ) : (
         <p className="text-sm text-slate-400 text-center py-10">

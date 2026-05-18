@@ -106,34 +106,38 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // ── Goods Out approve / reject ────────────────────────────────────────────
   if (isPendingGoodsOut) {
     if (action === "approve") {
-      if (order.fromLocationId) {
-        // Re-validate stock at approval time (stock may have changed since order was created)
-        const stockRows = await prisma.stock.findMany({
-          where: { productId: { in: order.lines.map((l) => l.productId) }, locationId: order.fromLocationId },
-          include: { product: { select: { name: true } } },
-        });
-        const stockMap = new Map(stockRows.map((s) => [s.productId, s]));
-        const insufficient: string[] = [];
-        for (const line of order.lines) {
-          const available = stockMap.get(line.productId)?.quantity ?? 0;
-          if (available < line.quantity) {
-            const name = stockMap.get(line.productId)?.product.name ?? line.productId;
-            insufficient.push(`"${name}" — available: ${available}, requested: ${line.quantity}`);
+      class InsufficientStockErrorGO extends Error {}
+      try {
+        await prisma.$transaction(async (tx) => {
+          if (order.fromLocationId) {
+            const insufficient: string[] = [];
+            for (const line of order.lines) {
+              // Atomic check-and-decrement: 0 rows = stock insufficient or missing
+              const updated = await tx.$executeRaw`
+                UPDATE "Stock"
+                SET quantity = quantity - ${line.quantity}
+                WHERE "productId" = ${line.productId}
+                  AND "locationId" = ${order.fromLocationId}
+                  AND quantity >= ${line.quantity}
+              `;
+              if (updated === 0) {
+                const s = await tx.stock.findUnique({
+                  where: { productId_locationId: { productId: line.productId, locationId: order.fromLocationId } },
+                  include: { product: { select: { name: true } } },
+                });
+                insufficient.push(`"${s?.product.name ?? line.productId}" — available: ${s?.quantity ?? 0}, requested: ${line.quantity}`);
+              }
+            }
+            if (insufficient.length) throw new InsufficientStockErrorGO(`Insufficient stock:\n${insufficient.join("\n")}`);
           }
-        }
-        if (insufficient.length)
-          return NextResponse.json({ error: `Insufficient stock:\n${insufficient.join("\n")}` }, { status: 400 });
+          await tx.order.update({ where: { id }, data: { goodsOutStatus: "APPROVED", ...reviewFields } });
+        });
+      } catch (err) {
+        if (err instanceof InsufficientStockErrorGO)
+          return NextResponse.json({ error: err.message }, { status: 400 });
+        console.error("Goods Out approval failed:", err);
+        return NextResponse.json({ error: "Failed to approve — please try again" }, { status: 500 });
       }
-      await prisma.$transaction(async (tx) => {
-        for (const line of order.lines) {
-          if (!order.fromLocationId) continue;
-          await tx.stock.update({
-            where: { productId_locationId: { productId: line.productId, locationId: order.fromLocationId } },
-            data: { quantity: { decrement: line.quantity } },
-          });
-        }
-        await tx.order.update({ where: { id }, data: { goodsOutStatus: "APPROVED", ...reviewFields } });
-      });
       writeAuditLog({ session, action: "APPROVE_GOODS_OUT", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
       // Fire reorder alerts after stock decrement
       if (order.fromLocationId) {
@@ -160,38 +164,43 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // ── Transfer approve / reject ─────────────────────────────────────────────
   if (isPendingTransfer) {
     if (action === "approve") {
-      if (order.fromLocationId) {
-        const stockRows = await prisma.stock.findMany({
-          where: { productId: { in: order.lines.map((l) => l.productId) }, locationId: order.fromLocationId },
-          include: { product: { select: { name: true } } },
-        });
-        const stockMap = new Map(stockRows.map((s) => [s.productId, s]));
-        const insufficient: string[] = [];
-        for (const line of order.lines) {
-          const available = stockMap.get(line.productId)?.quantity ?? 0;
-          if (available < line.quantity) {
-            const name = stockMap.get(line.productId)?.product.name ?? line.productId;
-            insufficient.push(`"${name}" — available: ${available}, requested: ${line.quantity}`);
+      class InsufficientStockErrorTRF extends Error {}
+      try {
+        await prisma.$transaction(async (tx) => {
+          if (order.fromLocationId && order.toLocationId) {
+            const insufficient: string[] = [];
+            for (const line of order.lines) {
+              const updated = await tx.$executeRaw`
+                UPDATE "Stock"
+                SET quantity = quantity - ${line.quantity}
+                WHERE "productId" = ${line.productId}
+                  AND "locationId" = ${order.fromLocationId}
+                  AND quantity >= ${line.quantity}
+              `;
+              if (updated === 0) {
+                const s = await tx.stock.findUnique({
+                  where: { productId_locationId: { productId: line.productId, locationId: order.fromLocationId } },
+                  include: { product: { select: { name: true } } },
+                });
+                insufficient.push(`"${s?.product.name ?? line.productId}" — available: ${s?.quantity ?? 0}, requested: ${line.quantity}`);
+              } else {
+                await tx.stock.upsert({
+                  where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId! } },
+                  create: { productId: line.productId, locationId: order.toLocationId!, quantity: line.quantity },
+                  update: { quantity: { increment: line.quantity } },
+                });
+              }
+            }
+            if (insufficient.length) throw new InsufficientStockErrorTRF(`Insufficient stock:\n${insufficient.join("\n")}`);
           }
-        }
-        if (insufficient.length)
-          return NextResponse.json({ error: `Insufficient stock:\n${insufficient.join("\n")}` }, { status: 400 });
+          await tx.order.update({ where: { id }, data: { transferStatus: "APPROVED", ...reviewFields } });
+        });
+      } catch (err) {
+        if (err instanceof InsufficientStockErrorTRF)
+          return NextResponse.json({ error: err.message }, { status: 400 });
+        console.error("Transfer approval failed:", err);
+        return NextResponse.json({ error: "Failed to approve — please try again" }, { status: 500 });
       }
-      await prisma.$transaction(async (tx) => {
-        for (const line of order.lines) {
-          if (!order.fromLocationId || !order.toLocationId) continue;
-          await tx.stock.update({
-            where: { productId_locationId: { productId: line.productId, locationId: order.fromLocationId } },
-            data: { quantity: { decrement: line.quantity } },
-          });
-          await tx.stock.upsert({
-            where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
-            create: { productId: line.productId, locationId: order.toLocationId, quantity: line.quantity },
-            update: { quantity: { increment: line.quantity } },
-          });
-        }
-        await tx.order.update({ where: { id }, data: { transferStatus: "APPROVED", ...reviewFields } });
-      });
       writeAuditLog({ session, action: "APPROVE_TRANSFER", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
       // Fire reorder alerts after stock decrement from source
       if (order.fromLocationId) {

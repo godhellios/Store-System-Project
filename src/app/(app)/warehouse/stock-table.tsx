@@ -24,14 +24,40 @@ type StockRow = {
 type Props = {
   stock: StockRow[];
   categories: { id: string; name: string }[];
+  locationId: string;
+  q: string;
+  categoryId: string;
+  page: number;
+  totalPages: number;
+  totalCount: number;
 };
 
-export function WarehouseStockTable({ stock, categories }: Props) {
+export function WarehouseStockTable({ stock, categories, locationId, q, categoryId, page, totalPages, totalCount }: Props) {
   const router = useRouter();
-  const [q, setQ] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [search, setSearch] = useState(q);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  function buildUrl(overrides: Partial<{ q: string; cat: string; page: number }>) {
+    const qs = new URLSearchParams();
+    qs.set("locationId", locationId);
+    const newQ   = overrides.q   !== undefined ? overrides.q   : q;
+    const newCat = overrides.cat !== undefined ? overrides.cat : categoryId;
+    const newPg  = overrides.page !== undefined ? overrides.page : page;
+    if (newQ)    qs.set("q",   newQ);
+    if (newCat)  qs.set("cat", newCat);
+    if (newPg > 1) qs.set("page", String(newPg));
+    return `/warehouse?${qs}`;
+  }
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    router.push(buildUrl({ q: search, page: 1 }));
+  }
+
+  function handleCategoryChange(newCat: string) {
+    router.push(buildUrl({ cat: newCat, page: 1 }));
+  }
 
   async function deleteStock(stockId: string) {
     setDeletingId(stockId);
@@ -47,34 +73,27 @@ export function WarehouseStockTable({ stock, categories }: Props) {
     router.refresh();
   }
 
-  const filtered = stock.filter((s) => {
-    const matchQ =
-      !q ||
-      s.product.name.toLowerCase().includes(q.toLowerCase()) ||
-      s.product.sku.toLowerCase().includes(q.toLowerCase()) ||
-      s.product.barcode.toLowerCase().includes(q.toLowerCase());
-    const matchCat = !categoryId || s.product.category.id === categoryId;
-    return matchQ && matchCat;
-  });
-
-  const totalQty = filtered.reduce((sum, s) => sum + s.quantity, 0);
-  const lowCount = filtered.filter(
+  const lowCount = stock.filter(
     (s) => s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint
   ).length;
+  const pageQty = stock.reduce((sum, s) => sum + s.quantity, 0);
 
   return (
     <div>
       {/* Filters */}
-      <div className="flex gap-2 mb-4 flex-wrap">
+      <form onSubmit={handleSearch} className="flex gap-2 mb-4 flex-wrap">
         <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="Search name, SKU, or barcode…"
           className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+          Search
+        </button>
         <select
           value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
+          onChange={(e) => handleCategoryChange(e.target.value)}
           className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Categories</option>
@@ -83,9 +102,9 @@ export function WarehouseStockTable({ stock, categories }: Props) {
           ))}
         </select>
         <div className="flex items-center gap-3 text-xs text-slate-500 px-1">
-          <span>{filtered.length} product{filtered.length !== 1 ? "s" : ""}</span>
+          <span>{totalCount} product{totalCount !== 1 ? "s" : ""} total</span>
           <span>·</span>
-          <span>{totalQty} units total</span>
+          <span>{pageQty} units (this page)</span>
           {lowCount > 0 && (
             <>
               <span>·</span>
@@ -93,13 +112,13 @@ export function WarehouseStockTable({ stock, categories }: Props) {
             </>
           )}
         </div>
-      </div>
+      </form>
 
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
-        {filtered.length === 0 ? (
+        {stock.length === 0 ? (
           <p className="text-center text-xs text-slate-400 py-10">No items found</p>
-        ) : filtered.map((s) => {
+        ) : stock.map((s) => {
           const isLow = s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
           return (
             <div
@@ -137,7 +156,6 @@ export function WarehouseStockTable({ stock, categories }: Props) {
                   <span className="text-xs text-slate-400">· reorder at {s.product.reorderPoint}</span>
                 )}
               </div>
-              {/* Action buttons */}
               <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
                 <Link
                   href={`/products/${s.product.id}`}
@@ -148,23 +166,13 @@ export function WarehouseStockTable({ stock, categories }: Props) {
                 {confirmingId === s.id ? (
                   <div className="flex items-center gap-1.5 flex-1 justify-end">
                     <span className="text-xs text-slate-600">Remove?</span>
-                    <button
-                      onClick={() => setConfirmingId(null)}
-                      className="text-xs px-2.5 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
-                    >No</button>
-                    <button
-                      onClick={() => deleteStock(s.id)}
-                      disabled={deletingId === s.id}
-                      className="text-xs px-2.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50"
-                    >
+                    <button onClick={() => setConfirmingId(null)} className="text-xs px-2.5 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">No</button>
+                    <button onClick={() => deleteStock(s.id)} disabled={deletingId === s.id} className="text-xs px-2.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50">
                       {deletingId === s.id ? "…" : "Yes"}
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setConfirmingId(s.id)}
-                    className="flex-1 text-xs px-3 py-2 border border-red-300 rounded-lg text-red-600 hover:bg-red-50"
-                  >
+                  <button onClick={() => setConfirmingId(s.id)} className="flex-1 text-xs px-3 py-2 border border-red-300 rounded-lg text-red-600 hover:bg-red-50">
                     Delete
                   </button>
                 )}
@@ -190,38 +198,26 @@ export function WarehouseStockTable({ stock, categories }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {stock.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-xs text-slate-400">
-                    No items found
-                  </td>
+                  <td colSpan={7} className="px-4 py-10 text-center text-xs text-slate-400">No items found</td>
                 </tr>
-              ) : filtered.map((s) => {
+              ) : stock.map((s) => {
                 const isLow = s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
-                const rowBg = !s.product.isActive
-                  ? "opacity-50"
-                  : isLow
-                  ? "bg-red-50 dark:bg-red-950/40"
-                  : "hover:bg-slate-50";
+                const rowBg = !s.product.isActive ? "opacity-50" : isLow ? "bg-red-50 dark:bg-red-950/40" : "hover:bg-slate-50";
                 return (
                   <tr key={s.id} className={`border-t border-slate-100 ${rowBg}`}>
                     <td className="px-4 py-3">
                       <div className={`font-medium ${!s.product.isActive ? "text-slate-400 line-through" : "text-slate-800"}`}>
                         {s.product.name}
-                        {s.product.colorVariant && (
-                          <span className="text-slate-400 font-normal"> — {s.product.colorVariant}</span>
-                        )}
+                        {s.product.colorVariant && <span className="text-slate-400 font-normal"> — {s.product.colorVariant}</span>}
                       </div>
                       <div className="text-xs font-mono text-slate-400">{s.product.barcode}</div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-xs text-blue-600">{s.product.sku}</span>
-                    </td>
+                    <td className="px-4 py-3"><span className="font-mono text-xs text-blue-600">{s.product.sku}</span></td>
                     <td className="px-4 py-3 text-xs text-slate-500">{s.product.category?.name}</td>
                     <td className="px-4 py-3 text-right">
-                      <span className={`font-semibold ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800"}`}>
-                        {s.quantity}
-                      </span>
+                      <span className={`font-semibold ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800"}`}>{s.quantity}</span>
                       <span className="text-xs text-slate-400 ml-1">{s.product.unit?.name?.toLowerCase()}</span>
                     </td>
                     <td className="px-4 py-3 text-right text-xs text-slate-400">
@@ -240,32 +236,15 @@ export function WarehouseStockTable({ stock, categories }: Props) {
                       {confirmingId === s.id ? (
                         <div className="flex items-center justify-end gap-2">
                           <span className="text-xs text-slate-600 font-medium">Remove?</span>
-                          <button
-                            onClick={() => setConfirmingId(null)}
-                            className="text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
-                          >No</button>
-                          <button
-                            onClick={() => deleteStock(s.id)}
-                            disabled={deletingId === s.id}
-                            className="text-xs px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50"
-                          >
+                          <button onClick={() => setConfirmingId(null)} className="text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">No</button>
+                          <button onClick={() => deleteStock(s.id)} disabled={deletingId === s.id} className="text-xs px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50">
                             {deletingId === s.id ? "…" : "Yes, remove"}
                           </button>
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-2">
-                          <Link
-                            href={`/products/${s.product.id}`}
-                            className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
-                          >
-                            View
-                          </Link>
-                          <button
-                            onClick={() => setConfirmingId(s.id)}
-                            className="text-xs px-3 py-1.5 border border-red-300 rounded-lg text-red-600 hover:bg-red-50"
-                          >
-                            Delete
-                          </button>
+                          <Link href={`/products/${s.product.id}`} className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">View</Link>
+                          <button onClick={() => setConfirmingId(s.id)} className="text-xs px-3 py-1.5 border border-red-300 rounded-lg text-red-600 hover:bg-red-50">Delete</button>
                         </div>
                       )}
                     </td>
@@ -276,6 +255,27 @@ export function WarehouseStockTable({ stock, categories }: Props) {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 px-1">
+          <p className="text-xs text-slate-500">
+            Page {page} of {totalPages} · {totalCount} product{totalCount !== 1 ? "s" : ""}
+          </p>
+          <div className="flex gap-2">
+            {page > 1 ? (
+              <Link href={buildUrl({ page: page - 1 })} className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">← Prev</Link>
+            ) : (
+              <span className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-300 cursor-not-allowed">← Prev</span>
+            )}
+            {page < totalPages ? (
+              <Link href={buildUrl({ page: page + 1 })} className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">Next →</Link>
+            ) : (
+              <span className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-300 cursor-not-allowed">Next →</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
