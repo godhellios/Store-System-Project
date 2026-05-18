@@ -35,24 +35,21 @@ export async function POST(req: Request) {
   const stockMap = new Map(stockRecords.map((s) => [s.productId, s.quantity]));
 
   const opnameSession = await prisma.opnameSession.create({
-    data: {
-      sessionNumber,
-      locationId,
-      status: "REVIEWING",
-      notes: `Imported from Excel — ${rows.length} item(s) counted`,
-      lines: {
-        create: rows.map((r) => {
-          const bookQty = stockMap.get(r.productId) ?? 0;
-          return {
-            productId: r.productId,
-            bookQty,
-            physicalQty: r.physicalQty,
-            difference: r.physicalQty - bookQty,
-            notes: r.notes || null,
-          };
-        }),
-      },
-    },
+    data: { sessionNumber, locationId, status: "REVIEWING", notes: `Imported from Excel — ${rows.length} item(s) counted` },
+  });
+
+  await prisma.opnameLine.createMany({
+    data: rows.map((r) => {
+      const bookQty = stockMap.get(r.productId) ?? 0;
+      return {
+        sessionId: opnameSession.id,
+        productId: r.productId,
+        bookQty,
+        physicalQty: r.physicalQty,
+        difference: r.physicalQty - bookQty,
+        notes: r.notes || null,
+      };
+    }),
   });
 
   return NextResponse.json({ sessionId: opnameSession.id, sessionNumber: opnameSession.sessionNumber });
