@@ -85,35 +85,53 @@ export default function BulkImportPage() {
     }
   }
 
+  const [applyProgress, setApplyProgress] = useState<string | null>(null);
+
   async function handleApply() {
     setApplying(true);
+    setApplyProgress(null);
+    const BATCH_SIZE = 50;
+    const allResults: ApplyResult[] = [];
+    let totalOk = 0, totalSkipped = 0, totalErrors = 0;
+    const batches: typeof classified[] = [];
+    for (let i = 0; i < classified.length; i += BATCH_SIZE) {
+      batches.push(classified.slice(i, i + BATCH_SIZE));
+    }
     try {
-      const res = await fetch("/api/products/import/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: classified, conflictDecisions: decisions }),
-      });
-      let data: Record<string, unknown>;
-      try {
-        data = await res.json();
-      } catch {
-        toast.error("Server did not respond — the import may have timed out. Try a smaller file or contact support.");
-        return;
+      for (let b = 0; b < batches.length; b++) {
+        setApplyProgress(`Batch ${b + 1} / ${batches.length}…`);
+        const res = await fetch("/api/products/import/apply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rows: batches[b], conflictDecisions: decisions }),
+        });
+        let data: Record<string, unknown>;
+        try {
+          data = await res.json();
+        } catch {
+          toast.error(`Batch ${b + 1} timed out — ${totalOk} rows processed so far. Try a smaller file.`);
+          return;
+        }
+        if (!res.ok) {
+          toast.error(typeof data.error === "string" ? data.error : `Batch ${b + 1} failed — please try again`);
+          return;
+        }
+        allResults.push(...((data.results as ApplyResult[]) ?? []));
+        totalOk += (data.ok as number) ?? 0;
+        totalSkipped += (data.skipped as number) ?? 0;
+        totalErrors += (data.errors as number) ?? 0;
       }
-      if (!res.ok) {
-        toast.error(typeof data.error === "string" ? data.error : "Import failed — please try again");
-        return;
-      }
-      setResults((data.results as ApplyResult[]) ?? []);
-      setResultSummary({ ok: (data.ok as number) ?? 0, skipped: (data.skipped as number) ?? 0, errors: (data.errors as number) ?? 0 });
+      setResults(allResults);
+      setResultSummary({ ok: totalOk, skipped: totalSkipped, errors: totalErrors });
       setStep("done");
-      if ((data.errors as number) === 0) toast.success(`Import complete — ${data.ok} processed`);
-      else toast(`${data.ok} ok, ${data.errors} failed`, { icon: "⚠️" });
+      if (totalErrors === 0) toast.success(`Import complete — ${totalOk} processed`);
+      else toast(`${totalOk} ok, ${totalErrors} failed`, { icon: "⚠️" });
     } catch (e) {
       console.error("Import error:", e);
       toast.error("Import failed — please try again");
     } finally {
       setApplying(false);
+      setApplyProgress(null);
     }
   }
 
@@ -288,7 +306,7 @@ export default function BulkImportPage() {
       <div className="flex gap-3 items-center">
         <button onClick={handleApply} disabled={applying || !canApply}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg">
-          {applying ? "Applying…" : "Confirm & Import"}
+          {applying ? (applyProgress ?? "Applying…") : "Confirm & Import"}
         </button>
         <button onClick={() => { setStep("upload"); setRawRows([]); if (fileRef.current) fileRef.current.value = ""; }}
           className="px-4 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
