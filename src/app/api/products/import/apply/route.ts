@@ -203,39 +203,104 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── Batch-fetch full product details for smart diffing ───────────────────
+  const updateProductIds = toUpdate.map((r) => r.existingProduct!.id);
+  const existingFullProducts = updateProductIds.length > 0
+    ? await prisma.product.findMany({
+        where: { id: { in: updateProductIds } },
+        include: { unitConversions: true },
+      })
+    : [];
+  const existingFullMap = new Map(existingFullProducts.map((p) => [p.id, p]));
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ── Individual updates/links ──────────────────────────────────────────────
   for (const row of toUpdate) {
     const { index, action, raw, categoryId, unitId, existingProduct } = row;
     try {
+      const existing = existingFullMap.get(existingProduct!.id);
+
+      // Build changes — only fields that actually differ from existing values
       const changes: Record<string, unknown> = {};
-      if (raw.name?.trim()) changes.name = raw.name.trim();
-      if (categoryId) changes.categoryId = categoryId;
-      if (unitId) changes.unitId = unitId;
-      if (raw.reorderPoint !== undefined) changes.reorderPoint = parseInt(raw.reorderPoint) || 0;
-      if (raw.colorVariant !== undefined) changes.colorVariant = raw.colorVariant.trim() || null;
-      if (raw.description !== undefined) changes.description = raw.description.trim() || null;
-      if (raw.imageUrl !== undefined) changes.imageUrl = raw.imageUrl.trim() || null;
+      if (raw.name?.trim() && raw.name.trim() !== existing?.name) changes.name = raw.name.trim();
+      if (categoryId && categoryId !== existing?.categoryId) changes.categoryId = categoryId;
+      if (unitId && unitId !== existing?.unitId) changes.unitId = unitId;
+      if (raw.reorderPoint !== undefined) {
+        const newVal = parseInt(raw.reorderPoint) || 0;
+        if (newVal !== (existing?.reorderPoint ?? 0)) changes.reorderPoint = newVal;
+      }
+      if (raw.colorVariant !== undefined) {
+        const newVal = raw.colorVariant.trim() || null;
+        if (newVal !== (existing?.colorVariant ?? null)) changes.colorVariant = newVal;
+      }
+      if (raw.description !== undefined) {
+        const newVal = raw.description.trim() || null;
+        if (newVal !== (existing?.description ?? null)) changes.description = newVal;
+      }
+      if (raw.imageUrl !== undefined) {
+        const newVal = raw.imageUrl.trim() || null;
+        if (newVal !== (existing?.imageUrl ?? null)) changes.imageUrl = newVal;
+      }
+
+      // Smart unit conversion diff — only when import has a non-empty packing units list.
+      // Empty packagingUnits in import = "no change to packing units" (safe default).
+      const importUCs = row.parsedUnitConversions ?? [];
+      const existingUCs = existing?.unitConversions ?? [];
+      const toAddUCs = importUCs.filter((iuc) =>
+        !existingUCs.some(
+          (euc) =>
+            euc.name.toLowerCase() === iuc.name.trim().toLowerCase() &&
+            euc.conversionFactor === iuc.conversionFactor
+        )
+      );
+      const toDeleteUCIds = importUCs.length > 0
+        ? existingUCs
+            .filter(
+              (euc) =>
+                !importUCs.some(
+                  (iuc) =>
+                    iuc.name.trim().toLowerCase() === euc.name.toLowerCase() &&
+                    iuc.conversionFactor === euc.conversionFactor
+                )
+            )
+            .map((euc) => euc.id)
+        : [];
+      const ucChanged = toAddUCs.length > 0 || toDeleteUCIds.length > 0;
+
+      // Nothing changed at all — skip to preserve barcodes and avoid noise
+      if (Object.keys(changes).length === 0 && !ucChanged) {
+        results.push({ index, action: "no changes", status: "skipped", message: "No changes detected — skipped" });
+        continue;
+      }
 
       if (!isAdmin) {
+        if (Object.keys(changes).length === 0) {
+          results.push({ index, action: "no changes", status: "skipped", message: "No changes detected — skipped" });
+          continue;
+        }
         const product = await prisma.product.update({
           where: { id: existingProduct!.id },
           data: { pendingChanges: changes as Prisma.InputJsonValue, pendingChangedBy: submitterName, pendingChangedAt: new Date() },
         });
         results.push({ index, action: action + " (pending)", status: "ok", productId: product.id });
       } else {
-        const product = await prisma.product.update({ where: { id: existingProduct!.id }, data: changes });
-        if (row.parsedUnitConversions?.length) {
-          await prisma.productUnitConversion.deleteMany({ where: { productId: product.id } });
+        if (Object.keys(changes).length > 0) {
+          await prisma.product.update({ where: { id: existingProduct!.id }, data: changes });
+        }
+        if (toDeleteUCIds.length > 0) {
+          await prisma.productUnitConversion.deleteMany({ where: { id: { in: toDeleteUCIds } } });
+        }
+        if (toAddUCs.length > 0) {
           await prisma.productUnitConversion.createMany({
-            data: row.parsedUnitConversions.map((uc) => {
+            data: toAddUCs.map((uc) => {
               const barcode =
                 uc.barcode ||
-                generateUnitBarcode(product.sku, uc.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
-              return { productId: product.id, name: uc.name, conversionFactor: uc.conversionFactor, barcode };
+                generateUnitBarcode(existing!.sku, uc.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
+              return { productId: existingProduct!.id, name: uc.name, conversionFactor: uc.conversionFactor, barcode };
             }),
           });
         }
-        results.push({ index, action, status: "ok", productId: product.id });
+        results.push({ index, action, status: "ok", productId: existingProduct!.id });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
