@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ barcode:
     bcid: "code128",
     text: decodeURIComponent(barcode),
     scale: 2,
-    height: 12,
+    height: 10,
     includetext: true,
     textxalign: "center",
   });
