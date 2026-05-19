@@ -11,7 +11,8 @@ export default async function WarehousePage({
 }: {
   searchParams: Promise<{ locationId?: string; q?: string; cat?: string; page?: string }>;
 }) {
-  await blockOperator();
+  const session = await blockOperator();
+  const isAdmin = session.user.role === "ADMIN";
   const t = await getT();
   const { locationId, q, cat, page } = await searchParams;
 
@@ -22,7 +23,7 @@ export default async function WarehousePage({
       orderBy: { name: "asc" },
       include: {
         _count: { select: { stock: true } },
-        stock: { select: { quantity: true } },
+        stock: { select: { quantity: true, product: { select: { avgCost: true } } } },
       },
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
@@ -70,6 +71,8 @@ export default async function WarehousePage({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         {locations.map((loc) => {
           const totalQty = loc.stock.reduce((s, r) => s + r.quantity, 0);
+          const totalValue = loc.stock.reduce((s, r) => s + (r.product.avgCost != null ? r.quantity * Number(r.product.avgCost) : 0), 0);
+          const missingCostCount = loc.stock.filter((r) => r.product.avgCost == null).length;
           const isSelected = loc.id === locationId;
           return (
             <Link
@@ -110,6 +113,17 @@ export default async function WarehousePage({
                   <div className="text-[10px] text-slate-400 uppercase tracking-wide">{t("warehouse.unitsTotal", "units total")}</div>
                 </div>
               </div>
+              {isAdmin && totalValue > 0 && (
+                <div className="mt-2 pt-2 border-t border-slate-100">
+                  <div className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-slate-700"}`}>
+                    Rp {totalValue.toLocaleString("id-ID")}
+                  </div>
+                  <div className="text-[10px] text-slate-400 uppercase tracking-wide">
+                    {t("warehouse.estValue", "est. value")}
+                    {missingCostCount > 0 && <span className="text-slate-300 ml-1">({missingCostCount} no cost)</span>}
+                  </div>
+                </div>
+              )}
             </Link>
           );
         })}
