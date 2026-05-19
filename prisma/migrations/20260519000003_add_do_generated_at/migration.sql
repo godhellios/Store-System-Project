@@ -1,0 +1,1 @@
+ALTER TABLE "Order" ADD COLUMN "doGeneratedAt" TIMESTAMP(3);

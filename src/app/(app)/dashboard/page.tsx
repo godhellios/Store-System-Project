@@ -9,7 +9,7 @@ async function getDashboardData() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [totalProducts, grnsToday, ordersOutToday, recentOrders, locationStock, allStock] =
+  const [totalProducts, grnsToday, ordersOutToday, recentOrders, locationStock, lowStockResult] =
     await Promise.all([
       prisma.product.count({ where: { isActive: true } }),
       prisma.order.count({
@@ -35,15 +35,17 @@ async function getDashboardData() {
           },
         },
       }),
-      prisma.stock.findMany({
-        where: { product: { isActive: true } },
-        select: { quantity: true, product: { select: { reorderPoint: true } } },
-      }),
+      prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*) AS count
+        FROM "Stock" s
+        JOIN "Product" p ON s."productId" = p.id
+        WHERE p."isActive" = true
+          AND p."reorderPoint" > 0
+          AND s.quantity <= p."reorderPoint"
+      `,
     ]);
 
-  const lowStockCount = allStock.filter(
-    (s) => s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint
-  ).length;
+  const lowStockCount = Number(lowStockResult[0].count);
 
   return {
     totalProducts,

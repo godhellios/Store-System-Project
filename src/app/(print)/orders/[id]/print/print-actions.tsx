@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Format = "a4" | "dotmatrix";
 
@@ -20,6 +20,14 @@ function injectPrintStyle(format: Format) {
 
 export function PrintActions({ orderId }: { orderId: string }) {
   const [format, setFormat] = useState<Format>("a4");
+
+  useEffect(() => {
+    fetch(`/api/orders/${orderId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ doGeneratedAt: true }),
+    }).catch(() => {});
+  }, [orderId]);
 
   function selectFormat(f: Format) {
     setFormat(f);

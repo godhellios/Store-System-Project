@@ -16,6 +16,17 @@ type ReceivingReport = {
   byCategory: { name: string; grns: number; units: number; value: number }[];
   orders: { id: string; orderNumber: string; createdAt: string; supplier: string | null; location: string | null; itemCount: number; totalUnits: number; totalValue: number | null }[];
 };
+type InventoryValueReport = {
+  overview: { totalValue: number; totalUnits: number; itemsWithCost: number; totalItems: number };
+  byLocation: { name: string; units: number; value: number }[];
+  byCategory: { name: string; units: number; value: number }[];
+  monthlyIn: { month: string; value: number }[];
+  topItems: { name: string; sku: string; location: string; qty: number; unit: string; avgCost: number; value: number }[];
+};
+type TurnoverReport = {
+  rows: { name: string; sku: string; category: string; unit: string; moves: number; totalOut: number; currentStock: number; avgDailyOut: number; daysOfStock: number | null }[];
+  dayRange: number;
+};
 
 export default function ReportsPage() {
   const { data: session } = useSession();
@@ -33,12 +44,16 @@ export default function ReportsPage() {
     t("reports.tabs.movementLog", "Movement Log"),
     t("reports.tabs.lowStock", "Low Stock"),
     t("reports.tabs.receiving", "Penerimaan"),
+    ...(isAdmin ? ["Inventory Value"] : []),
+    "Turnover",
   ];
 
   const [tab, setTab] = useState(0);
   const [locations, setLocations] = useState<Location[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [receivingData, setReceivingData] = useState<ReceivingReport | null>(null);
+  const [inventoryValueData, setInventoryValueData] = useState<InventoryValueReport | null>(null);
+  const [turnoverData, setTurnoverData] = useState<TurnoverReport | null>(null);
 
   const [locationId, setLocationId] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -59,22 +74,27 @@ export default function ReportsPage() {
     ]).then(([locs, cats]) => { setLocations(locs); setCategories(cats); });
   }, []);
 
+  // Tab indices depend on isAdmin (inventory-value tab only shown to admins)
+  const TAB_REPORTS = isAdmin
+    ? ["stock", "movements", "low-stock", "receiving", "inventory-value", "turnover"]
+    : ["stock", "movements", "low-stock", "receiving", "turnover"];
+
   async function fetchData() {
     setLoading(true);
-    const reportMap = ["stock", "movements", "low-stock", "receiving"];
-    const report = reportMap[tab] ?? "stock";
+    const report = TAB_REPORTS[tab] ?? "stock";
     const qs = new URLSearchParams({ report, locationId, categoryId, from, to });
     const res = await fetch(`/api/reports?${qs}`);
     if (!res.ok) { toast.error("Failed to load report"); setLoading(false); return; }
     const json = await res.json();
-    if (tab === 3) { setReceivingData(json); setData([]); }
-    else { setData(json); setReceivingData(null); }
+    if (report === "receiving") { setReceivingData(json); setInventoryValueData(null); setTurnoverData(null); setData([]); }
+    else if (report === "inventory-value") { setInventoryValueData(json); setReceivingData(null); setTurnoverData(null); setData([]); }
+    else if (report === "turnover") { setTurnoverData(json); setReceivingData(null); setInventoryValueData(null); setData([]); }
+    else { setData(json); setReceivingData(null); setInventoryValueData(null); setTurnoverData(null); }
     setLoading(false);
   }
 
   function exportExcel() {
-    const reportMap = ["stock", "movements", "low-stock", "receiving"];
-    const report = reportMap[tab] ?? "stock";
+    const report = TAB_REPORTS[tab] ?? "stock";
     const qs = new URLSearchParams({ report, format: "xlsx", locationId, categoryId, from, to });
     window.location.href = `/api/reports?${qs}`;
   }
@@ -126,7 +146,7 @@ export default function ReportsPage() {
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-        {(tab === 1 || tab === 3) && <>
+        {["movements", "receiving", "turnover"].includes(TAB_REPORTS[tab]) && <>
           <div>
             <label className="text-xs text-slate-500 block mb-1">{t("reports.filters.from", "From")}</label>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
@@ -145,7 +165,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Receiving Summary Tab */}
-      {tab === 3 && !loading && receivingData && (
+      {TAB_REPORTS[tab] === "receiving" && !loading && receivingData && (
         <div className="space-y-4">
           {/* Overview cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -255,11 +275,166 @@ export default function ReportsPage() {
           </div>
         </div>
       )}
-      {tab === 3 && loading && <div className="text-center py-12 text-slate-400 text-sm">{t("common.loading", "Loading…")}</div>}
+      {/* Inventory Value Tab */}
+      {TAB_REPORTS[tab] === "inventory-value" && !loading && inventoryValueData && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-slate-800 rounded-xl p-4 col-span-2">
+              <div className="text-xs text-slate-300 mb-1">Total Inventory Value</div>
+              <div className="text-2xl font-bold text-white">Rp {inventoryValueData.overview.totalValue.toLocaleString("id-ID")}</div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="text-xs text-slate-400 mb-1">Total Units</div>
+              <div className="text-2xl font-bold text-slate-800">{inventoryValueData.overview.totalUnits.toLocaleString("id-ID")}</div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="text-xs text-slate-400 mb-1">Items with Cost Data</div>
+              <div className="text-2xl font-bold text-slate-800">{inventoryValueData.overview.itemsWithCost}<span className="text-sm font-normal text-slate-400"> / {inventoryValueData.overview.totalItems}</span></div>
+            </div>
+          </div>
 
-      {tab !== 3 && loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">By Location</div>
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-400 uppercase border-b border-slate-100">
+                  <th className="px-4 py-2 text-left font-medium">Location</th>
+                  <th className="px-4 py-2 text-right font-medium">Value</th>
+                </tr></thead>
+                <tbody>
+                  {inventoryValueData.byLocation.map((l) => (
+                    <tr key={l.name} className="border-t border-slate-50">
+                      <td className="px-4 py-2.5 font-medium text-slate-700">{l.name}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700">{l.value > 0 ? `Rp ${l.value.toLocaleString("id-ID")}` : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">By Category</div>
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-400 uppercase border-b border-slate-100">
+                  <th className="px-4 py-2 text-left font-medium">Category</th>
+                  <th className="px-4 py-2 text-right font-medium">Value</th>
+                </tr></thead>
+                <tbody>
+                  {inventoryValueData.byCategory.map((c) => (
+                    <tr key={c.name} className="border-t border-slate-50">
+                      <td className="px-4 py-2.5 font-medium text-slate-700">{c.name}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700">{c.value > 0 ? `Rp ${c.value.toLocaleString("id-ID")}` : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {inventoryValueData.monthlyIn.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">Value Received per Month (last 12 months)</div>
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-400 uppercase border-b border-slate-100">
+                  <th className="px-4 py-2 text-left font-medium">Month</th>
+                  <th className="px-4 py-2 text-right font-medium">Value Received</th>
+                </tr></thead>
+                <tbody>
+                  {inventoryValueData.monthlyIn.map((m) => (
+                    <tr key={m.month} className="border-t border-slate-50">
+                      <td className="px-4 py-2.5 font-medium text-slate-700">{m.month}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700">{m.value > 0 ? `Rp ${m.value.toLocaleString("id-ID")}` : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">Top Items by Value</div>
+            {inventoryValueData.topItems.length === 0 ? (
+              <p className="text-center py-8 text-sm text-slate-400">No items with cost data yet. Enter unit costs when approving GRNs.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-400 uppercase border-b border-slate-100">
+                  <th className="px-4 py-2 text-left font-medium">Product</th>
+                  <th className="px-4 py-2 text-left font-medium">Location</th>
+                  <th className="px-4 py-2 text-right font-medium">Qty</th>
+                  <th className="px-4 py-2 text-right font-medium">Avg Cost</th>
+                  <th className="px-4 py-2 text-right font-medium">Value</th>
+                </tr></thead>
+                <tbody>
+                  {inventoryValueData.topItems.map((item, i) => (
+                    <tr key={i} className="border-t border-slate-50 hover:bg-slate-50">
+                      <td className="px-4 py-2.5">
+                        <div className="font-medium text-slate-800">{item.name}</div>
+                        <div className="text-xs font-mono text-slate-400">{item.sku}</div>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-500 text-xs">{item.location}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700">{item.qty.toLocaleString("id-ID")} <span className="text-xs text-slate-400">{item.unit}</span></td>
+                      <td className="px-4 py-2.5 text-right text-slate-500 text-xs">Rp {item.avgCost.toLocaleString("id-ID")}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold text-slate-800">Rp {item.value.toLocaleString("id-ID")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Turnover Tab */}
+      {TAB_REPORTS[tab] === "turnover" && !loading && turnoverData && (
+        <div className="space-y-4">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-600">
+            Showing outbound movements over <span className="font-semibold">{turnoverData.dayRange} days</span>. Fast movers first.
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                    <th className="px-4 py-2.5 text-left font-medium">Product</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Category</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Total Out</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Avg/Day</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Current Stock</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Days of Stock</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {turnoverData.rows.length === 0 ? (
+                    <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400 text-xs">No outbound movements in this period.</td></tr>
+                  ) : turnoverData.rows.map((r, i) => {
+                    const urgency = r.daysOfStock != null && r.daysOfStock <= 7 ? "text-red-600 font-semibold" : r.daysOfStock != null && r.daysOfStock <= 30 ? "text-amber-600" : "text-slate-700";
+                    return (
+                      <tr key={i} className="border-t border-slate-100 hover:bg-slate-50">
+                        <td className="px-4 py-2.5">
+                          <div className="font-medium text-slate-800">{r.name}</div>
+                          <div className="text-xs font-mono text-slate-400">{r.sku}</div>
+                        </td>
+                        <td className="px-4 py-2.5 text-xs text-slate-500">{r.category}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-slate-800">{r.totalOut.toLocaleString("id-ID")} <span className="text-xs font-normal text-slate-400">{r.unit}</span></td>
+                        <td className="px-4 py-2.5 text-right text-slate-600">{r.avgDailyOut}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-700">{r.currentStock.toLocaleString("id-ID")}</td>
+                        <td className={`px-4 py-2.5 text-right ${urgency}`}>{r.daysOfStock != null ? `${r.daysOfStock}d` : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading && ["receiving", "inventory-value", "turnover"].includes(TAB_REPORTS[tab]) && (
         <div className="text-center py-12 text-slate-400 text-sm">{t("common.loading", "Loading…")}</div>
-      ) : tab !== 3 && (
+      )}
+
+      {!["receiving", "inventory-value", "turnover"].includes(TAB_REPORTS[tab]) && loading ? (
+        <div className="text-center py-12 text-slate-400 text-sm">{t("common.loading", "Loading…")}</div>
+      ) : !["receiving", "inventory-value", "turnover"].includes(TAB_REPORTS[tab]) && (
         <>
           {/* Mobile card lists */}
           <div className="md:hidden space-y-2">

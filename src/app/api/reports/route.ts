@@ -222,5 +222,122 @@ export async function GET(req: Request) {
     });
   }
 
+  if (report === "inventory-value") {
+    const isAdmin = session.user.role === "ADMIN";
+    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // Current snapshot: qty × avgCost per stock record, grouped by location
+    const stock = await prisma.stock.findMany({
+      where: {
+        product: { isActive: true, ...(categoryId ? { categoryId } : {}) },
+        ...(locationId ? { locationId } : {}),
+      },
+      include: { product: { include: { category: true, unit: true } }, location: true },
+    });
+
+    const totalValue = stock.reduce((s, r) => s + (r.product.avgCost != null ? Number(r.product.avgCost) * r.quantity : 0), 0);
+    const totalUnits = stock.reduce((s, r) => s + r.quantity, 0);
+    const withCost = stock.filter((r) => r.product.avgCost != null);
+
+    // By location
+    const byLocation: Record<string, { name: string; units: number; value: number }> = {};
+    for (const r of stock) {
+      const loc = r.location.name;
+      if (!byLocation[loc]) byLocation[loc] = { name: loc, units: 0, value: 0 };
+      byLocation[loc].units += r.quantity;
+      byLocation[loc].value += r.product.avgCost != null ? Number(r.product.avgCost) * r.quantity : 0;
+    }
+
+    // By category
+    const byCategory: Record<string, { name: string; units: number; value: number }> = {};
+    for (const r of stock) {
+      const cat = r.product.category.name;
+      if (!byCategory[cat]) byCategory[cat] = { name: cat, units: 0, value: 0 };
+      byCategory[cat].units += r.quantity;
+      byCategory[cat].value += r.product.avgCost != null ? Number(r.product.avgCost) * r.quantity : 0;
+    }
+
+    // Value received per month from approved GRNs (last 12 months)
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+    twelveMonthsAgo.setDate(1);
+    twelveMonthsAgo.setHours(0, 0, 0, 0);
+    const grnOrders = await prisma.order.findMany({
+      where: { type: "GRN", grnStatus: "APPROVED", createdAt: { gte: twelveMonthsAgo } },
+      include: { lines: { select: { quantity: true, unitCost: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    const monthlyIn: Record<string, number> = {};
+    for (const o of grnOrders) {
+      const key = o.createdAt.toISOString().slice(0, 7);
+      const val = o.lines.reduce((s, l) => s + (l.unitCost != null ? Number(l.unitCost) * l.quantity : 0), 0);
+      monthlyIn[key] = (monthlyIn[key] ?? 0) + val;
+    }
+
+    // Top items by value
+    const topItems = stock
+      .filter((r) => r.product.avgCost != null)
+      .map((r) => ({ name: r.product.name, sku: r.product.sku, location: r.location.name, qty: r.quantity, unit: r.product.unit.name, avgCost: Number(r.product.avgCost), value: Number(r.product.avgCost) * r.quantity }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 20);
+
+    return NextResponse.json({
+      overview: { totalValue, totalUnits, itemsWithCost: withCost.length, totalItems: stock.length },
+      byLocation: Object.values(byLocation).sort((a, b) => b.value - a.value),
+      byCategory: Object.values(byCategory).sort((a, b) => b.value - a.value),
+      monthlyIn: Object.entries(monthlyIn).map(([month, value]) => ({ month, value })),
+      topItems,
+    });
+  }
+
+  if (report === "turnover") {
+    const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86400000);
+    const toDate = to ? new Date(to + "T23:59:59") : new Date();
+    const dayRange = Math.max(1, Math.round((toDate.getTime() - fromDate.getTime()) / 86400000));
+
+    const movements = await prisma.movement.findMany({
+      where: {
+        type: "OUT",
+        createdAt: { gte: fromDate, lte: toDate },
+        product: { isActive: true, ...(categoryId ? { categoryId } : {}) },
+        ...(locationId ? { fromLocationId: locationId } : {}),
+      },
+      include: { product: { include: { category: true, unit: true } } },
+    });
+
+    // Aggregate by product
+    const byProduct: Record<string, { name: string; sku: string; category: string; unit: string; moves: number; totalOut: number }> = {};
+    for (const m of movements) {
+      const pid = m.productId;
+      if (!byProduct[pid]) byProduct[pid] = { name: m.product.name, sku: m.product.sku, category: m.product.category.name, unit: m.product.unit.name, moves: 0, totalOut: 0 };
+      byProduct[pid].moves++;
+      byProduct[pid].totalOut += m.quantity;
+    }
+
+    // Current stock per product to calculate turnover ratio
+    const productIds = Object.keys(byProduct);
+    const stockRows = productIds.length > 0 ? await prisma.stock.findMany({
+      where: {
+        productId: { in: productIds },
+        ...(locationId ? { locationId } : {}),
+      },
+      select: { productId: true, quantity: true },
+    }) : [];
+    const stockByProduct: Record<string, number> = {};
+    for (const s of stockRows) stockByProduct[s.productId] = (stockByProduct[s.productId] ?? 0) + s.quantity;
+
+    const rows = Object.entries(byProduct).map(([pid, p]) => {
+      const currentStock = stockByProduct[pid] ?? 0;
+      const avgDailyOut = p.totalOut / dayRange;
+      const daysOfStock = avgDailyOut > 0 ? Math.round(currentStock / avgDailyOut) : null;
+      return { ...p, currentStock, avgDailyOut: Math.round(avgDailyOut * 10) / 10, daysOfStock };
+    });
+
+    // Sort by totalOut desc (fast movers first)
+    rows.sort((a, b) => b.totalOut - a.totalOut);
+
+    return NextResponse.json({ rows, dayRange, fromDate: fromDate.toISOString(), toDate: toDate.toISOString() });
+  }
+
   return NextResponse.json({ error: "Unknown report" }, { status: 400 });
 }

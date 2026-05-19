@@ -8,7 +8,7 @@ function createPrismaClient() {
   const rawUrl = process.env.DATABASE_URL;
   const pool = new Pool({
     connectionString: rawUrl,
-    max: 1,
+    max: 10,
     ssl: rawUrl?.includes("sslmode=disable") ? false : { rejectUnauthorized: false },
   });
   const adapter = new PrismaPg(pool);

@@ -49,7 +49,7 @@ function buildWhatsAppUrl({
 }
 
 export function GoodsOutDetailActions({
-  orderId, orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, createdAt, savedBy,
+  orderId, orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, createdAt, savedBy, doSentAt,
 }: {
   orderId: string;
   orderNumber: string;
@@ -60,6 +60,7 @@ export function GoodsOutDetailActions({
   whatsappNumber: string;
   createdAt: Date;
   savedBy?: string | null;
+  doSentAt?: Date | null;
 }) {
   function handleResendWhatsApp() {
     const url = buildWhatsAppUrl({ orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, createdAt, savedBy });
@@ -80,8 +81,24 @@ export function GoodsOutDetailActions({
     }).catch(() => {});
   }
 
+  function handleMarkSent() {
+    fetch(`/api/orders/${orderId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ doSentAt: true }),
+    }).then(() => { window.location.reload(); }).catch(() => {});
+  }
+
   return (
     <>
+      {!doSentAt && (
+        <button
+          onClick={handleMarkSent}
+          className="text-xs px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors"
+        >
+          Mark as Sent
+        </button>
+      )}
       <button
         onClick={handleResendWhatsApp}
         className="text-xs px-3 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors flex items-center gap-1.5"

@@ -72,6 +72,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // isActive changes (deactivate/activate) are allowed directly for any role.
   if (!isAdmin && isActive === undefined) {
     const submitterName = session.user.name ?? session.user.email ?? null;
+    if (existing.pendingChangedAt && existing.pendingChangedBy !== submitterName) {
+      return NextResponse.json({
+        error: `This product already has a pending edit from ${existing.pendingChangedBy ?? "another user"}. Wait for admin review before submitting another change.`,
+      }, { status: 409 });
+    }
     const changes = {
       ...(name !== undefined ? { name: name.trim() } : {}),
       ...(categoryId !== undefined ? { categoryId } : {}),

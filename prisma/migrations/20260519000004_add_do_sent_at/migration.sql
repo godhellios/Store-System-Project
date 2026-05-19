@@ -1,0 +1,1 @@
+ALTER TABLE "Order" ADD COLUMN "doSentAt" TIMESTAMP(3);

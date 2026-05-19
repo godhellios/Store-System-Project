@@ -209,6 +209,8 @@ model Order {
   createdAt         DateTime  @default(now())
   whatsappSentAt    DateTime?
   printedAt         DateTime?
+  doGeneratedAt     DateTime?
+  doSentAt          DateTime?
   adjustmentStatus  String?   // PENDING | APPROVED | REJECTED (null for non-ADJUSTMENT orders)
   adjustmentReason  String?
   grnStatus         String?   // PENDING | APPROVED | REJECTED (null for legacy GRN = approved immediately)

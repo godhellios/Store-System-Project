@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Panduan Visual Staff — MRIS v1.4.4</title>
+<title>Panduan Visual Staff — MRIS v1.5</title>
 <style>
   /* ── Base ── */
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -298,7 +298,7 @@
     <h1>Panduan Visual Staff</h1>
     <div class="sub">Sistem Inventaris MRIS — Mitra Ramah</div>
     <div class="sub" style="font-size:14px; margin-bottom:20px;">Panduan bergambar untuk operasional harian gudang / toko</div>
-    <div class="version">Versi v1.4.4 · 2026 · Hanya untuk Penggunaan Internal</div>
+    <div class="version">Versi v1.5 · 2026 · Hanya untuk Penggunaan Internal</div>
   </div>
 
   <!-- TOC -->
@@ -361,7 +361,7 @@
             <div class="ann-circle" style="background:#ef4444;">3</div>
           </div>
         </div>
-        <div class="login-footer">© 2026 Mitra Ramah — MRIs v1.4.4</div>
+        <div class="login-footer">© 2026 Mitra Ramah — MRIs v1.5</div>
       </div>
     </div>
   </div>
@@ -683,6 +683,10 @@
     </div>
   </div>
 
+  <div style="background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:10px; padding:12px 16px; margin-top:12px; font-size:13px; color:#1d4ed8; line-height:1.6;">
+    <strong>ℹ Setelah klik Simpan Pesanan:</strong> Pesanan akan masuk status <span style="background:#fef9c3; color:#854d0e; padding:1px 6px; border-radius:4px; font-size:11px; font-weight:700;">Menunggu Persetujuan Admin</span>. <strong>Stok BELUM bertambah</strong> sampai Admin menyetujui. Ini normal — laporkan ke penanggung jawab bahwa Barang Masuk sudah dikirim, agar bisa disetujui segera.
+  </div>
+
   <div class="checklist">
     <h4>Checklist sebelum klik Simpan Pesanan</h4>
     <div class="check-item"><div class="check-box"></div>Lokasi Penerimaan sudah dipilih</div>
@@ -708,7 +712,8 @@
     <div class="flow-step">② Konfirmasi</div><div class="flow-arrow">→</div>
     <div class="flow-step">③ Simpan</div><div class="flow-arrow">→</div>
     <div class="flow-step">④ Cetak Surat Jalan</div><div class="flow-arrow">→</div>
-    <div class="flow-step done">⑤ Serahkan Barang</div>
+    <div class="flow-step">⑤ Serahkan Barang</div><div class="flow-arrow">→</div>
+    <div class="flow-step done">⑥ Tandai Terkirim</div>
   </div>
 
   <div class="screen-wrapper" style="margin-top:16px;">
@@ -861,6 +866,43 @@
     </div>
   </div>
 
+  <div style="margin-top:24px;">
+    <div class="screen-wrapper">
+      <div class="screen-label">Langkah ⑥ — Tandai Terkirim setelah barang diantar ke pembeli</div>
+      <div class="browser-chrome">
+        <div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div>
+        <div class="browser-url">https://mris-beryl.vercel.app/orders/[id-pesanan]</div>
+      </div>
+      <div class="screen" style="position:relative; min-height:140px;">
+        <div class="app-layout" style="min-height:140px;">
+          <div class="sidebar" style="width:160px;"><div class="sidebar-logo"><div class="sidebar-logo-text">MRIs</div></div></div>
+          <div class="main-content" style="padding:16px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="font-size:13px; font-weight:700; color:#1e293b; font-family:monospace;">GO-20260519-008</span>
+              <span style="background:#fed7aa; color:#c2410c; padding:2px 8px; border-radius:99px; font-size:10px; font-weight:700;">GOODS OUT</span>
+              <span style="background:#dbeafe; color:#1d4ed8; padding:2px 8px; border-radius:99px; font-size:10px; font-weight:700;">Sent</span>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; position:relative;">
+              <button style="background:#3b82f6; color:white; border:none; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:700;">Mark as Sent</button>
+              <button style="background:#22c55e; color:white; border:none; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:700;">Resend WhatsApp</button>
+              <button style="background:#1e293b; color:white; border:none; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:700;">Reprint</button>
+              <!-- Annotation -->
+              <div style="position:absolute; top:-18px; left:0;"><div class="ann-circle" style="background:#3b82f6;">6</div></div>
+            </div>
+            <div style="margin-top:10px; font-size:12px; color:#64748b;">Setelah tombol diklik, badge biru <strong>Sent</strong> akan muncul permanen di halaman ini (lihat di atas).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="callout-list">
+      <li><div class="callout-num blue">6</div><div class="callout-text"><strong>Tombol "Mark as Sent" (biru)</strong> — klik ini setelah barang benar-benar sudah diterima pembeli. Tombol ini ada di halaman detail pesanan Barang Keluar. Setelah diklik, badge biru <strong>Sent</strong> akan muncul — ini bukti pengiriman yang tercatat di sistem. Tombol menghilang setelah diklik (tidak bisa diklik dua kali).</div></li>
+    </ul>
+    <div class="ok-box">
+      <div class="warn-icon">✅</div>
+      <div class="ok-text"><strong>Cara buka halaman detail pesanan:</strong> Klik nama pesanan (contoh: GO-20260519-008) dari daftar di menu <strong>Pesanan</strong>, atau langsung dari link yang tertera di konfirmasi setelah simpan.</div>
+    </div>
+  </div>
+
   <div class="checklist">
     <h4>Checklist sebelum klik Simpan Pesanan — Barang Keluar</h4>
     <div class="check-item"><div class="check-box"></div>"Keluarkan Dari" (lokasi) sudah dipilih</div>
@@ -869,6 +911,7 @@
     <div class="check-item"><div class="check-box"></div>Satuan sudah benar</div>
     <div class="check-item"><div class="check-box"></div>Semua indikator stok berwarna HIJAU (✓) — tidak ada yang merah (✗)</div>
     <div class="check-item"><div class="check-box"></div>Surat Jalan sudah dicetak sebelum menyerahkan barang</div>
+    <div class="check-item"><div class="check-box"></div>Tombol "Mark as Sent" sudah diklik setelah barang diterima pembeli</div>
   </div>
 
 
@@ -1250,6 +1293,7 @@
         ✓ Pilih lokasi DULU sebelum scan barang<br>
         ✓ Cek nama barang di layar setelah scan<br>
         ✓ Ikuti alur Barang Keluar sampai Surat Jalan dicetak<br>
+        ✓ Klik "Mark as Sent" setelah barang diterima pembeli<br>
         ✓ Input sistem dulu sebelum pindah barang fisik<br>
         ✓ Simpan transaksi di hari yang sama<br>
         ✓ Lapor ke penanggung jawab kalau ada masalah<br>
@@ -1275,7 +1319,7 @@
 
   <!-- FOOTER -->
   <div style="text-align:center; margin-top:48px; padding:24px; background:white; border:1px solid #e2e8f0; border-radius:12px; color:#94a3b8; font-size:12px;">
-    <strong style="color:#374151;">Panduan Visual Staff · Mitra Ramah Inventory System · v1.4.4 · 2026</strong><br>
+    <strong style="color:#374151;">Panduan Visual Staff · Mitra Ramah Inventory System · v1.5 · 2026</strong><br>
     <span style="margin-top:4px; display:block;">Hanya untuk Penggunaan Internal · Dilarang disebarluaskan</span>
   </div>
 
