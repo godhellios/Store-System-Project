@@ -52,12 +52,13 @@ export async function POST(req: Request) {
   const vg = viewerGuard(session); if (vg) return vg;
 
   const body = await req.json();
-  const { type, fromLocationId, toLocationId, customer, supplier, reference, notes, lines } = body as {
+  const { type, fromLocationId, toLocationId, customer, supplier, supplierId, reference, notes, lines } = body as {
     type: OrderType;
     fromLocationId?: string;
     toLocationId?: string;
     customer?: string;
     supplier?: string;
+    supplierId?: string;
     reference?: string;
     notes?: string;
     lines: Array<{ productId: string; quantity: number; inputQty?: number; inputUnit?: string; notes?: string }>;
@@ -158,7 +159,7 @@ export async function POST(req: Request) {
 
         const order = await tx.order.create({
         data: {
-          orderNumber, type, fromLocationId, toLocationId, customer, supplier, reference, notes,
+          orderNumber, type, fromLocationId, toLocationId, customer, supplier, supplierId: supplierId || null, reference, notes,
           createdByName: session.user.name ?? null,
           ...(isManualAdjustment ? { adjustmentStatus: "PENDING", adjustmentReason: adjustmentReason ?? null } : {}),
           ...(type === "GRN" && !isAdmin ? { grnStatus: "PENDING" } : {}),

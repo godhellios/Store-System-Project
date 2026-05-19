@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 
+type GrnLine = { id: string; productName: string; productSku: string; quantity: number; unitName: string; lastCost: number | null; unitCost: number | null };
+
 export function OrderActions({
   orderId,
   userRole,
@@ -13,6 +15,7 @@ export function OrderActions({
   grnStatus,
   goodsOutStatus,
   transferStatus,
+  grnLines,
 }: {
   orderId: string;
   userRole: string;
@@ -21,6 +24,7 @@ export function OrderActions({
   grnStatus?: string | null;
   goodsOutStatus?: string | null;
   transferStatus?: string | null;
+  grnLines?: GrnLine[];
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -28,6 +32,11 @@ export function OrderActions({
   const [cancelConfirming, setCancelConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [lineCosts, setLineCosts] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    grnLines?.forEach((l) => { init[l.id] = l.unitCost != null ? String(l.unitCost) : l.lastCost != null ? String(l.lastCost) : ""; });
+    return init;
+  });
 
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
@@ -62,10 +71,21 @@ export function OrderActions({
 
   async function handleReview(action: "approve" | "reject") {
     setReviewing(true);
+    const parsedCosts: Record<string, number> = {};
+    if (grnLines && action === "approve") {
+      grnLines.forEach((l) => {
+        const v = parseFloat(lineCosts[l.id] ?? "");
+        if (!isNaN(v) && v > 0) parsedCosts[l.id] = v;
+      });
+    }
     const res = await fetch(`/api/orders/${orderId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, note: reviewNote || undefined }),
+      body: JSON.stringify({
+        action,
+        note: reviewNote || undefined,
+        ...(Object.keys(parsedCosts).length ? { lineCosts: parsedCosts } : {}),
+      }),
     });
     const data = await res.json();
     setReviewing(false);
@@ -100,10 +120,64 @@ export function OrderActions({
       {/* Approve / Reject for pending adjustment or GRN */}
       {canReview && (
         reviewOpen ? (
-          <div className="flex flex-col gap-2 border border-blue-200 bg-blue-50 rounded-xl px-4 py-3 min-w-[260px]">
+          <div className="flex flex-col gap-2 border border-blue-200 bg-blue-50 rounded-xl px-4 py-3 min-w-[300px] max-w-lg">
             <p className="text-xs font-semibold text-blue-800">
               {grnStatus === "PENDING" ? "Review this GRN?" : goodsOutStatus === "PENDING" ? "Review this Goods Out?" : transferStatus === "PENDING" ? "Review this Transfer?" : "Review this adjustment?"}
             </p>
+
+            {/* Cost price inputs — GRN admin-only */}
+            {grnStatus === "PENDING" && grnLines && grnLines.length > 0 && (
+              <div className="bg-white border border-blue-100 rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-blue-700">Cost Price (admin only)</span>
+                  <span className="text-xs text-blue-500">Pre-filled from last price</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {grnLines.map((line) => {
+                    const cost = lineCosts[line.id] ?? "";
+                    const total = parseFloat(cost) > 0 ? parseFloat(cost) * line.quantity : null;
+                    return (
+                      <div key={line.id} className="px-3 py-2 flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-slate-700 truncate">{line.productName}</div>
+                          <div className="text-[10px] text-slate-400">{line.quantity} {line.unitName}</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-slate-400">Rp</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={cost}
+                            onChange={(e) => setLineCosts((prev) => ({ ...prev, [line.id]: e.target.value }))}
+                            placeholder="0"
+                            className="w-24 px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 text-right"
+                          />
+                        </div>
+                        {total != null && (
+                          <div className="text-[10px] text-slate-500 w-20 text-right">
+                            = Rp {total.toLocaleString("id-ID")}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Grand total */}
+                {grnLines.some((l) => parseFloat(lineCosts[l.id] ?? "") > 0) && (
+                  <div className="px-3 py-2 border-t border-slate-200 bg-slate-50 flex justify-between items-center">
+                    <span className="text-xs font-semibold text-slate-600">Total</span>
+                    <span className="text-xs font-bold text-slate-800">
+                      Rp {grnLines.reduce((sum, l) => {
+                        const c = parseFloat(lineCosts[l.id] ?? "");
+                        return sum + (isNaN(c) ? 0 : c * l.quantity);
+                      }, 0).toLocaleString("id-ID")}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <textarea
               value={reviewNote}
               onChange={(e) => setReviewNote(e.target.value)}

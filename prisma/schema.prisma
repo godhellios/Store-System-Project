@@ -115,6 +115,18 @@ model Location {
   opnameSessions OpnameSession[]
 }
 
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  phone     String?
+  address   String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  orders Order[]
+}
+
 model Product {
   id           String   @id @default(cuid())
   name         String
@@ -136,6 +148,8 @@ model Product {
   reviewedByName    String?   // admin who reviewed
   reviewedAt        DateTime? // when reviewed
   reviewNote        String?   // rejection reason shown to staff
+  lastCost          Decimal?  // last purchase price from any approved GRN
+  avgCost           Decimal?  // weighted average cost across all approved GRN receipts
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -186,7 +200,9 @@ model Order {
   toLocation     Location? @relation("OrderToLocation", fields: [toLocationId], references: [id])
   toLocationId   String?
   customer       String?
-  supplier       String?
+  supplier       String?   // legacy free-text (kept for old orders)
+  supplierId     String?
+  supplierRef    Supplier? @relation(fields: [supplierId], references: [id])
   reference      String?
   notes          String?
   createdByName     String?
@@ -225,6 +241,7 @@ model OrderLine {
   quantity  Int       // always stored in base units
   inputQty  Float?    // quantity as entered by user (null when base unit was used)
   inputUnit String?   // unit name used for input  (null when base unit was used)
+  unitCost  Decimal?  // purchase price per base unit (GRN only, admin-only visibility)
   notes     String?
 
   movements Movement[]

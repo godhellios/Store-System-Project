@@ -10,6 +10,12 @@ type Location = { id: string; name: string };
 type Category = { id: string; name: string };
 type StockRow = { id: string; quantity: number; product: { name: string; sku: string; reorderPoint: number; category: { name: string }; unit: { name: string } }; location: { name: string } };
 type MovementRow = { id: string; quantity: number; type: string; createdAt: string; product: { name: string; unit: { name: string } }; fromLocation: { name: string } | null; toLocation: { name: string } | null; order: { orderNumber: string } | null; orderId: string };
+type ReceivingReport = {
+  overview: { totalGrns: number; totalUnits: number; totalValue: number | null };
+  bySupplier: { name: string; grns: number; units: number; value: number }[];
+  byCategory: { name: string; grns: number; units: number; value: number }[];
+  orders: { id: string; orderNumber: string; createdAt: string; supplier: string | null; location: string | null; itemCount: number; totalUnits: number; totalValue: number | null }[];
+};
 
 export default function ReportsPage() {
   const { data: session } = useSession();
@@ -20,15 +26,19 @@ export default function ReportsPage() {
     if (session?.user.role === "OPERATOR") router.replace("/transactions/grn");
   }, [session, router]);
 
+  const isAdmin = session?.user.role === "ADMIN";
+
   const TABS = [
     t("reports.tabs.stockOnHand", "Stock On Hand"),
     t("reports.tabs.movementLog", "Movement Log"),
     t("reports.tabs.lowStock", "Low Stock"),
+    t("reports.tabs.receiving", "Penerimaan"),
   ];
 
   const [tab, setTab] = useState(0);
   const [locations, setLocations] = useState<Location[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [receivingData, setReceivingData] = useState<ReceivingReport | null>(null);
 
   const [locationId, setLocationId] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -51,16 +61,20 @@ export default function ReportsPage() {
 
   async function fetchData() {
     setLoading(true);
-    const report = tab === 0 ? "stock" : tab === 1 ? "movements" : "low-stock";
+    const reportMap = ["stock", "movements", "low-stock", "receiving"];
+    const report = reportMap[tab] ?? "stock";
     const qs = new URLSearchParams({ report, locationId, categoryId, from, to });
     const res = await fetch(`/api/reports?${qs}`);
     if (!res.ok) { toast.error("Failed to load report"); setLoading(false); return; }
-    setData(await res.json());
+    const json = await res.json();
+    if (tab === 3) { setReceivingData(json); setData([]); }
+    else { setData(json); setReceivingData(null); }
     setLoading(false);
   }
 
   function exportExcel() {
-    const report = tab === 0 ? "stock" : tab === 1 ? "movements" : "low-stock";
+    const reportMap = ["stock", "movements", "low-stock", "receiving"];
+    const report = reportMap[tab] ?? "stock";
     const qs = new URLSearchParams({ report, format: "xlsx", locationId, categoryId, from, to });
     window.location.href = `/api/reports?${qs}`;
   }
@@ -112,7 +126,7 @@ export default function ReportsPage() {
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-        {tab === 1 && <>
+        {(tab === 1 || tab === 3) && <>
           <div>
             <label className="text-xs text-slate-500 block mb-1">{t("reports.filters.from", "From")}</label>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
@@ -130,9 +144,122 @@ export default function ReportsPage() {
         </button>
       </div>
 
-      {loading ? (
+      {/* Receiving Summary Tab */}
+      {tab === 3 && !loading && receivingData && (
+        <div className="space-y-4">
+          {/* Overview cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="text-xs text-slate-400 mb-1">Total GRN</div>
+              <div className="text-2xl font-bold text-slate-800">{receivingData.overview.totalGrns}</div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="text-xs text-slate-400 mb-1">Total Units Received</div>
+              <div className="text-2xl font-bold text-slate-800">{receivingData.overview.totalUnits.toLocaleString("id-ID")}</div>
+            </div>
+            {isAdmin && (
+              <div className="bg-slate-800 rounded-xl p-4 col-span-2 sm:col-span-1">
+                <div className="text-xs text-slate-300 mb-1">Total Value (Admin)</div>
+                <div className="text-2xl font-bold text-white">
+                  {receivingData.overview.totalValue != null && receivingData.overview.totalValue > 0
+                    ? `Rp ${receivingData.overview.totalValue.toLocaleString("id-ID")}`
+                    : <span className="text-slate-400 text-lg">No cost data</span>}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* By Supplier */}
+          {receivingData.bySupplier.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">By Supplier</div>
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-400 uppercase border-b border-slate-100">
+                  <th className="px-4 py-2 text-left font-medium">Supplier</th>
+                  <th className="px-4 py-2 text-right font-medium">GRNs</th>
+                  <th className="px-4 py-2 text-right font-medium">Units</th>
+                  {isAdmin && <th className="px-4 py-2 text-right font-medium">Value</th>}
+                </tr></thead>
+                <tbody>
+                  {receivingData.bySupplier.map((s) => (
+                    <tr key={s.name} className="border-t border-slate-50">
+                      <td className="px-4 py-2.5 font-medium text-slate-700">{s.name}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-500">{s.grns}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700">{s.units.toLocaleString("id-ID")}</td>
+                      {isAdmin && <td className="px-4 py-2.5 text-right text-slate-700">{s.value > 0 ? `Rp ${s.value.toLocaleString("id-ID")}` : "—"}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* By Category */}
+          {receivingData.byCategory.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">By Category</div>
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-400 uppercase border-b border-slate-100">
+                  <th className="px-4 py-2 text-left font-medium">Category</th>
+                  <th className="px-4 py-2 text-right font-medium">GRNs</th>
+                  <th className="px-4 py-2 text-right font-medium">Units</th>
+                  {isAdmin && <th className="px-4 py-2 text-right font-medium">Value</th>}
+                </tr></thead>
+                <tbody>
+                  {receivingData.byCategory.map((c) => (
+                    <tr key={c.name} className="border-t border-slate-50">
+                      <td className="px-4 py-2.5 font-medium text-slate-700">{c.name}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-500">{c.grns}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700">{c.units.toLocaleString("id-ID")}</td>
+                      {isAdmin && <td className="px-4 py-2.5 text-right text-slate-700">{c.value > 0 ? `Rp ${c.value.toLocaleString("id-ID")}` : "—"}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* GRN list */}
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">GRN List</div>
+            {receivingData.orders.length === 0 ? (
+              <p className="text-center py-8 text-sm text-slate-400">No approved GRNs in this period.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-400 uppercase border-b border-slate-100">
+                  <th className="px-4 py-2 text-left font-medium">Date</th>
+                  <th className="px-4 py-2 text-left font-medium">GRN No.</th>
+                  <th className="px-4 py-2 text-left font-medium">Supplier</th>
+                  <th className="px-4 py-2 text-left font-medium">Location</th>
+                  <th className="px-4 py-2 text-right font-medium">Units</th>
+                  {isAdmin && <th className="px-4 py-2 text-right font-medium">Value</th>}
+                </tr></thead>
+                <tbody>
+                  {receivingData.orders.map((o) => (
+                    <tr key={o.id} className="border-t border-slate-50 hover:bg-slate-50">
+                      <td className="px-4 py-2.5 text-xs text-slate-500">
+                        {new Date(o.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <a href={`/orders/${o.id}`} className="text-blue-600 hover:underline font-mono text-xs">{o.orderNumber}</a>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600">{o.supplier ?? <span className="text-slate-300">—</span>}</td>
+                      <td className="px-4 py-2.5 text-slate-600">{o.location ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700">{o.totalUnits.toLocaleString("id-ID")}</td>
+                      {isAdmin && <td className="px-4 py-2.5 text-right text-slate-700">{o.totalValue != null && o.totalValue > 0 ? `Rp ${o.totalValue.toLocaleString("id-ID")}` : "—"}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+      {tab === 3 && loading && <div className="text-center py-12 text-slate-400 text-sm">{t("common.loading", "Loading…")}</div>}
+
+      {tab !== 3 && loading ? (
         <div className="text-center py-12 text-slate-400 text-sm">{t("common.loading", "Loading…")}</div>
-      ) : (
+      ) : tab !== 3 && (
         <>
           {/* Mobile card lists */}
           <div className="md:hidden space-y-2">

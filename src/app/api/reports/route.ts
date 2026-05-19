@@ -154,5 +154,73 @@ export async function GET(req: Request) {
     return NextResponse.json(low);
   }
 
+  if (report === "receiving") {
+    const isAdmin = session.user.role === "ADMIN";
+    const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86400000);
+    const toDate = to ? new Date(to + "T23:59:59") : new Date();
+
+    const orders = await prisma.order.findMany({
+      where: {
+        type: "GRN",
+        grnStatus: "APPROVED",
+        createdAt: { gte: fromDate, lte: toDate },
+        ...(locationId ? { toLocationId: locationId } : {}),
+      },
+      include: {
+        supplierRef: true,
+        toLocation: true,
+        lines: {
+          include: {
+            product: { include: { category: true, unit: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Build per-supplier and per-category summaries
+    const bySupplier: Record<string, { name: string; grns: number; units: number; value: number }> = {};
+    const byCategory: Record<string, { name: string; grns: Set<string>; units: number; value: number }> = {};
+    let totalGrns = orders.length;
+    let totalUnits = 0;
+    let totalValue = 0;
+
+    for (const order of orders) {
+      const supplierName = order.supplierRef?.name ?? order.supplier ?? "Unknown";
+      if (!bySupplier[supplierName]) bySupplier[supplierName] = { name: supplierName, grns: 0, units: 0, value: 0 };
+      bySupplier[supplierName].grns++;
+
+      for (const line of order.lines) {
+        const cost = isAdmin && line.unitCost != null ? Number(line.unitCost) * line.quantity : 0;
+        bySupplier[supplierName].units += line.quantity;
+        if (isAdmin) bySupplier[supplierName].value += cost;
+        totalUnits += line.quantity;
+        if (isAdmin) totalValue += cost;
+
+        const catName = line.product.category.name;
+        if (!byCategory[catName]) byCategory[catName] = { name: catName, grns: new Set(), units: 0, value: 0 };
+        byCategory[catName].grns.add(order.id);
+        byCategory[catName].units += line.quantity;
+        if (isAdmin) byCategory[catName].value += cost;
+      }
+    }
+
+    return NextResponse.json({
+      overview: { totalGrns, totalUnits, totalValue: isAdmin ? totalValue : null },
+      bySupplier: Object.values(bySupplier).sort((a, b) => b.units - a.units),
+      byCategory: Object.values(byCategory).map((c) => ({ ...c, grns: c.grns.size })).sort((a, b) => b.units - a.units),
+      orders: orders.map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        createdAt: o.createdAt,
+        supplier: o.supplierRef?.name ?? o.supplier ?? null,
+        location: o.toLocation?.name ?? null,
+        itemCount: o.lines.length,
+        totalUnits: o.lines.reduce((s, l) => s + l.quantity, 0),
+        totalValue: isAdmin ? o.lines.reduce((s, l) => s + (l.unitCost != null ? Number(l.unitCost) * l.quantity : 0), 0) : null,
+      })),
+    });
+  }
+
   return NextResponse.json({ error: "Unknown report" }, { status: 400 });
 }

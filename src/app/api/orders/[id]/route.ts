@@ -40,7 +40,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Only admins can approve or reject orders" }, { status: 403 });
 
   const { id } = await params;
-  const { action, note } = (await req.json()) as { action: "approve" | "reject"; note?: string };
+  const { action, note, lineCosts } = (await req.json()) as {
+    action: "approve" | "reject";
+    note?: string;
+    lineCosts?: Record<string, number>; // orderLineId → unitCost (GRN approval only)
+  };
   if (!["approve", "reject"].includes(action))
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 
@@ -92,6 +96,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             create: { productId: line.productId, locationId: order.toLocationId, quantity: line.quantity },
             update: { quantity: { increment: line.quantity } },
           });
+
+          // Save unitCost on the line and recalculate lastCost / avgCost on Product
+          const cost = lineCosts?.[line.id];
+          if (cost != null && cost > 0) {
+            await tx.orderLine.update({ where: { id: line.id }, data: { unitCost: cost } });
+
+            const product = await tx.product.findUnique({
+              where: { id: line.productId },
+              select: { avgCost: true },
+            });
+            // Get total stock before this receipt (for weighted average)
+            const stockBefore = await tx.stock.findUnique({
+              where: { productId_locationId: { productId: line.productId, locationId: order.toLocationId } },
+              select: { quantity: true },
+            });
+            const qtyBefore = Math.max(0, (stockBefore?.quantity ?? 0) - line.quantity);
+            const prevAvg = Number(product?.avgCost ?? cost);
+            const newAvg = qtyBefore === 0
+              ? cost
+              : (qtyBefore * prevAvg + line.quantity * cost) / (qtyBefore + line.quantity);
+
+            await tx.product.update({
+              where: { id: line.productId },
+              data: { lastCost: cost, avgCost: newAvg },
+            });
+          }
         }
         await tx.order.update({ where: { id }, data: { grnStatus: "APPROVED", ...reviewFields } });
       });

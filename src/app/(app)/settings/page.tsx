@@ -27,6 +27,7 @@ const TABS = [
   { key: "settings.tabs.categories", label: "Categories" },
   { key: "settings.tabs.units", label: "Units" },
   { key: "settings.tabs.locations", label: "Locations" },
+  { key: "settings.tabs.suppliers", label: "Suppliers" },
   { key: "settings.tabs.notifications", label: "Notifications" },
   { key: "settings.tabs.loginHistory", label: "Login History" },
 ];
@@ -944,6 +945,149 @@ function LoginHistoryTab() {
   );
 }
 
+type SupplierRow = { id: string; name: string; phone: string | null; address: string | null; notes: string | null; isActive: boolean; _count: { orders: number } };
+
+function SupplierManager() {
+  const [rows, setRows] = useState<SupplierRow[]>([]);
+  const [form, setForm] = useState({ name: "", phone: "", address: "", notes: "" });
+  const [editing, setEditing] = useState<SupplierRow | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  async function load() {
+    const res = await fetch("/api/suppliers");
+    if (res.ok) setRows(await res.json());
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setLoading(true);
+    const res = await fetch("/api/suppliers", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { toast.error(data.error); return; }
+    toast.success("Supplier added");
+    setForm({ name: "", phone: "", address: "", notes: "" });
+    load();
+  }
+
+  async function handleSave() {
+    if (!editing) return;
+    setLoading(true);
+    const res = await fetch(`/api/suppliers/${editing.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editing.name, phone: editing.phone, address: editing.address, notes: editing.notes }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { toast.error(data.error); return; }
+    toast.success("Saved");
+    setEditing(null);
+    load();
+  }
+
+  async function handleDelete(row: SupplierRow) {
+    const res = await fetch(`/api/suppliers/${row.id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) { toast.error(data.error); return; }
+    toast.success(data.deactivated ? "Supplier deactivated (has orders)" : "Supplier deleted");
+    setConfirmingId(null);
+    load();
+  }
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleAdd} className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+        <p className="text-sm font-semibold text-slate-700">Add Supplier</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Name *" required
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            placeholder="Phone"
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
+            placeholder="Address"
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 sm:col-span-2" />
+          <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            placeholder="Notes" rows={2}
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 sm:col-span-2 resize-none" />
+        </div>
+        <button type="submit" disabled={loading || !form.name.trim()}
+          className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          {loading ? "Adding…" : "Add Supplier"}
+        </button>
+      </form>
+
+      <div className="space-y-2">
+        {rows.map((row) => (
+          <div key={row.id} className={`bg-white border rounded-xl p-4 ${!row.isActive ? "opacity-50" : "border-slate-200"}`}>
+            {editing?.id === row.id ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input value={editing.phone ?? ""} onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
+                    placeholder="Phone"
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input value={editing.address ?? ""} onChange={(e) => setEditing({ ...editing, address: e.target.value })}
+                    placeholder="Address"
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 sm:col-span-2" />
+                  <textarea value={editing.notes ?? ""} onChange={(e) => setEditing({ ...editing, notes: e.target.value })}
+                    placeholder="Notes" rows={2}
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 sm:col-span-2 resize-none" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleSave} disabled={loading}
+                    className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">Save</button>
+                  <button onClick={() => setEditing(null)}
+                    className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800">{row.name}
+                    {!row.isActive && <span className="ml-2 text-xs text-slate-400">(inactive)</span>}
+                  </p>
+                  {row.phone && <p className="text-xs text-slate-500 mt-0.5">{row.phone}</p>}
+                  {row.address && <p className="text-xs text-slate-500">{row.address}</p>}
+                  {row.notes && <p className="text-xs text-slate-400 italic mt-0.5">{row.notes}</p>}
+                  <p className="text-xs text-slate-400 mt-1">{row._count.orders} order{row._count.orders !== 1 ? "s" : ""}</p>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button onClick={() => setEditing(row)}
+                    className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">Edit</button>
+                  {confirmingId === row.id ? (
+                    <div className="flex gap-1 items-center">
+                      <span className="text-xs text-slate-500">Sure?</span>
+                      <button onClick={() => handleDelete(row)}
+                        className="text-xs px-2 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700">Yes</button>
+                      <button onClick={() => setConfirmingId(null)}
+                        className="text-xs px-2 py-1 border border-slate-300 rounded-lg text-slate-600">No</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmingId(row.id)}
+                      className="text-xs px-3 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50">
+                      {row._count.orders > 0 ? "Deactivate" : "Delete"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {rows.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No suppliers yet. Add one above.</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const t = useT();
   const { data: session } = useSession();
@@ -970,8 +1114,9 @@ export default function SettingsPage() {
       {tab === 0 && <CategoryManager />}
       {tab === 1 && <UnitManager />}
       {tab === 2 && <LocationManager />}
-      {tab === 3 && <NotificationsManager />}
-      {tab === 4 && (
+      {tab === 3 && <SupplierManager />}
+      {tab === 4 && <NotificationsManager />}
+      {tab === 5 && (
         session?.user.role === "ADMIN"
           ? <LoginHistoryTab />
           : <p className="text-sm text-slate-400">{t("settings.adminOnly", "Admin access required.")}</p>

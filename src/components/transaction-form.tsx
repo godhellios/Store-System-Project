@@ -177,6 +177,8 @@ export function TransactionForm({
   const [toLocationId, setToLocationId]     = useState("");
   const [customer, setCustomer]         = useState("");
   const [supplier, setSupplier]         = useState("");
+  const [supplierId, setSupplierId]     = useState("");
+  const [suppliers, setSuppliers]       = useState<{ id: string; name: string }[]>([]);
   const [reference, setReference]       = useState("");
   const [notes, setNotes]               = useState("");
   const [submitting, setSubmitting]     = useState(false);
@@ -230,6 +232,14 @@ export function TransactionForm({
   useEffect(() => {
     if (!('ontouchstart' in window)) scanRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (type === "GRN") {
+      fetch("/api/suppliers").then((r) => r.json()).then((data) => {
+        if (Array.isArray(data)) setSuppliers(data);
+      }).catch(() => {});
+    }
+  }, [type]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -379,6 +389,8 @@ export function TransactionForm({
         type,
         fromLocationId: fromLocationId || undefined,
         toLocationId:   toLocationId   || undefined,
+        supplier:       type === "GRN" ? (suppliers.find((s) => s.id === supplierId)?.name || supplier || undefined) : undefined,
+        supplierId:     type === "GRN" ? (supplierId || undefined) : undefined,
         reference:      reference      || undefined,
         notes:          notes          || undefined,
         lines: lines.map((l) => ({
@@ -545,10 +557,18 @@ export function TransactionForm({
           )}
           {type === "GRN" && (
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.supplierName", "Supplier Name")}</label>
-              <input value={supplier} onChange={(e) => setSupplier(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
-                placeholder={t("transactionForm.optional", "Optional")} />
+              <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.supplierName", "Supplier")}</label>
+              {suppliers.length > 0 ? (
+                <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}
+                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44">
+                  <option value="">{t("transactionForm.optional", "— Optional —")}</option>
+                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              ) : (
+                <input value={supplier} onChange={(e) => setSupplier(e.target.value)}
+                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+                  placeholder={t("transactionForm.optional", "Optional")} />
+              )}
             </div>
           )}
           <div>

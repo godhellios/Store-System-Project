@@ -26,13 +26,14 @@ export default async function ProductDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ page?: string }>;
 }) {
-  await blockOperator();
+  const session = await blockOperator();
+  const isAdmin = session.user.role === "ADMIN";
   const { id } = await params;
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1"));
   const perPage = 30;
 
-  const [product, movements, total] = await Promise.all([
+  const [product, movements, total, costHistory] = await Promise.all([
     prisma.product.findUnique({
       where: { id },
       include: {
@@ -53,6 +54,12 @@ export default async function ProductDetailPage({
       },
     }),
     prisma.movement.count({ where: { productId: id } }),
+    isAdmin ? prisma.orderLine.findMany({
+      where: { productId: id, unitCost: { not: null }, order: { type: "GRN" } },
+      orderBy: { order: { createdAt: "desc" } },
+      take: 20,
+      include: { order: { include: { supplierRef: true } } },
+    }) : Promise.resolve([]),
   ]);
 
   if (!product) notFound();
@@ -178,6 +185,72 @@ export default async function ProductDetailPage({
           </div>
         </div>
       </div>
+
+      {/* Cost info — admin only */}
+      {isAdmin && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-slate-700 mb-2">Cost (Admin Only)</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="text-xs text-slate-400 mb-1">Last Purchase Price</div>
+              <div className="text-lg font-bold text-slate-800">
+                {product.lastCost != null ? `Rp ${Number(product.lastCost).toLocaleString("id-ID")}` : <span className="text-slate-300 text-sm">—</span>}
+              </div>
+              <div className="text-[10px] text-slate-400">per {product.unit.name.toLowerCase()}</div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="text-xs text-slate-400 mb-1">Avg Cost (AVCO)</div>
+              <div className="text-lg font-bold text-slate-800">
+                {product.avgCost != null ? `Rp ${Number(product.avgCost).toLocaleString("id-ID")}` : <span className="text-slate-300 text-sm">—</span>}
+              </div>
+              <div className="text-[10px] text-slate-400">per {product.unit.name.toLowerCase()}</div>
+            </div>
+            <div className="bg-slate-800 rounded-xl p-4">
+              <div className="text-xs text-slate-300 mb-1">Inventory Value</div>
+              <div className="text-lg font-bold text-white">
+                {product.avgCost != null && totalStock > 0
+                  ? `Rp ${(Number(product.avgCost) * totalStock).toLocaleString("id-ID")}`
+                  : <span className="text-slate-400 text-sm">—</span>}
+              </div>
+              <div className="text-[10px] text-slate-400">{totalStock} × avg cost</div>
+            </div>
+          </div>
+
+          {costHistory.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">Purchase Cost History</div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-slate-400 uppercase tracking-wide border-b border-slate-100">
+                    <th className="px-4 py-2 text-left font-medium">Date</th>
+                    <th className="px-4 py-2 text-left font-medium">GRN</th>
+                    <th className="px-4 py-2 text-left font-medium">Supplier</th>
+                    <th className="px-4 py-2 text-right font-medium">Qty</th>
+                    <th className="px-4 py-2 text-right font-medium">Unit Cost</th>
+                    <th className="px-4 py-2 text-right font-medium">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {costHistory.map((line) => (
+                    <tr key={line.id} className="border-t border-slate-50 hover:bg-slate-50">
+                      <td className="px-4 py-2 text-slate-500">
+                        {line.order.createdAt.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                      </td>
+                      <td className="px-4 py-2">
+                        <a href={`/orders/${line.orderId}`} className="text-blue-600 hover:underline font-mono">{line.order.orderNumber}</a>
+                      </td>
+                      <td className="px-4 py-2 text-slate-600">{line.order.supplierRef?.name ?? line.order.supplier ?? <span className="text-slate-300">—</span>}</td>
+                      <td className="px-4 py-2 text-right text-slate-700">{line.quantity} {product.unit.name}</td>
+                      <td className="px-4 py-2 text-right font-medium text-slate-800">Rp {Number(line.unitCost!).toLocaleString("id-ID")}</td>
+                      <td className="px-4 py-2 text-right font-semibold text-slate-800">Rp {(Number(line.unitCost!) * line.quantity).toLocaleString("id-ID")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Movement history */}
       <div className="flex items-center justify-between mb-2">

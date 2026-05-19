@@ -26,6 +26,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         fromLocation: true,
         toLocation: true,
         lines: { include: { product: { include: { category: true, unit: true } } }, orderBy: { id: "asc" } },
+        supplierRef: true,
       },
     }),
     prisma.systemSetting.findUnique({ where: { key: "whatsapp_number" } }),
@@ -160,6 +161,15 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             grnStatus={order.grnStatus ?? null}
             goodsOutStatus={order.goodsOutStatus ?? null}
             transferStatus={order.transferStatus ?? null}
+            grnLines={order.type === "GRN" ? order.lines.map((l) => ({
+              id: l.id,
+              productName: l.product.name,
+              productSku: l.product.sku,
+              quantity: l.quantity,
+              unitName: l.product.unit.name,
+              lastCost: l.product.lastCost ? Number(l.product.lastCost) : null,
+              unitCost: l.unitCost ? Number(l.unitCost) : null,
+            })) : undefined}
           />
         </div>
       </div>
@@ -187,10 +197,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             {order.customer}
           </div>
         )}
-        {order.supplier && (
+        {(order.supplierRef?.name || order.supplier) && (
           <div>
             <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.supplier", "Supplier")}</span>
-            {order.supplier}
+            {order.supplierRef?.name ?? order.supplier}
           </div>
         )}
         {order.reference && (
@@ -217,6 +227,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <th className="px-4 py-2.5 text-left font-medium">{t("orderDetail.cols.category", "Category")}</th>
                 <th className="px-4 py-2.5 text-right font-medium">{t("orderDetail.cols.qtyInput", "Qty (input)")}</th>
                 <th className="px-4 py-2.5 text-right font-medium">{t("orderDetail.cols.baseQty", "Base qty")}</th>
+                {order.type === "GRN" && userRole === "ADMIN" && (
+                  <>
+                    <th className="px-4 py-2.5 text-right font-medium">Unit Cost</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Subtotal</th>
+                  </>
+                )}
                 <th className="px-4 py-2.5 text-left font-medium">{t("orderDetail.cols.notes", "Notes")}</th>
               </tr>
             </thead>
@@ -242,14 +258,29 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     <span className="font-semibold text-gray-900">{line.quantity}</span>
                     <span className="text-xs font-normal text-slate-500 ml-1">{line.product.unit.name}</span>
                   </td>
+                  {order.type === "GRN" && userRole === "ADMIN" && (
+                    <>
+                      <td className="px-4 py-2.5 text-right text-xs text-slate-600">
+                        {line.unitCost != null ? `Rp ${Number(line.unitCost).toLocaleString("id-ID")}` : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-xs font-medium text-slate-700">
+                        {line.unitCost != null ? `Rp ${(Number(line.unitCost) * line.quantity).toLocaleString("id-ID")}` : <span className="text-slate-300">—</span>}
+                      </td>
+                    </>
+                  )}
                   <td className="px-4 py-2.5 text-xs text-gray-700">{line.notes ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-600 text-right">
-          {order.lines.length} {order.lines.length !== 1 ? t("transactionForm.footer.lines", "lines") : t("transactionForm.footer.line", "line")} · {order.lines.reduce((s, l) => s + l.quantity, 0)} {t("orderDetail.linesTotal", "items total")}
+        <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-600 flex justify-between items-center">
+          <span>{order.lines.length} {order.lines.length !== 1 ? t("transactionForm.footer.lines", "lines") : t("transactionForm.footer.line", "line")} · {order.lines.reduce((s, l) => s + l.quantity, 0)} {t("orderDetail.linesTotal", "items total")}</span>
+          {order.type === "GRN" && userRole === "ADMIN" && (() => {
+            const total = order.lines.reduce((s, l) => s + (l.unitCost != null ? Number(l.unitCost) * l.quantity : 0), 0);
+            const hasCost = order.lines.some((l) => l.unitCost != null);
+            return hasCost ? <span className="font-semibold text-slate-700">Total: Rp {total.toLocaleString("id-ID")}</span> : <span className="text-slate-400 italic">No cost entered</span>;
+          })()}
         </div>
       </div>
     </div>
