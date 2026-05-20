@@ -133,14 +133,14 @@ export function BarcodePrintPanel({
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: Arial, sans-serif; background: #fff; }
-          @page { size: 60mm 40mm; margin: 0; }
-          html, body { width: 60mm; margin: 0; padding: 0; }
-          .label { width: 60mm; height: 40mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2mm; gap: 1mm; overflow: hidden; page-break-after: always; break-after: page; }
+          @page { size: 56mm 40mm; margin: 0; }
+          html, body { width: 56mm; margin: 0; padding: 0; }
+          .label { width: 56mm; height: 40mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2mm; gap: 1mm; overflow: hidden; page-break-after: always; break-after: page; }
           .label:last-child { page-break-after: avoid; break-after: avoid; }
-          .barcode-img { display: block; width: 54mm; height: auto; flex-shrink: 0; margin: 0 auto; }
-          .barcode-num { display: block; font-family: monospace; font-size: 6.5pt; color: #333; letter-spacing: 0.5px; text-align: center; width: 56mm; flex-shrink: 0; }
-          .product-name { display: block; font-size: 7.5pt; font-weight: 700; text-align: center; width: 56mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .unit { display: block; font-size: 6.5pt; color: #555; width: 56mm; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .barcode-img { display: block; width: 50mm; height: auto; flex-shrink: 0; margin: 0 auto; }
+          .barcode-num { display: block; font-family: monospace; font-size: 6.5pt; color: #333; letter-spacing: 0.5px; text-align: center; width: 52mm; flex-shrink: 0; }
+          .product-name { display: block; font-size: 7.5pt; font-weight: 700; text-align: center; width: 52mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .unit { display: block; font-size: 6.5pt; color: #555; width: 52mm; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         </style>
       </head>
