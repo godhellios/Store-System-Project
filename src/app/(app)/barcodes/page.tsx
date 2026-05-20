@@ -10,11 +10,12 @@ export default async function BarcodesPage({
 }: {
   searchParams: Promise<{ productId?: string | string[]; copies?: string }>;
 }) {
-  await blockOperator();
+  const session = await blockOperator();
+  const isAdmin = session.user.role === "ADMIN";
   const t = await getT();
   const { productId, copies } = await searchParams;
 
-  const [categories, products] = await Promise.all([
+  const [categories, products, settingRow] = await Promise.all([
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.product.findMany({
       where: {
@@ -30,7 +31,13 @@ export default async function BarcodesPage({
         unitConversions: { select: { id: true, name: true, conversionFactor: true, barcode: true } },
       },
     }),
+    prisma.systemSetting.findUnique({ where: { key: "barcode_label_settings" } }),
   ]);
+
+  let labelSettings: { width: number; height: number } | null = null;
+  if (settingRow) {
+    try { labelSettings = JSON.parse(settingRow.value); } catch { /* use defaults */ }
+  }
 
   const preselect = productId
     ? Array.isArray(productId) ? productId : [productId]
@@ -51,7 +58,7 @@ export default async function BarcodesPage({
   return (
     <div>
       <h1 className="text-base font-semibold text-slate-800 mb-5">{t("barcodes.title", "Barcode Labels")}</h1>
-      <BarcodePrintPanel products={products} categories={categories.map((c) => ({ id: c.id, name: c.name }))} preselect={preselect} initialCopies={initialCopies} />
+      <BarcodePrintPanel products={products} categories={categories.map((c) => ({ id: c.id, name: c.name }))} preselect={preselect} initialCopies={initialCopies} labelSettings={labelSettings} isAdmin={isAdmin} />
     </div>
   );
 }
