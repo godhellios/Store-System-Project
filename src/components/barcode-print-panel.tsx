@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 
 type LabelSettings = { width: number; height: number };
 
@@ -20,23 +20,17 @@ export function BarcodePrintPanel({
   preselect,
   initialCopies = {},
   labelSettings: savedSettings = null,
-  isAdmin = false,
 }: {
   products: Product[];
   categories: Category[];
   preselect: string[];
   initialCopies?: Record<string, number>;
   labelSettings?: LabelSettings | null;
-  isAdmin?: boolean;
 }) {
+  const settings = savedSettings ?? DEFAULT_SETTINGS;
+
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
-  const [settings, setSettings] = useState<LabelSettings>(savedSettings ?? DEFAULT_SETTINGS);
-  const [draftSettings, setDraftSettings] = useState<LabelSettings>(savedSettings ?? DEFAULT_SETTINGS);
-  const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
-  const saveMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [queue, setQueue] = useState<Map<string, Product>>(
     new Map(allProducts.filter((p) => preselect.includes(p.id)).map((p) => [p.id, p]))
@@ -105,29 +99,6 @@ export function BarcodePrintPanel({
     const sel = selectedBarcodes.get(p.id) ?? new Set();
     return sum + getCopies(p.id) * sel.size;
   }, 0);
-
-  async function saveSettings() {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "barcode_label_settings", value: JSON.stringify(draftSettings) }),
-      });
-      if (res.ok) {
-        setSettings(draftSettings);
-        setSaveMsg("Saved!");
-      } else {
-        setSaveMsg("Failed to save");
-      }
-    } catch {
-      setSaveMsg("Failed to save");
-    } finally {
-      setSaving(false);
-      if (saveMsgTimer.current) clearTimeout(saveMsgTimer.current);
-      saveMsgTimer.current = setTimeout(() => setSaveMsg(null), 2500);
-    }
-  }
 
   function printLabels() {
     const s = settings;
@@ -261,62 +232,10 @@ export function BarcodePrintPanel({
             <span className="text-sm font-semibold text-slate-700">
               {queue.size} product{queue.size !== 1 ? "s" : ""}
             </span>
-            <div className="flex items-center gap-2">
-              {totalLabels > 0 && (
-                <span className="text-xs text-slate-400">{totalLabels} label{totalLabels !== 1 ? "s" : ""}</span>
-              )}
-              <button
-                onClick={() => { setShowSettings((v) => !v); setDraftSettings(settings); }}
-                title="Label settings"
-                className={`text-base leading-none px-1 rounded transition-colors ${showSettings ? "text-blue-600" : "text-slate-400 hover:text-slate-600"}`}
-              >⚙</button>
-            </div>
+            {totalLabels > 0 && (
+              <span className="text-xs text-slate-400">{totalLabels} label{totalLabels !== 1 ? "s" : ""}</span>
+            )}
           </div>
-
-          {/* Label settings panel */}
-          {showSettings && (
-            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 space-y-2">
-              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Label Size</p>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-600 w-14 flex-shrink-0">Width</label>
-                <input
-                  type="number" min={20} max={200} step={1}
-                  value={draftSettings.width}
-                  onChange={(e) => setDraftSettings((d) => ({ ...d, width: parseFloat(e.target.value) || d.width }))}
-                  disabled={!isAdmin}
-                  className="w-16 text-center px-1 py-0.5 border border-slate-300 rounded text-xs disabled:bg-slate-100 disabled:text-slate-400"
-                />
-                <span className="text-xs text-slate-400">mm</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-600 w-14 flex-shrink-0">Height</label>
-                <input
-                  type="number" min={15} max={200} step={1}
-                  value={draftSettings.height}
-                  onChange={(e) => setDraftSettings((d) => ({ ...d, height: parseFloat(e.target.value) || d.height }))}
-                  disabled={!isAdmin}
-                  className="w-16 text-center px-1 py-0.5 border border-slate-300 rounded text-xs disabled:bg-slate-100 disabled:text-slate-400"
-                />
-                <span className="text-xs text-slate-400">mm</span>
-              </div>
-              {isAdmin ? (
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    onClick={saveSettings}
-                    disabled={saving}
-                    className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded font-medium"
-                  >
-                    {saving ? "Saving…" : "Save"}
-                  </button>
-                  {saveMsg && (
-                    <span className={`text-xs ${saveMsg === "Saved!" ? "text-green-600" : "text-red-500"}`}>{saveMsg}</span>
-                  )}
-                </div>
-              ) : (
-                <p className="text-[10px] text-slate-400 pt-1">Only admins can change label settings.</p>
-              )}
-            </div>
-          )}
 
           {/* Per-product barcode selection */}
           <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-100">

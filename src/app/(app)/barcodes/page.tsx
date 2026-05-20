@@ -10,8 +10,7 @@ export default async function BarcodesPage({
 }: {
   searchParams: Promise<{ productId?: string | string[]; copies?: string }>;
 }) {
-  const session = await blockOperator();
-  const isAdmin = session.user.role === "ADMIN";
+  await blockOperator();
   const t = await getT();
   const { productId, copies } = await searchParams;
 
@@ -58,7 +57,7 @@ export default async function BarcodesPage({
   return (
     <div>
       <h1 className="text-base font-semibold text-slate-800 mb-5">{t("barcodes.title", "Barcode Labels")}</h1>
-      <BarcodePrintPanel products={products} categories={categories.map((c) => ({ id: c.id, name: c.name }))} preselect={preselect} initialCopies={initialCopies} labelSettings={labelSettings} isAdmin={isAdmin} />
+      <BarcodePrintPanel products={products} categories={categories.map((c) => ({ id: c.id, name: c.name }))} preselect={preselect} initialCopies={initialCopies} labelSettings={labelSettings} />
     </div>
   );
 }
