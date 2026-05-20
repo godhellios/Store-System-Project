@@ -126,7 +126,21 @@ export default async function ProductsPage({
         </div>
       </form>
 
-      <ProductsBulkPanel products={products} userRole={userRole} locationId={locationId} />
+      <ProductsBulkPanel
+        products={products.map((p) => ({
+          id: p.id, name: p.name, sku: p.sku, barcode: p.barcode,
+          isActive: p.isActive, reorderPoint: p.reorderPoint,
+          colorVariant: p.colorVariant, imageUrl: p.imageUrl,
+          category: { id: p.category.id, name: p.category.name },
+          unit: { id: p.unit.id, name: p.unit.name },
+          stock: p.stock.map((s) => ({
+            id: s.id, locationId: s.locationId, quantity: s.quantity,
+            location: { id: s.location.id, name: s.location.name },
+          })),
+        }))}
+        userRole={userRole}
+        locationId={locationId}
+      />
 
       {pages > 1 && (() => {
         const slots: (number | "…")[] = [];

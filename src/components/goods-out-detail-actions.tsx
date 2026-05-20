@@ -16,7 +16,7 @@ function buildWhatsAppUrl({
   lines: OrderLine[];
   notes: string | null;
   whatsappNumber: string;
-  createdAt: Date;
+  createdAt: string;
   savedBy?: string | null;
 }): string {
   const date = new Date(createdAt).toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -58,9 +58,9 @@ export function GoodsOutDetailActions({
   lines: OrderLine[];
   notes: string | null;
   whatsappNumber: string;
-  createdAt: Date;
+  createdAt: string;
   savedBy?: string | null;
-  doSentAt?: Date | null;
+  doSentAt?: string | null;
 }) {
   function handleResendWhatsApp() {
     const url = buildWhatsAppUrl({ orderNumber, customer, fromLocationName, lines, notes, whatsappNumber, createdAt, savedBy });

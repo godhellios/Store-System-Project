@@ -51,7 +51,18 @@ export default async function WarehousePage({
     ? await Promise.all([
         prisma.stock.findMany({
           where: stockWhere,
-          include: { product: { include: { category: true, unit: true } } },
+          select: {
+            id: true,
+            quantity: true,
+            product: {
+              select: {
+                id: true, name: true, sku: true, barcode: true,
+                colorVariant: true, reorderPoint: true, isActive: true,
+                category: { select: { id: true, name: true } },
+                unit: { select: { name: true } },
+              },
+            },
+          },
           orderBy: { product: { name: "asc" } },
           take: PAGE_SIZE,
           skip: (pageNum - 1) * PAGE_SIZE,
@@ -143,7 +154,7 @@ export default async function WarehousePage({
           </div>
           <WarehouseStockTable
             stock={stock}
-            categories={categories}
+            categories={categories.map((c) => ({ id: c.id, name: c.name }))}
             locationId={locationId!}
             q={q ?? ""}
             categoryId={cat ?? ""}

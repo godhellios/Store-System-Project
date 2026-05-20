@@ -16,7 +16,7 @@ export default async function AdjustmentPage() {
       orderBy: { createdAt: "desc" },
       include: {
         toLocation: true,
-        lines: { include: { product: { select: { name: true, sku: true } } } },
+        lines: { select: { quantity: true, product: { select: { name: true, sku: true } } } },
       },
     }),
     getT(),
@@ -28,8 +28,17 @@ export default async function AdjustmentPage() {
         {t("transactions.adjustment", "Stock Adjustment")}
       </h1>
       <AdjustmentClient
-        locations={locations}
-        pendingOrders={pendingOrders}
+        locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+        pendingOrders={pendingOrders.map((o) => ({
+          id: o.id,
+          orderNumber: o.orderNumber,
+          createdAt: o.createdAt.toISOString(),
+          createdByName: o.createdByName,
+          adjustmentReason: o.adjustmentReason,
+          notes: o.notes,
+          toLocation: o.toLocation ? { name: o.toLocation.name } : null,
+          lines: o.lines,
+        }))}
         role={session.user.role}
         userName={session.user.name ?? ""}
       />

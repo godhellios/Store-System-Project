@@ -15,7 +15,21 @@ export default async function OpnameDetailPage({ params }: { params: Promise<{ i
       include: {
         location: true,
         lines: {
-          include: { product: { include: { category: true, unit: true } } },
+          select: {
+            id: true,
+            bookQty: true,
+            physicalQty: true,
+            difference: true,
+            notes: true,
+            staffConfirmed: true,
+            product: {
+              select: {
+                name: true, sku: true,
+                category: { select: { name: true } },
+                unit: { select: { name: true } },
+              },
+            },
+          },
           orderBy: { product: { name: "asc" } },
         },
       },
@@ -31,7 +45,19 @@ export default async function OpnameDetailPage({ params }: { params: Promise<{ i
         <h1 className="text-base font-semibold text-slate-800 font-mono">{opnameSession.sessionNumber}</h1>
         <span className="text-xs text-slate-500">{opnameSession.location.name}</span>
       </div>
-      <OpnameCountSheet session={opnameSession} isAdmin={isAdmin} />
+      <OpnameCountSheet
+        session={{
+          id: opnameSession.id,
+          sessionNumber: opnameSession.sessionNumber,
+          status: opnameSession.status,
+          notes: opnameSession.notes,
+          cancelNote: opnameSession.cancelNote,
+          createdByName: opnameSession.createdByName,
+          approvedByName: opnameSession.approvedByName,
+          lines: opnameSession.lines,
+        }}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }

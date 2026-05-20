@@ -150,12 +150,17 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 orderNumber={order.orderNumber}
                 customer={order.customer}
                 fromLocationName={order.fromLocation?.name ?? null}
-                lines={order.lines}
+                lines={order.lines.map((l) => ({
+                  quantity: l.quantity,
+                  inputQty: l.inputQty,
+                  inputUnit: l.inputUnit,
+                  product: { name: l.product.name, unit: { name: l.product.unit.name } },
+                }))}
                 notes={order.notes}
                 whatsappNumber={whatsappNumber}
-                createdAt={order.createdAt}
+                createdAt={order.createdAt.toISOString()}
                 savedBy={order.createdByName}
-                doSentAt={order.doSentAt}
+                doSentAt={order.doSentAt?.toISOString() ?? null}
               />
             </>
           )}

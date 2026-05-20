@@ -21,12 +21,29 @@ export default async function OrderEditPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const order = await prisma.order.findUnique({
     where: { id },
-    include: {
-      fromLocation: true,
-      toLocation: true,
+    select: {
+      id: true,
+      orderNumber: true,
+      type: true,
+      customer: true,
+      reference: true,
+      notes: true,
+      fromLocation: { select: { name: true } },
+      toLocation: { select: { name: true } },
       lines: {
-        include: {
-          product: { include: { unit: true, unitConversions: true } },
+        select: {
+          id: true,
+          quantity: true,
+          inputQty: true,
+          inputUnit: true,
+          notes: true,
+          product: {
+            select: {
+              id: true, name: true, sku: true, barcode: true,
+              unit: { select: { id: true, name: true } },
+              unitConversions: { select: { id: true, name: true, conversionFactor: true } },
+            },
+          },
         },
         orderBy: { id: "asc" },
       },

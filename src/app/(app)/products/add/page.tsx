@@ -16,7 +16,11 @@ export default async function AddProductPage() {
   return (
     <div>
       <h1 className="text-base font-semibold text-slate-800 mb-5">Add Product</h1>
-      <ProductForm categories={categories} units={units} isAdmin={isAdmin} />
+      <ProductForm
+        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        units={units.map((u) => ({ id: u.id, name: u.name }))}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }

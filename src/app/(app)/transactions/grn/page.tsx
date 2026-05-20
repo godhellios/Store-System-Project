@@ -10,7 +10,7 @@ export default async function GrnPage() {
   return (
     <div>
       <h1 className="text-base font-semibold text-slate-800 mb-5">{t("transactions.grn", "Goods Received (GRN)")}</h1>
-      <TransactionForm type="GRN" locations={locations} />
+      <TransactionForm type="GRN" locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))} />
     </div>
   );
 }

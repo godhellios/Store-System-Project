@@ -29,15 +29,16 @@ export default async function OpnamePage() {
     }),
     prisma.location.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
+  const plainLocations = locations.map((l) => ({ id: l.id, name: l.name }));
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-base font-semibold text-slate-800">{t("opname.title", "Stock Opname")}</h1>
         <div className="flex items-center gap-2">
-          <OpnameExportButton locations={locations} />
-          <OpnameImportButton locations={locations} isAdmin={isAdmin} />
-          <NewOpnameButton locations={locations} />
+          <OpnameExportButton locations={plainLocations} />
+          <OpnameImportButton locations={plainLocations} isAdmin={isAdmin} />
+          <NewOpnameButton locations={plainLocations} />
         </div>
       </div>
 

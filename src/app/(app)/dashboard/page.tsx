@@ -21,8 +21,17 @@ async function getDashboardData() {
       prisma.order.findMany({
         take: 5,
         orderBy: { createdAt: "desc" },
-        include: {
-          lines: { include: { product: { include: { category: true } } } },
+        select: {
+          id: true,
+          orderNumber: true,
+          type: true,
+          createdAt: true,
+          lines: {
+            select: {
+              quantity: true,
+              product: { select: { category: { select: { name: true } } } },
+            },
+          },
         },
       }),
       prisma.location.findMany({
@@ -167,7 +176,7 @@ export default async function DashboardPage() {
         <Link href="/orders" className="text-xs text-blue-600 hover:underline">{t("dashboard.viewAll", "View all →")}</Link>
       </div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <RecentOrdersTable orders={data.recentOrders} />
+        <RecentOrdersTable orders={data.recentOrders.map((o) => ({ ...o, createdAt: o.createdAt.toISOString() }))} />
       </div>
     </div>
   );

@@ -22,7 +22,13 @@ export default async function BarcodesPage({
         AND: [{ OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }] }],
       },
       orderBy: { name: "asc" },
-      include: { category: true, unit: true, unitConversions: true },
+      select: {
+        id: true, name: true, sku: true, barcode: true,
+        colorVariant: true, isActive: true, categoryId: true,
+        category: { select: { name: true } },
+        unit: { select: { name: true } },
+        unitConversions: { select: { id: true, name: true, conversionFactor: true, barcode: true } },
+      },
     }),
   ]);
 
@@ -45,7 +51,7 @@ export default async function BarcodesPage({
   return (
     <div>
       <h1 className="text-base font-semibold text-slate-800 mb-5">{t("barcodes.title", "Barcode Labels")}</h1>
-      <BarcodePrintPanel products={products} categories={categories} preselect={preselect} initialCopies={initialCopies} />
+      <BarcodePrintPanel products={products} categories={categories.map((c) => ({ id: c.id, name: c.name }))} preselect={preselect} initialCopies={initialCopies} />
     </div>
   );
 }

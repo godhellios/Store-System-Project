@@ -10,7 +10,7 @@ export default async function TransferPage() {
   return (
     <div>
       <h1 className="text-base font-semibold text-slate-800 mb-5">{t("transactions.transfer", "Stock Transfer")}</h1>
-      <TransactionForm type="TRANSFER" locations={locations} />
+      <TransactionForm type="TRANSFER" locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))} />
     </div>
   );
 }

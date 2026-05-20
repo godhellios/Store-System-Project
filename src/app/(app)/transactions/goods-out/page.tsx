@@ -13,7 +13,7 @@ export default async function GoodsOutPage() {
       <h1 className="text-base font-semibold text-slate-800 mb-5">{t("transactions.goodsOut", "Goods Out")}</h1>
       <TransactionForm
         type="GOODS_OUT"
-        locations={locations}
+        locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
         whatsappNumber={waSetting?.value ?? "6281283118487"}
       />
     </div>
