@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { blockOperator } from "@/lib/role-guard";
 import Link from "next/link";
+import { OpeningCostForm } from "@/components/opening-cost-form";
 
 const TYPE_COLOR: Record<string, string> = {
   GRN:        "bg-green-100 text-green-700",
@@ -28,6 +29,7 @@ export default async function ProductDetailPage({
 }) {
   const session = await blockOperator();
   const isAdmin = session.user.role === "ADMIN";
+  const isAdminOrViewer = session.user.role === "ADMIN" || session.user.role === "VIEWER";
   const { id } = await params;
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1"));
@@ -54,7 +56,7 @@ export default async function ProductDetailPage({
       },
     }),
     prisma.movement.count({ where: { productId: id } }),
-    isAdmin ? prisma.orderLine.findMany({
+    isAdminOrViewer ? prisma.orderLine.findMany({
       where: { productId: id, unitCost: { not: null }, order: { type: "GRN" } },
       orderBy: { order: { createdAt: "desc" } },
       take: 20,
@@ -76,14 +78,16 @@ export default async function ProductDetailPage({
           <span>/</span>
           <span className="text-slate-800 font-medium truncate">{product.name}</span>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href={`/products/${id}/edit`}
-            className="text-xs px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
-          >
-            Edit
-          </Link>
-        </div>
+        {session.user.role !== "VIEWER" && (
+          <div className="flex gap-2">
+            <Link
+              href={`/products/${id}/edit`}
+              className="text-xs px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+            >
+              Edit
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Product info card */}
@@ -187,9 +191,12 @@ export default async function ProductDetailPage({
       </div>
 
       {/* Cost info — admin only */}
-      {isAdmin && (
+      {isAdminOrViewer && (
         <div className="mb-6">
           <h2 className="text-sm font-semibold text-slate-700 mb-2">Cost (Admin Only)</h2>
+          {isAdmin && product.avgCost === null && (
+            <OpeningCostForm productId={id} mode="set" />
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
             <div className="bg-white border border-slate-200 rounded-xl p-4">
               <div className="text-xs text-slate-400 mb-1">Last Purchase Price</div>
@@ -204,6 +211,9 @@ export default async function ProductDetailPage({
                 {product.avgCost != null ? `Rp ${Number(product.avgCost).toLocaleString("id-ID")}` : <span className="text-slate-300 text-sm">—</span>}
               </div>
               <div className="text-[10px] text-slate-400">per {product.unit.name.toLowerCase()}</div>
+              {isAdmin && product.avgCost != null && (
+                <OpeningCostForm productId={id} mode="correct" currentAvgCost={Number(product.avgCost)} />
+              )}
             </div>
             <div className="bg-slate-800 rounded-xl p-4">
               <div className="text-xs text-slate-300 mb-1">Inventory Value</div>

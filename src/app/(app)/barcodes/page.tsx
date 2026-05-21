@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { BarcodePrintPanel } from "@/components/barcode-print-panel";
-import { blockOperator } from "@/lib/role-guard";
+import { blockViewer } from "@/lib/role-guard";
 import { getT } from "@/modules/i18n";
 
 export const maxDuration = 30;
@@ -10,7 +10,7 @@ export default async function BarcodesPage({
 }: {
   searchParams: Promise<{ productId?: string | string[]; copies?: string }>;
 }) {
-  await blockOperator();
+  await blockViewer();
   const t = await getT();
   const { productId, copies } = await searchParams;
 

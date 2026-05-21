@@ -13,6 +13,7 @@ type NavLink = {
   indent?: boolean;
   small?: boolean;
   adminOnly?: boolean;
+  staffOnly?: boolean; // hidden from VIEWER (visible to ADMIN, STAFF, OPERATOR)
 };
 
 type NavSection = {
@@ -30,16 +31,16 @@ const NAV: NavSection[] = [
     links: [
       { href: "/dashboard", label: "Dashboard", labelKey: "nav.links.dashboard", icon: "▦" },
       { href: "/products", label: "Products", labelKey: "nav.links.products", icon: "⊞" },
-      { href: "/products/add", label: "Add Product", labelKey: "nav.links.addProduct", icon: "↳", indent: true, small: true },
-      { href: "/products/import", label: "Bulk Import", labelKey: "nav.links.bulkImport", icon: "↳", indent: true, small: true },
-      { href: "/products/images", label: "Bulk Images", labelKey: "nav.links.bulkImages", icon: "↳", indent: true, small: true }, // BULK_IMAGE_UPLOAD
+      { href: "/products/add", label: "Add Product", labelKey: "nav.links.addProduct", icon: "↳", indent: true, small: true, staffOnly: true },
+      { href: "/products/import", label: "Bulk Import", labelKey: "nav.links.bulkImport", icon: "↳", indent: true, small: true, staffOnly: true },
+      { href: "/products/images", label: "Bulk Images", labelKey: "nav.links.bulkImages", icon: "↳", indent: true, small: true, staffOnly: true }, // BULK_IMAGE_UPLOAD
       { href: "/warehouse", label: "Warehouse", labelKey: "nav.links.warehouse", icon: "⊟" },
     ],
   },
   {
     section: "Transactions",
     sectionKey: "nav.sections.transactions",
-    roles: ["ADMIN", "STAFF", "VIEWER", "OPERATOR"],
+    roles: ["ADMIN", "STAFF", "OPERATOR"],
     links: [
       { href: "/transactions/grn", label: "Goods Received (GRN)", labelKey: "nav.links.grn", icon: "↓" },
       { href: "/transactions/goods-out", label: "Goods Out Order", labelKey: "nav.links.goodsOut", icon: "↑" },
@@ -50,7 +51,7 @@ const NAV: NavSection[] = [
   {
     section: "Barcodes",
     sectionKey: "nav.sections.barcodes",
-    roles: ["ADMIN", "STAFF", "VIEWER"],
+    roles: ["ADMIN", "STAFF"],
     links: [{ href: "/barcodes", label: "Barcode Labels", labelKey: "nav.links.barcodeLabels", icon: "▣" }],
   },
   {
@@ -132,7 +133,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
               <div className="px-4 pt-3.5 pb-1 text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-300 font-semibold">
                 {t(sectionKey, section)}
               </div>
-              {links.filter(({ adminOnly }) => !adminOnly || role === "ADMIN").map(({ href, label, labelKey, icon, indent, small }) => {
+              {links.filter(({ adminOnly, staffOnly }) => (!adminOnly || role === "ADMIN") && (!staffOnly || role === "ADMIN" || role === "STAFF")).map(({ href, label, labelKey, icon, indent, small }) => {
                 const active =
                   pathname === href ||
                   (href !== "/dashboard" && pathname.startsWith(href));

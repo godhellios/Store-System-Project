@@ -238,7 +238,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <th className="px-4 py-2.5 text-left font-medium">{t("orderDetail.cols.category", "Category")}</th>
                 <th className="px-4 py-2.5 text-right font-medium">{t("orderDetail.cols.qtyInput", "Qty (input)")}</th>
                 <th className="px-4 py-2.5 text-right font-medium">{t("orderDetail.cols.baseQty", "Base qty")}</th>
-                {order.type === "GRN" && userRole === "ADMIN" && (
+                {order.type === "GRN" && (userRole === "ADMIN" || userRole === "VIEWER") && (
                   <>
                     <th className="px-4 py-2.5 text-right font-medium">Unit Cost</th>
                     <th className="px-4 py-2.5 text-right font-medium">Subtotal</th>
@@ -269,7 +269,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     <span className="font-semibold text-gray-900">{line.quantity}</span>
                     <span className="text-xs font-normal text-slate-500 ml-1">{line.product.unit.name}</span>
                   </td>
-                  {order.type === "GRN" && userRole === "ADMIN" && (
+                  {order.type === "GRN" && (userRole === "ADMIN" || userRole === "VIEWER") && (
                     <>
                       <td className="px-4 py-2.5 text-right text-xs text-slate-600">
                         {line.unitCost != null ? `Rp ${Number(line.unitCost).toLocaleString("id-ID")}` : <span className="text-slate-300">—</span>}
@@ -287,7 +287,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         </div>
         <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-600 flex justify-between items-center">
           <span>{order.lines.length} {order.lines.length !== 1 ? t("transactionForm.footer.lines", "lines") : t("transactionForm.footer.line", "line")} · {order.lines.reduce((s, l) => s + l.quantity, 0)} {t("orderDetail.linesTotal", "items total")}</span>
-          {order.type === "GRN" && userRole === "ADMIN" && (() => {
+          {order.type === "GRN" && (userRole === "ADMIN" || userRole === "VIEWER") && (() => {
             const total = order.lines.reduce((s, l) => s + (l.unitCost != null ? Number(l.unitCost) * l.quantity : 0), 0);
             const hasCost = order.lines.some((l) => l.unitCost != null);
             return hasCost ? <span className="font-semibold text-slate-700">Total: Rp {total.toLocaleString("id-ID")}</span> : <span className="text-slate-400 italic">No cost entered</span>;

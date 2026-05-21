@@ -155,7 +155,7 @@ export async function GET(req: Request) {
   }
 
   if (report === "receiving") {
-    const isAdmin = session.user.role === "ADMIN";
+    const isAdmin = session.user.role === "ADMIN" || session.user.role === "VIEWER";
     const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86400000);
     const toDate = to ? new Date(to + "T23:59:59") : new Date();
 
@@ -223,8 +223,8 @@ export async function GET(req: Request) {
   }
 
   if (report === "inventory-value") {
-    const isAdmin = session.user.role === "ADMIN";
-    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const isAdminOrViewer = session.user.role === "ADMIN" || session.user.role === "VIEWER";
+    if (!isAdminOrViewer) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // Current snapshot: qty × avgCost per stock record, grouped by location
     const stock = await prisma.stock.findMany({

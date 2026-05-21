@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { Prisma } from "@/generated/prisma";
 import { viewerGuard } from "@/lib/role-guard";
+import { applyOpeningCost, applyCorrectCost, OpeningCostError } from "@/lib/opening-cost";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -167,4 +168,59 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   writeAuditLog({ session, action: "EDIT_PRODUCT", description: `Edited "${product.name}" (${product.sku})`, entityId: id, entityType: "PRODUCT" });
 
   return NextResponse.json(product);
+}
+
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { id } = await params;
+  const body = await req.json();
+  const { openingCost, correctCost } = body as { openingCost?: number; correctCost?: number };
+
+  if (openingCost === undefined && correctCost === undefined) {
+    return NextResponse.json({ error: "Provide openingCost or correctCost" }, { status: 400 });
+  }
+
+  try {
+    if (correctCost !== undefined) {
+      if (typeof correctCost !== "number" || correctCost <= 0) {
+        return NextResponse.json({ error: "correctCost must be a number greater than zero" }, { status: 400 });
+      }
+      const { oldAvgCost } = await prisma.$transaction((tx) => applyCorrectCost(tx, id, correctCost));
+      const product = await prisma.product.findUnique({ where: { id }, select: { name: true, sku: true } });
+      writeAuditLog({
+        session,
+        action: "CORRECT_OPENING_COST",
+        description: `Corrected cost for "${product?.name}" (${product?.sku}) from Rp ${oldAvgCost != null ? oldAvgCost.toLocaleString("id-ID") : "none"} to Rp ${correctCost.toLocaleString("id-ID")}`,
+        entityId: id,
+        entityType: "PRODUCT",
+      });
+      return NextResponse.json({ success: true, avgCost: correctCost });
+    }
+
+    if (openingCost !== undefined) {
+      if (typeof openingCost !== "number" || openingCost <= 0) {
+        return NextResponse.json({ error: "openingCost must be a number greater than zero" }, { status: 400 });
+      }
+      await prisma.$transaction((tx) => applyOpeningCost(tx, id, openingCost));
+      const product = await prisma.product.findUnique({ where: { id }, select: { name: true, sku: true } });
+      writeAuditLog({
+        session,
+        action: "SET_OPENING_COST",
+        description: `Set opening cost for "${product?.name}" (${product?.sku}) to Rp ${openingCost.toLocaleString("id-ID")}`,
+        entityId: id,
+        entityType: "PRODUCT",
+      });
+      return NextResponse.json({ success: true, avgCost: openingCost });
+    }
+  } catch (err) {
+    if (err instanceof OpeningCostError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    if (msg.includes("not found")) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

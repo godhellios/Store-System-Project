@@ -1,13 +1,10 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { redirect } from "next/navigation";
+import { blockViewer } from "@/lib/role-guard";
 import { AdjustmentClient } from "./_client";
 import { getT } from "@/modules/i18n";
 
 export default async function AdjustmentPage() {
-  const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
+  const session = await blockViewer();
 
   const [locations, pendingOrders, t] = await Promise.all([
     prisma.location.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),

@@ -27,6 +27,13 @@ export async function blockOperator() {
   return session;
 }
 
+export async function blockViewer() {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.error) redirect("/login");
+  if (session.user.role === "VIEWER") redirect("/dashboard");
+  return session;
+}
+
 export async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (!session || session.user.error) redirect("/login");

@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { TransactionForm } from "@/components/transaction-form";
+import { blockViewer } from "@/lib/role-guard";
 import { getT } from "@/modules/i18n";
 
 export default async function GrnPage() {
+  await blockViewer();
   const [locations, t] = await Promise.all([
     prisma.location.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     getT(),

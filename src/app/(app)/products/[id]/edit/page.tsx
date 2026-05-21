@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { ProductForm } from "@/components/product-form";
 import { notFound } from "next/navigation";
-import { blockOperator } from "@/lib/role-guard";
+import { blockViewer, blockOperator } from "@/lib/role-guard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+  await blockViewer();
   const [session] = await Promise.all([getServerSession(authOptions)]);
   await blockOperator();
   const { id } = await params;

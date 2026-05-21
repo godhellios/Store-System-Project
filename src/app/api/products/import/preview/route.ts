@@ -10,6 +10,8 @@ export type RawRow = {
   // Format: "Box:12|Crate:144" or "Box:12:BARCODE|Crate:144:BARCODE"
   packagingUnits?: string;
   imageUrl?: string; // BULK_IMAGE_UPLOAD
+  openingCost?: string; // Sets avgCost only when currently NULL (admin-only post-pass)
+  correctCost?: string; // Always overrides avgCost (admin-only post-pass)
 };
 
 export type RowAction = "create" | "update" | "link" | "conflict" | "file_duplicate" | "invalid";

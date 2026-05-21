@@ -37,7 +37,7 @@ export default function ReportsPage() {
     if (session?.user.role === "OPERATOR") router.replace("/transactions/grn");
   }, [session, router]);
 
-  const isAdmin = session?.user.role === "ADMIN";
+  const isAdmin = session?.user.role === "ADMIN" || session?.user.role === "VIEWER";
 
   const TABS = [
     t("reports.tabs.stockOnHand", "Stock On Hand"),

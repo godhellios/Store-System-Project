@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
 import { generateBaseBarcode, generateUnitBarcode } from "@/lib/barcode";
 import type { ClassifiedRow, ParsedUnitConversion } from "../preview/route";
+import { applyCostPostPass, type CostPostPassRow } from "@/lib/opening-cost";
 
 export const maxDuration = 60;
 
@@ -308,8 +309,40 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── Cost post-pass (admin only) ───────────────────────────────────────────
+  let costsUpdated = 0;
+  if (isAdmin) {
+    const costRows: CostPostPassRow[] = [];
+    for (const row of rows) {
+      const openingCostVal = parseFloat(row.raw.openingCost ?? "");
+      const correctCostVal = parseFloat(row.raw.correctCost ?? "");
+      if (!(openingCostVal > 0) && !(correctCostVal > 0)) continue;
+      if (row.blocked || row.action === "invalid" || row.action === "file_duplicate") continue;
+      if (row.action === "conflict" && (decisions[row.index] ?? "skip") === "skip") continue;
+
+      let productId: string | undefined;
+      if (row.action === "update" || row.action === "link") {
+        productId = row.existingProduct?.id ?? undefined;
+      } else {
+        productId = results.find((r) => r.index === row.index && r.status === "ok")?.productId;
+      }
+
+      if (productId) {
+        costRows.push({
+          productId,
+          openingCost: openingCostVal > 0 ? openingCostVal : undefined,
+          correctCost: correctCostVal > 0 ? correctCostVal : undefined,
+        });
+      }
+    }
+    if (costRows.length > 0) {
+      costsUpdated = await prisma.$transaction((tx) => applyCostPostPass(tx, costRows));
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   const ok = results.filter((r) => r.status === "ok").length;
   const skipped = results.filter((r) => r.status === "skipped").length;
   const errors = results.filter((r) => r.status === "error").length;
-  return NextResponse.json({ results, ok, skipped, errors });
+  return NextResponse.json({ results, ok, skipped, errors, costsUpdated });
 }

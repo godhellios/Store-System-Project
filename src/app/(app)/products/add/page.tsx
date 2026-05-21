@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ProductForm } from "@/components/product-form";
-import { blockOperator } from "@/lib/role-guard";
+import { blockViewer, blockOperator } from "@/lib/role-guard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -10,6 +10,7 @@ export default async function AddProductPage() {
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.unit.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
+  await blockViewer();
   await blockOperator();
   const isAdmin = session?.user.role === "ADMIN";
 

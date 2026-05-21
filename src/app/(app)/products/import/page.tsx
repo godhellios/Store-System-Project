@@ -36,15 +36,15 @@ export default function BulkImportPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [applying, setApplying] = useState(false);
   const [results, setResults] = useState<ApplyResult[]>([]);
-  const [resultSummary, setResultSummary] = useState<{ ok: number; skipped: number; errors: number } | null>(null);
+  const [resultSummary, setResultSummary] = useState<{ ok: number; skipped: number; errors: number; costsUpdated: number } | null>(null);
 
   function downloadTemplate() {
     const csv =
-      "name,sku,barcode,category,unit,reorderPoint,colorVariant,description,packagingUnits,imageUrl\n" + // BULK_IMAGE_UPLOAD
-      "Button #12 Black,BTN-12-BLK,MR123456,Button,Pack,50,Black,12mm black button,,\n" +
-      "Zipper 20cm White,ZIP-20-WHT,,Zipper,Pack,20,White,,,\n" +
-      "Thread Roll Red,THR-01-RED,,Textile,Roll,100,Red,,Box:12|Crate:144,\n" +
-      "Thread Roll Blue,THR-01-BLU,,Textile,Roll,100,Blue,,Box:12:U-THR-BLU-BOX|Crate:144:U-THR-BLU-CRT,\n";
+      "name,sku,barcode,category,unit,reorderPoint,colorVariant,description,packagingUnits,imageUrl,openingCost,correctCost\n" +
+      "Button #12 Black,BTN-12-BLK,MR123456,Button,Pack,50,Black,12mm black button,,,\n" +
+      "Zipper 20cm White,ZIP-20-WHT,,Zipper,Pack,20,White,,,,\n" +
+      "Thread Roll Red,THR-01-RED,,Textile,Roll,100,Red,,Box:12|Crate:144,,\n" +
+      "Thread Roll Blue,THR-01-BLU,,Textile,Roll,100,Blue,,Box:12:U-THR-BLU-BOX|Crate:144:U-THR-BLU-CRT,,\n";
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })),
       download: "mris-import-template.csv",
@@ -92,7 +92,7 @@ export default function BulkImportPage() {
     setApplyProgress(null);
     const BATCH_SIZE = 50;
     const allResults: ApplyResult[] = [];
-    let totalOk = 0, totalSkipped = 0, totalErrors = 0;
+    let totalOk = 0, totalSkipped = 0, totalErrors = 0, totalCostsUpdated = 0;
     const batches: typeof classified[] = [];
     for (let i = 0; i < classified.length; i += BATCH_SIZE) {
       batches.push(classified.slice(i, i + BATCH_SIZE));
@@ -120,9 +120,10 @@ export default function BulkImportPage() {
         totalOk += (data.ok as number) ?? 0;
         totalSkipped += (data.skipped as number) ?? 0;
         totalErrors += (data.errors as number) ?? 0;
+        totalCostsUpdated += (data.costsUpdated as number) ?? 0;
       }
       setResults(allResults);
-      setResultSummary({ ok: totalOk, skipped: totalSkipped, errors: totalErrors });
+      setResultSummary({ ok: totalOk, skipped: totalSkipped, errors: totalErrors, costsUpdated: totalCostsUpdated });
       setStep("done");
       if (totalErrors === 0) toast.success(`Import complete — ${totalOk} processed`);
       else toast(`${totalOk} ok, ${totalErrors} failed`, { icon: "⚠️" });
@@ -147,9 +148,18 @@ export default function BulkImportPage() {
           <p className="text-sm text-slate-600 mb-2">
             Import products from a CSV file. The system will check for duplicates before saving.
           </p>
-          <button onClick={downloadTemplate} className="text-sm text-blue-600 hover:underline">
-            ↓ Download CSV template
-          </button>
+          <div className="flex flex-wrap items-center gap-4">
+            <button onClick={downloadTemplate} className="text-sm text-blue-600 hover:underline">
+              ↓ Download CSV template
+            </button>
+            <a
+              href="/api/products/export"
+              download
+              className="text-sm text-slate-600 hover:text-slate-800 underline"
+            >
+              ↓ Export current products (for cost update)
+            </a>
+          </div>
           <p className="text-xs text-slate-400 mt-1">
             <span className="font-medium text-slate-500">packagingUnits</span> column format:{" "}
             <span className="font-mono">Box:12|Crate:144</span> — separate units with <span className="font-mono">|</span>, each unit is{" "}
@@ -324,7 +334,7 @@ export default function BulkImportPage() {
   if (step === "done" && resultSummary) return (
     <div>
       <h1 className="text-base font-semibold text-slate-800 mb-5">Import Complete</h1>
-      <div className="grid grid-cols-3 gap-3 mb-6 max-w-md">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 max-w-xl">
         <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
           <div className="text-2xl font-bold text-green-700">{resultSummary.ok}</div>
           <div className="text-[11px] font-medium text-green-600 mt-0.5">Processed</div>
@@ -337,6 +347,12 @@ export default function BulkImportPage() {
           <div className="text-2xl font-bold text-red-600">{resultSummary.errors}</div>
           <div className="text-[11px] font-medium text-red-500 mt-0.5">Errors</div>
         </div>
+        {resultSummary.costsUpdated > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <div className="text-2xl font-bold text-amber-700">{resultSummary.costsUpdated}</div>
+            <div className="text-[11px] font-medium text-amber-600 mt-0.5">Costs set</div>
+          </div>
+        )}
       </div>
 
       {results.filter((r) => r.status !== "ok").length > 0 && (
