@@ -2,6 +2,23 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
+import bwipjs from "bwip-js";
+
+function barcodeDataUri(code: string): string {
+  try {
+    const svg = bwipjs.toSVG({
+      bcid: "code128",
+      text: code,
+      scale: 2,
+      height: 10,
+      includetext: true,
+      textxalign: "center",
+    });
+    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+  } catch {
+    return "";
+  }
+}
 
 type LabelSettings = {
   width: number;
@@ -120,7 +137,6 @@ function PrintConfirmModal({
 }
 
 // ── HTML generation ───────────────────────────────────────────────────────────
-// baseUrl is required when printing via QZ Tray so relative /api/barcodes/... URLs resolve correctly
 function buildPrintHtml(labelsHtml: string, s: LabelSettings, baseUrl?: string): string {
   const shortSide = Math.min(s.width, s.height);
   const imgW = Math.max(20, s.width - 6);
@@ -281,7 +297,7 @@ export function BarcodePrintPanel({
 
       const makeLabelHtml = (barcode: string, unitLine: string) =>
         `<div class="label"><div class="label-inner">` +
-        `<img src="/api/barcodes/${encodeURIComponent(barcode)}" alt="${barcode}" class="barcode-img" />` +
+        `<img src="${barcodeDataUri(barcode)}" alt="${barcode}" class="barcode-img" />` +
         (showBarcodeNum ? `<div class="barcode-num">${barcode}</div>` : "") +
         (showProductName ? `<div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>` : "") +
         (showUnit ? `<div class="unit">${unitLine}</div>` : "") +
