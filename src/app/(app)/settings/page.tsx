@@ -30,6 +30,7 @@ const TABS = [
   { key: "settings.tabs.suppliers", label: "Suppliers" },
   { key: "settings.tabs.notifications", label: "Notifications" },
   { key: "settings.tabs.loginHistory", label: "Login History" },
+  { key: "settings.tabs.barcodePrinter", label: "Barcode Printer" },
 ];
 
 // Dedicated category manager with SKU Code support
@@ -1088,6 +1089,175 @@ function SupplierManager() {
   );
 }
 
+const LABEL_PRESETS = [
+  { label: "30×20", w: 30, h: 20 },
+  { label: "40×25", w: 40, h: 25 },
+  { label: "50×30", w: 50, h: 30 },
+  { label: "60×40", w: 60, h: 40 },
+  { label: "60×100", w: 60, h: 100 },
+  { label: "80×50", w: 80, h: 50 },
+  { label: "100×50", w: 100, h: 50 },
+  { label: "100×150", w: 100, h: 150 },
+];
+
+function PrinterSettingsManager() {
+  const [width, setWidth] = useState(60);
+  const [height, setHeight] = useState(100);
+  const [printerName, setPrinterName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [fetched, setFetched] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.barcode_label_settings) {
+          try {
+            const s = JSON.parse(d.barcode_label_settings);
+            if (s.width) setWidth(s.width);
+            if (s.height) setHeight(s.height);
+            if (s.printerName) setPrinterName(s.printerName);
+          } catch { /* ignore */ }
+        }
+        setFetched(true);
+      })
+      .catch(() => setFetched(true));
+  }, []);
+
+  async function save() {
+    setLoading(true);
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: "barcode_label_settings",
+        value: JSON.stringify({ width, height, printerName: printerName.trim() || undefined }),
+      }),
+    });
+    setLoading(false);
+    if (res.ok) toast.success("Pengaturan printer disimpan");
+    else toast.error("Gagal menyimpan");
+  }
+
+  const isPortrait = height >= width;
+  const previewW = Math.round((width / Math.max(width, height)) * 80);
+  const previewH = Math.round((height / Math.max(width, height)) * 80);
+
+  const settingsRows = [
+    { label: "Printer", value: printerName.trim() || "your label printer", note: 'bukan "Save as PDF"' },
+    { label: "Ukuran kertas", value: `${width} × ${height} mm`, note: null },
+    { label: "Margin", value: "None / Tidak ada", note: null },
+    { label: "Skala", value: "100%", note: null },
+    { label: "Orientasi", value: isPortrait ? "Portrait" : "Landscape", note: null },
+  ];
+
+  if (!fetched) return <p className="text-xs text-slate-400">Loading…</p>;
+
+  return (
+    <div className="max-w-lg space-y-5">
+      {/* Label size */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="flex items-start gap-4">
+          {/* Visual preview */}
+          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 96, height: 96 }}>
+            <div
+              className="border-2 border-slate-400 bg-slate-100 rounded flex items-center justify-center text-[9px] font-mono text-slate-500"
+              style={{ width: previewW, height: previewH }}
+            >
+              {width}×{height}
+            </div>
+          </div>
+
+          <div className="flex-1 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800 mb-0.5">Ukuran Label</p>
+              <p className="text-xs text-slate-500">Sesuaikan dengan ukuran label yang dipakai di printer.</p>
+            </div>
+
+            {/* Preset buttons */}
+            <div className="flex flex-wrap gap-1.5">
+              {LABEL_PRESETS.map((p) => {
+                const active = p.w === width && p.h === height;
+                return (
+                  <button
+                    key={p.label}
+                    onClick={() => { setWidth(p.w); setHeight(p.h); }}
+                    className={`px-2.5 py-1 text-xs rounded-lg border font-mono transition-colors ${active ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom inputs */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number" min={10} max={300} value={width}
+                  onChange={(e) => setWidth(Math.max(10, parseInt(e.target.value) || 60))}
+                  className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-xs text-slate-400">×</span>
+                <input
+                  type="number" min={10} max={300} value={height}
+                  onChange={(e) => setHeight(Math.max(10, parseInt(e.target.value) || 100))}
+                  className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-xs text-slate-400">mm</span>
+              </div>
+              <span className="text-xs text-slate-400">({isPortrait ? "Portrait" : "Landscape"})</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Printer name */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <p className="text-sm font-semibold text-slate-800 mb-0.5">Nama Printer (opsional)</p>
+        <p className="text-xs text-slate-500 mb-3">
+          Ditampilkan di dialog konfirmasi sebelum cetak, sebagai pengingat printer yang benar.
+        </p>
+        <input
+          type="text"
+          value={printerName}
+          onChange={(e) => setPrinterName(e.target.value)}
+          placeholder="e.g. Xprinter XP-365B"
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <button
+        onClick={save}
+        disabled={loading}
+        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+      >
+        {loading ? "Menyimpan…" : "Simpan Pengaturan"}
+      </button>
+
+      {/* Print dialog checklist reference */}
+      <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+        <p className="text-sm font-semibold text-amber-800 mb-2">Pengaturan Dialog Print yang Benar</p>
+        <p className="text-xs text-amber-700 mb-3">
+          Setiap kali mencetak label, dialog konfirmasi akan menampilkan checklist ini. Pastikan printer Anda sesuai sebelum melanjutkan.
+        </p>
+        <div className="divide-y divide-amber-100 rounded-lg border border-amber-200 bg-white overflow-hidden">
+          {settingsRows.map((row) => (
+            <div key={row.label} className="flex items-center gap-3 px-3 py-2">
+              <span className="text-xs text-slate-400 w-28 flex-shrink-0">{row.label}</span>
+              <span className="text-sm font-semibold text-slate-800">{row.value}</span>
+              {row.note && <span className="text-xs text-slate-400">({row.note})</span>}
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-amber-600 mt-3">
+          Tip: Di Chrome, pengaturan ini tersimpan per printer. Setelah setup pertama kali, biasanya tidak perlu diulang — kecuali driver printer reset.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const t = useT();
   const { data: session } = useSession();
@@ -1119,6 +1289,11 @@ export default function SettingsPage() {
       {tab === 5 && (
         session?.user.role === "ADMIN"
           ? <LoginHistoryTab />
+          : <p className="text-sm text-slate-400">{t("settings.adminOnly", "Admin access required.")}</p>
+      )}
+      {tab === 6 && (
+        session?.user.role === "ADMIN"
+          ? <PrinterSettingsManager />
           : <p className="text-sm text-slate-400">{t("settings.adminOnly", "Admin access required.")}</p>
       )}
     </div>

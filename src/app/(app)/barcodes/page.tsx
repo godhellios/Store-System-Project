@@ -33,7 +33,7 @@ export default async function BarcodesPage({
     prisma.systemSetting.findUnique({ where: { key: "barcode_label_settings" } }),
   ]);
 
-  let labelSettings: { width: number; height: number } | null = null;
+  let labelSettings: { width: number; height: number; printerName?: string } | null = null;
   if (settingRow) {
     try { labelSettings = JSON.parse(settingRow.value); } catch { /* use defaults */ }
   }
@@ -56,7 +56,7 @@ export default async function BarcodesPage({
 
   return (
     <div>
-      <h1 className="text-base font-semibold text-slate-800 mb-5">{t("barcodes.title", "Barcode Labels")}</h1>
+      <h1 className="text-base font-semibold text-slate-800 mb-4">{t("barcodes.title", "Barcode Labels")}</h1>
       <BarcodePrintPanel products={products} categories={categories.map((c) => ({ id: c.id, name: c.name }))} preselect={preselect} initialCopies={initialCopies} labelSettings={labelSettings} />
     </div>
   );

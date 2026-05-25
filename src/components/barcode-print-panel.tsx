@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 
-type LabelSettings = { width: number; height: number };
+type LabelSettings = { width: number; height: number; printerName?: string };
 
 type UnitConversion = { id: string; name: string; conversionFactor: number; barcode: string | null };
 type Product = { id: string; name: string; sku: string; barcode: string; colorVariant: string | null; isActive: boolean; categoryId: string; category: { name: string }; unit: { name: string }; unitConversions: UnitConversion[] };
@@ -12,7 +12,79 @@ function allBarcodeKeys(p: Product): Set<string> {
   return new Set(["base", ...(p.unitConversions ?? []).filter((uc) => uc.barcode).map((uc) => uc.id)]);
 }
 
-const DEFAULT_SETTINGS: LabelSettings = { width: 56, height: 40 };
+const DEFAULT_SETTINGS: LabelSettings = { width: 60, height: 100 };
+
+function PrintConfirmModal({
+  totalLabels,
+  settings,
+  onConfirm,
+  onCancel,
+}: {
+  totalLabels: number;
+  settings: LabelSettings;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const isPortrait = settings.height >= settings.width;
+  const rows = [
+    { label: "Printer", value: settings.printerName ? `"${settings.printerName}"` : "your label printer", note: 'bukan "Save as PDF"' },
+    { label: "Ukuran kertas", value: `${settings.width} × ${settings.height} mm`, note: null },
+    { label: "Margin", value: "None / Tidak ada", note: null },
+    { label: "Skala", value: "100%", note: null },
+    { label: "Orientasi", value: isPortrait ? "Portrait" : "Landscape", note: null },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onCancel}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-base font-semibold text-slate-800 mb-1">
+          Siap cetak {totalLabels} label{totalLabels !== 1 ? "" : ""}?
+        </h2>
+        <p className="text-xs text-slate-500 mb-4">
+          Saat dialog print terbuka, pastikan pengaturan berikut sudah benar:
+        </p>
+
+        <div className="bg-slate-50 rounded-xl border border-slate-200 divide-y divide-slate-100 mb-4">
+          {rows.map((row) => (
+            <div key={row.label} className="flex items-start gap-3 px-4 py-2.5">
+              <span className="text-xs text-slate-400 w-28 flex-shrink-0 pt-0.5">{row.label}</span>
+              <div>
+                <span className="text-sm font-semibold text-slate-800">{row.value}</span>
+                {row.note && <span className="text-xs text-slate-400 ml-1.5">({row.note})</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-[11px] text-slate-400 mb-5">
+          Ukuran label salah?{" "}
+          <a href="/settings" className="text-blue-600 hover:underline">
+            Settings → Barcode Printer
+          </a>{" "}
+          untuk mengubahnya.
+        </p>
+
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition-colors"
+          >
+            Buka Dialog Print
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function BarcodePrintPanel({
   products: allProducts,
@@ -31,6 +103,7 @@ export function BarcodePrintPanel({
 
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const [queue, setQueue] = useState<Map<string, Product>>(
     new Map(allProducts.filter((p) => preselect.includes(p.id)).map((p) => [p.id, p]))
@@ -112,55 +185,55 @@ export function BarcodePrintPanel({
 
       if (sel.has("base")) {
         batch.push(`
-          <div class="label">
+          <div class="label"><div class="label-inner">
             <img src="/api/barcodes/${encodeURIComponent(p.barcode)}" alt="${p.barcode}" class="barcode-img" />
             <div class="barcode-num">${p.barcode}</div>
             <div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>
             <div class="unit">${p.unit?.name ?? ""} · ${p.sku}</div>
-          </div>
+          </div></div>
         `);
       }
       for (const uc of (p.unitConversions ?? [])) {
         if (!uc.barcode || !sel.has(uc.id)) continue;
         batch.push(`
-          <div class="label">
+          <div class="label"><div class="label-inner">
             <img src="/api/barcodes/${encodeURIComponent(uc.barcode!)}" alt="${uc.barcode}" class="barcode-img" />
             <div class="barcode-num">${uc.barcode}</div>
             <div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>
             <div class="unit">${uc.name} (×${uc.conversionFactor}) · ${p.sku}</div>
-          </div>
+          </div></div>
         `);
       }
       return Array.from({ length: n }, () => [...batch]).flat();
     }).join("");
 
-    const imgW = Math.max(20, s.width - 6);
-    const textW = Math.max(20, s.width - 4);
+    const printW = Math.min(s.width, s.height);
+    const imgW = Math.max(20, printW - 6);
+    const textW = Math.max(20, printW - 4);
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
+        <meta charset="utf-8" />
         <title>Barcode Labels — MRIs</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; background: #fff; }
+          html, body { width: ${s.width}mm; margin: 0; padding: 0; font-family: Arial, sans-serif; background: #fff; }
           @page { size: ${s.width}mm ${s.height}mm; margin: 0; }
-          html, body { width: ${s.width}mm; margin: 0; padding: 0; }
-          .label { width: ${s.width}mm; height: ${s.height}mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2mm; gap: 1mm; overflow: hidden; page-break-after: always; break-after: page; }
-          .label:last-child { page-break-after: avoid; break-after: avoid; }
-          .barcode-img { display: block; width: ${imgW}mm; height: auto; flex-shrink: 0; margin: 0 auto; }
+          .label { width: ${s.width}mm; height: ${s.height}mm; position: relative; overflow: hidden; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid; page-break-after: avoid; break-after: avoid; }
+          .label + .label { page-break-before: always; break-before: page; }
+          .label-inner { position: absolute; top: 50%; left: 2mm; transform: translateY(-50%); display: flex; flex-direction: column; align-items: flex-start; gap: 1mm; width: ${Math.max(20, s.width - 14)}mm; }
+          .barcode-img { display: block; width: ${imgW}mm; max-height: ${Math.round(s.height * 0.5)}mm; height: auto; flex-shrink: 1; margin: 0 auto; object-fit: contain; }
           .barcode-num { display: block; font-family: monospace; font-size: 6.5pt; color: #333; letter-spacing: 0.5px; text-align: center; width: ${textW}mm; flex-shrink: 0; }
           .product-name { display: block; font-size: 7.5pt; font-weight: 700; text-align: center; width: ${textW}mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           .unit { display: block; font-size: 6.5pt; color: #555; width: ${textW}mm; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         </style>
       </head>
-      <body>${labels}</body>
+      <body>${labels}<script>window.onload=function(){window.focus();window.print();window.onafterprint=function(){window.close();};};<\/script></body>
       </html>
     `);
     printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => printWindow.print(), 500);
   }
 
   return (
@@ -307,7 +380,7 @@ export function BarcodePrintPanel({
           {/* Print button */}
           <div className="p-3 border-t border-slate-100">
             <button
-              onClick={printLabels}
+              onClick={() => setShowConfirm(true)}
               disabled={totalLabels === 0}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold py-2 rounded-lg transition-colors"
             >
@@ -316,6 +389,15 @@ export function BarcodePrintPanel({
           </div>
         </div>
       </div>
+
+      {showConfirm && (
+        <PrintConfirmModal
+          totalLabels={totalLabels}
+          settings={settings}
+          onConfirm={() => { setShowConfirm(false); printLabels(); }}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
     </div>
   );
 }
