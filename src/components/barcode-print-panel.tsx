@@ -2,7 +2,17 @@
 
 import { useState, useMemo } from "react";
 
-type LabelSettings = { width: number; height: number; printerName?: string };
+type LabelSettings = {
+  width: number;
+  height: number;
+  printerName?: string;
+  namePt?: number;
+  smallPt?: number;
+  barcodeHeightPct?: number;
+  showBarcodeNum?: boolean;
+  showProductName?: boolean;
+  showUnit?: boolean;
+};
 
 type UnitConversion = { id: string; name: string; conversionFactor: number; barcode: string | null };
 type Product = { id: string; name: string; sku: string; barcode: string; colorVariant: string | null; isActive: boolean; categoryId: string; category: { name: string }; unit: { name: string }; unitConversions: UnitConversion[] };
@@ -178,31 +188,30 @@ export function BarcodePrintPanel({
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
+    const showBarcodeNum = s.showBarcodeNum ?? true;
+    const showProductName = s.showProductName ?? true;
+    const showUnit = s.showUnit ?? true;
+
     const labels = selectedProducts.flatMap((p) => {
       const n = getCopies(p.id);
       const sel = selectedBarcodes.get(p.id) ?? new Set();
       const batch: string[] = [];
 
+      const makeLabelHtml = (barcode: string, unitLine: string) => `
+        <div class="label"><div class="label-inner">
+          <img src="/api/barcodes/${encodeURIComponent(barcode)}" alt="${barcode}" class="barcode-img" />
+          ${showBarcodeNum ? `<div class="barcode-num">${barcode}</div>` : ""}
+          ${showProductName ? `<div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>` : ""}
+          ${showUnit ? `<div class="unit">${unitLine}</div>` : ""}
+        </div></div>
+      `;
+
       if (sel.has("base")) {
-        batch.push(`
-          <div class="label"><div class="label-inner">
-            <img src="/api/barcodes/${encodeURIComponent(p.barcode)}" alt="${p.barcode}" class="barcode-img" />
-            <div class="barcode-num">${p.barcode}</div>
-            <div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>
-            <div class="unit">${p.unit?.name ?? ""} · ${p.sku}</div>
-          </div></div>
-        `);
+        batch.push(makeLabelHtml(p.barcode, `${p.unit?.name ?? ""} · ${p.sku}`));
       }
       for (const uc of (p.unitConversions ?? [])) {
         if (!uc.barcode || !sel.has(uc.id)) continue;
-        batch.push(`
-          <div class="label"><div class="label-inner">
-            <img src="/api/barcodes/${encodeURIComponent(uc.barcode!)}" alt="${uc.barcode}" class="barcode-img" />
-            <div class="barcode-num">${uc.barcode}</div>
-            <div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>
-            <div class="unit">${uc.name} (×${uc.conversionFactor}) · ${p.sku}</div>
-          </div></div>
-        `);
+        batch.push(makeLabelHtml(uc.barcode!, `${uc.name} (×${uc.conversionFactor}) · ${p.sku}`));
       }
       return Array.from({ length: n }, () => [...batch]).flat();
     }).join("");
@@ -211,9 +220,9 @@ export function BarcodePrintPanel({
     const imgW = Math.max(20, s.width - 6);
     const textW = Math.max(20, s.width - 4);
     const innerW = Math.max(20, s.width - 4);
-    const imgMaxH = Math.round(s.height * 0.45);
-    const namePt = Math.max(8, Math.min(11, Math.round(shortSide * 0.22)));
-    const smallPt = Math.max(7, Math.min(10, Math.round(shortSide * 0.18)));
+    const imgMaxH = Math.round(s.height * ((s.barcodeHeightPct ?? 45) / 100));
+    const namePt = s.namePt ?? Math.max(8, Math.min(11, Math.round(shortSide * 0.22)));
+    const smallPt = s.smallPt ?? Math.max(7, Math.min(10, Math.round(shortSide * 0.18)));
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>

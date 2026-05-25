@@ -1100,10 +1100,110 @@ const LABEL_PRESETS = [
   { label: "100×150", w: 100, h: 150 },
 ];
 
+const MM_TO_PX = 96 / 25.4; // screen pixels per mm at 96 dpi
+
+function LabelPreview({
+  width, height, namePt, smallPt, barcodeHeightPct,
+  showBarcodeNum, showProductName, showUnit,
+}: {
+  width: number; height: number; namePt: number; smallPt: number;
+  barcodeHeightPct: number; showBarcodeNum: boolean;
+  showProductName: boolean; showUnit: boolean;
+}) {
+  const CONTAINER = 220;
+  const lpx = width * MM_TO_PX;
+  const hpx = height * MM_TO_PX;
+  const scale = CONTAINER / Math.max(lpx, hpx);
+  const imgW = Math.max(20, width - 6) * MM_TO_PX;
+  const imgMaxH = height * MM_TO_PX * (barcodeHeightPct / 100);
+  const innerW = Math.max(20, width - 4) * MM_TO_PX;
+
+  return (
+    <div
+      className="rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center"
+      style={{ width: CONTAINER, height: CONTAINER }}
+    >
+      <div
+        style={{
+          width: lpx, height: hpx,
+          transform: `scale(${scale})`,
+          transformOrigin: "center center",
+          background: "white",
+          border: "1px solid #94a3b8",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+          position: "relative",
+          overflow: "hidden",
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            position: "absolute", top: "50%", left: "50%",
+            transform: "translate(-50%, -50%)",
+            display: "flex", flexDirection: "column", alignItems: "center",
+            gap: 3, width: innerW, overflow: "hidden",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/api/barcodes/1234567890128"
+            alt="preview"
+            style={{ width: imgW, maxHeight: imgMaxH, height: "auto", objectFit: "contain", display: "block" }}
+          />
+          {showBarcodeNum && (
+            <div style={{ fontFamily: "monospace", fontSize: `${smallPt}pt`, color: "#333", textAlign: "center", width: "100%" }}>
+              1234567890128
+            </div>
+          )}
+          {showProductName && (
+            <div style={{ fontSize: `${namePt}pt`, fontWeight: 700, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
+              Contoh Nama Produk
+            </div>
+          )}
+          {showUnit && (
+            <div style={{ fontSize: `${smallPt}pt`, color: "#555", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
+              PCS · BTN-001-001
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Slider({ label, value, min, max, step = 1, unit, onChange }: {
+  label: string; value: number; min: number; max: number; step?: number; unit: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-slate-600">{label}</span>
+        <span className="text-xs font-semibold font-mono text-slate-800">{value}{unit}</span>
+      </div>
+      <input
+        type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full h-1.5 rounded-full appearance-none bg-slate-200 accent-blue-600 cursor-pointer"
+      />
+      <div className="flex justify-between mt-0.5">
+        <span className="text-[10px] text-slate-400">{min}{unit}</span>
+        <span className="text-[10px] text-slate-400">{max}{unit}</span>
+      </div>
+    </div>
+  );
+}
+
 function PrinterSettingsManager() {
   const [width, setWidth] = useState(60);
-  const [height, setHeight] = useState(100);
+  const [height, setHeight] = useState(40);
   const [printerName, setPrinterName] = useState("");
+  const [namePt, setNamePt] = useState(9);
+  const [smallPt, setSmallPt] = useState(7);
+  const [barcodeHeightPct, setBarcodeHeightPct] = useState(45);
+  const [showBarcodeNum, setShowBarcodeNum] = useState(true);
+  const [showProductName, setShowProductName] = useState(true);
+  const [showUnit, setShowUnit] = useState(true);
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
 
@@ -1117,6 +1217,12 @@ function PrinterSettingsManager() {
             if (s.width) setWidth(s.width);
             if (s.height) setHeight(s.height);
             if (s.printerName) setPrinterName(s.printerName);
+            if (s.namePt) setNamePt(s.namePt);
+            if (s.smallPt) setSmallPt(s.smallPt);
+            if (s.barcodeHeightPct != null) setBarcodeHeightPct(s.barcodeHeightPct);
+            if (s.showBarcodeNum != null) setShowBarcodeNum(s.showBarcodeNum);
+            if (s.showProductName != null) setShowProductName(s.showProductName);
+            if (s.showUnit != null) setShowUnit(s.showUnit);
           } catch { /* ignore */ }
         }
         setFetched(true);
@@ -1131,7 +1237,11 @@ function PrinterSettingsManager() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         key: "barcode_label_settings",
-        value: JSON.stringify({ width, height, printerName: printerName.trim() || undefined }),
+        value: JSON.stringify({
+          width, height, printerName: printerName.trim() || undefined,
+          namePt, smallPt, barcodeHeightPct,
+          showBarcodeNum, showProductName, showUnit,
+        }),
       }),
     });
     setLoading(false);
@@ -1140,119 +1250,178 @@ function PrinterSettingsManager() {
   }
 
   const isPortrait = height >= width;
-  const previewW = Math.round((width / Math.max(width, height)) * 80);
-  const previewH = Math.round((height / Math.max(width, height)) * 80);
-
-  const settingsRows = [
-    { label: "Printer", value: printerName.trim() || "your label printer", note: 'bukan "Save as PDF"' },
-    { label: "Ukuran kertas", value: `${width} × ${height} mm`, note: null },
-    { label: "Margin", value: "None / Tidak ada", note: null },
-    { label: "Skala", value: "100%", note: null },
-    { label: "Orientasi", value: isPortrait ? "Portrait" : "Landscape", note: null },
-  ];
 
   if (!fetched) return <p className="text-xs text-slate-400">Loading…</p>;
 
   return (
-    <div className="max-w-lg space-y-5">
-      {/* Label size */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <div className="flex items-start gap-4">
-          {/* Visual preview */}
-          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 96, height: 96 }}>
-            <div
-              className="border-2 border-slate-400 bg-slate-100 rounded flex items-center justify-center text-[9px] font-mono text-slate-500"
-              style={{ width: previewW, height: previewH }}
-            >
-              {width}×{height}
-            </div>
+    <div className="flex flex-col xl:flex-row gap-6 max-w-4xl">
+
+      {/* ── Left: all controls ── */}
+      <div className="flex-1 space-y-4">
+
+        {/* Label size */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+          <p className="text-sm font-semibold text-slate-800">Ukuran Label</p>
+
+          {/* Presets */}
+          <div className="flex flex-wrap gap-1.5">
+            {LABEL_PRESETS.map((p) => {
+              const active = p.w === width && p.h === height;
+              return (
+                <button
+                  key={p.label}
+                  onClick={() => { setWidth(p.w); setHeight(p.h); }}
+                  className={`px-2.5 py-1 text-xs rounded-lg border font-mono transition-colors ${active ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="flex-1 space-y-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-800 mb-0.5">Ukuran Label</p>
-              <p className="text-xs text-slate-500">Sesuaikan dengan ukuran label yang dipakai di printer.</p>
-            </div>
-
-            {/* Preset buttons */}
-            <div className="flex flex-wrap gap-1.5">
-              {LABEL_PRESETS.map((p) => {
-                const active = p.w === width && p.h === height;
-                return (
-                  <button
-                    key={p.label}
-                    onClick={() => { setWidth(p.w); setHeight(p.h); }}
-                    className={`px-2.5 py-1 text-xs rounded-lg border font-mono transition-colors ${active ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Custom inputs */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="number" min={10} max={300} value={width}
+          {/* Custom W × H + orientation flip */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <div className="flex flex-col items-center gap-0.5">
+                <input type="number" min={10} max={300} value={width}
                   onChange={(e) => setWidth(Math.max(10, parseInt(e.target.value) || 60))}
                   className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="text-xs text-slate-400">×</span>
-                <input
-                  type="number" min={10} max={300} value={height}
-                  onChange={(e) => setHeight(Math.max(10, parseInt(e.target.value) || 100))}
+                <span className="text-[10px] text-slate-400">lebar (mm)</span>
+              </div>
+              <span className="text-slate-400 pb-3">×</span>
+              <div className="flex flex-col items-center gap-0.5">
+                <input type="number" min={10} max={300} value={height}
+                  onChange={(e) => setHeight(Math.max(10, parseInt(e.target.value) || 40))}
                   className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="text-xs text-slate-400">mm</span>
+                <span className="text-[10px] text-slate-400">tinggi (mm)</span>
               </div>
-              <span className="text-xs text-slate-400">({isPortrait ? "Portrait" : "Landscape"})</span>
             </div>
+            {/* Orientation flip button */}
+            <button
+              onClick={() => { setWidth(height); setHeight(width); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              title="Flip portrait ↔ landscape"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+              {isPortrait ? "Portrait → Landscape" : "Landscape → Portrait"}
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Printer name */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <p className="text-sm font-semibold text-slate-800 mb-0.5">Nama Printer (opsional)</p>
-        <p className="text-xs text-slate-500 mb-3">
-          Ditampilkan di dialog konfirmasi sebelum cetak, sebagai pengingat printer yang benar.
-        </p>
-        <input
-          type="text"
-          value={printerName}
-          onChange={(e) => setPrinterName(e.target.value)}
-          placeholder="e.g. Xprinter XP-365B"
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      <button
-        onClick={save}
-        disabled={loading}
-        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
-      >
-        {loading ? "Menyimpan…" : "Simpan Pengaturan"}
-      </button>
-
-      {/* Print dialog checklist reference */}
-      <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
-        <p className="text-sm font-semibold text-amber-800 mb-2">Pengaturan Dialog Print yang Benar</p>
-        <p className="text-xs text-amber-700 mb-3">
-          Setiap kali mencetak label, dialog konfirmasi akan menampilkan checklist ini. Pastikan printer Anda sesuai sebelum melanjutkan.
-        </p>
-        <div className="divide-y divide-amber-100 rounded-lg border border-amber-200 bg-white overflow-hidden">
-          {settingsRows.map((row) => (
-            <div key={row.label} className="flex items-center gap-3 px-3 py-2">
-              <span className="text-xs text-slate-400 w-28 flex-shrink-0">{row.label}</span>
-              <span className="text-sm font-semibold text-slate-800">{row.value}</span>
-              {row.note && <span className="text-xs text-slate-400">({row.note})</span>}
-            </div>
-          ))}
+        {/* Barcode image size */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <p className="text-sm font-semibold text-slate-800 mb-4">Ukuran Gambar Barcode</p>
+          <Slider
+            label="Tinggi barcode"
+            value={barcodeHeightPct}
+            min={15} max={70} step={5} unit="%"
+            onChange={setBarcodeHeightPct}
+          />
         </div>
-        <p className="text-[11px] text-amber-600 mt-3">
-          Tip: Di Chrome, pengaturan ini tersimpan per printer. Setelah setup pertama kali, biasanya tidak perlu diulang — kecuali driver printer reset.
-        </p>
+
+        {/* Font sizes */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <p className="text-sm font-semibold text-slate-800">Ukuran Font</p>
+          <Slider
+            label="Nama produk"
+            value={namePt} min={6} max={16} step={0.5} unit="pt"
+            onChange={setNamePt}
+          />
+          <Slider
+            label="Nomor barcode & SKU"
+            value={smallPt} min={5} max={13} step={0.5} unit="pt"
+            onChange={setSmallPt}
+          />
+        </div>
+
+        {/* Show / hide fields */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <p className="text-sm font-semibold text-slate-800 mb-3">Tampilkan / Sembunyikan</p>
+          <div className="space-y-2.5">
+            {([
+              { key: "barcodeNum", label: "Nomor barcode (di bawah gambar)", value: showBarcodeNum, set: setShowBarcodeNum },
+              { key: "productName", label: "Nama produk", value: showProductName, set: setShowProductName },
+              { key: "unit", label: "Satuan & SKU", value: showUnit, set: setShowUnit },
+            ] as const).map((row) => (
+              <label key={row.key} className="flex items-center gap-3 cursor-pointer">
+                <div
+                  onClick={() => row.set(!row.value)}
+                  className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${row.value ? "bg-blue-600" : "bg-slate-300"}`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${row.value ? "translate-x-4" : "translate-x-0.5"}`} />
+                </div>
+                <span className="text-sm text-slate-700">{row.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Printer name */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <p className="text-sm font-semibold text-slate-800 mb-0.5">Nama Printer (opsional)</p>
+          <p className="text-xs text-slate-500 mb-3">Muncul di dialog konfirmasi sebelum cetak sebagai pengingat.</p>
+          <input
+            type="text" value={printerName}
+            onChange={(e) => setPrinterName(e.target.value)}
+            placeholder="e.g. Xprinter XP-365B"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <button
+          onClick={save} disabled={loading}
+          className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
+        >
+          {loading ? "Menyimpan…" : "Simpan Pengaturan"}
+        </button>
+      </div>
+
+      {/* ── Right: live preview + checklist ── */}
+      <div className="xl:w-64 xl:flex-shrink-0">
+        <div className="xl:sticky xl:top-4 space-y-4">
+
+          {/* Live preview */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Preview Label</p>
+            <div className="flex justify-center">
+              <LabelPreview
+                width={width} height={height}
+                namePt={namePt} smallPt={smallPt}
+                barcodeHeightPct={barcodeHeightPct}
+                showBarcodeNum={showBarcodeNum}
+                showProductName={showProductName}
+                showUnit={showUnit}
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 text-center mt-2">
+              {width} × {height} mm · {isPortrait ? "Portrait" : "Landscape"}
+            </p>
+          </div>
+
+          {/* Print dialog checklist */}
+          <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Checklist Dialog Print</p>
+            <div className="divide-y divide-amber-100 rounded-lg border border-amber-200 bg-white overflow-hidden text-xs">
+              {[
+                { label: "Printer", value: printerName.trim() || "label printer Anda" },
+                { label: "Paper size", value: `${width}×${height}mm` },
+                { label: "Margin", value: "None" },
+                { label: "Scale", value: "100%" },
+                { label: "Orientation", value: isPortrait ? "Portrait" : "Landscape" },
+              ].map((row) => (
+                <div key={row.label} className="flex gap-2 px-2.5 py-1.5">
+                  <span className="text-slate-400 w-20 flex-shrink-0">{row.label}</span>
+                  <span className="font-semibold text-slate-700">{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );
