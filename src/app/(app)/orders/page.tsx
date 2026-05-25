@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { OrderType } from "@/generated/prisma";
 import { blockOperator } from "@/lib/role-guard";
+import { LabelPrintedToggle } from "@/components/label-printed-toggle";
 import { getT } from "@/modules/i18n";
 
 const TYPE_BADGE: Record<string, string> = {
@@ -32,7 +33,8 @@ export default async function OrdersPage({
 }: {
   searchParams: Promise<{ type?: string; page?: string }>;
 }) {
-  await blockOperator();
+  const session = await blockOperator();
+  const isAdmin = session.user.role === "ADMIN";
   const [params, t] = await Promise.all([searchParams, getT()]);
   const typeFilter = params.type as OrderType | undefined;
   const page = Math.max(1, parseInt(params.page ?? "1"));
@@ -115,7 +117,16 @@ export default async function OrdersPage({
               {o.createdByName && (
                 <div className="text-xs text-slate-400 mt-1">Disimpan oleh: <span className="text-slate-600 font-medium">{o.createdByName}</span></div>
               )}
-              <div className="mt-2 text-right">
+              <div className="mt-2 flex items-center justify-between">
+                {isAdmin && o.type === "GRN" && (o.grnStatus === "APPROVED" || o.grnStatus === null) && !o.cancelledAt ? (
+                  <LabelPrintedToggle
+                    orderId={o.id}
+                    initialPrinted={o.labelPrinted}
+                    labelPrintedAt={o.labelPrintedAt?.toISOString() ?? null}
+                    labelPrintedByName={o.labelPrintedByName ?? null}
+                    compact
+                  />
+                ) : <span />}
                 <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 font-medium">{t("orders.view", "View")} →</Link>
               </div>
             </div>
@@ -186,7 +197,18 @@ export default async function OrdersPage({
                       {o.createdAt.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
                     </td>
                     <td className="px-4 py-2.5">
-                      <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 hover:underline">{t("orders.view", "View")}</Link>
+                      <div className="flex items-center gap-2">
+                        {isAdmin && o.type === "GRN" && (o.grnStatus === "APPROVED" || o.grnStatus === null) && !o.cancelledAt && (
+                          <LabelPrintedToggle
+                            orderId={o.id}
+                            initialPrinted={o.labelPrinted}
+                            labelPrintedAt={o.labelPrintedAt?.toISOString() ?? null}
+                            labelPrintedByName={o.labelPrintedByName ?? null}
+                            compact
+                          />
+                        )}
+                        <Link href={`/orders/${o.id}`} className="text-xs text-blue-600 hover:underline">{t("orders.view", "View")}</Link>
+                      </div>
                     </td>
                   </tr>
                 );

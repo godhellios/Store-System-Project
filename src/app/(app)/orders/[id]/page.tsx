@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { blockOperator } from "@/lib/role-guard";
 import { OrderActions } from "@/components/order-actions";
 import { GoodsOutDetailActions } from "@/components/goods-out-detail-actions";
+import { LabelPrintedToggle } from "@/components/label-printed-toggle";
 import { getT } from "@/modules/i18n";
 
 const TYPE_BADGE: Record<string, string> = {
@@ -184,6 +185,17 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           />
         </div>
       </div>
+
+      {userRole === "ADMIN" && order.type === "GRN" && (order.grnStatus === "APPROVED" || order.grnStatus === null) && !order.cancelledAt && (
+        <div className="mb-4">
+          <LabelPrintedToggle
+            orderId={id}
+            initialPrinted={order.labelPrinted}
+            labelPrintedAt={order.labelPrintedAt?.toISOString() ?? null}
+            labelPrintedByName={order.labelPrintedByName ?? null}
+          />
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 grid grid-cols-2 gap-4 text-sm text-gray-900">
         <div>

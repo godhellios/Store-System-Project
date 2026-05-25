@@ -222,6 +222,9 @@ model Order {
   cancelledAt       DateTime?
   cancelledByName   String?
   cancelReason      String?
+  labelPrinted      Boolean   @default(false)
+  labelPrintedAt    DateTime?
+  labelPrintedByName String?
 
   lines     OrderLine[]
   movements Movement[]
