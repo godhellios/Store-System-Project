@@ -207,30 +207,36 @@ export function BarcodePrintPanel({
       return Array.from({ length: n }, () => [...batch]).flat();
     }).join("");
 
-    const printW = Math.min(s.width, s.height);
-    const imgW = Math.max(20, printW - 6);
-    const textW = Math.max(20, printW - 4);
+    const shortSide = Math.min(s.width, s.height);
+    const imgW = Math.max(20, s.width - 6);
+    const textW = Math.max(20, s.width - 4);
+    const innerW = Math.max(20, s.width - 4);
+    const imgMaxH = Math.round(s.height * 0.45);
+    const namePt = Math.max(8, Math.min(11, Math.round(shortSide * 0.22)));
+    const smallPt = Math.max(7, Math.min(10, Math.round(shortSide * 0.18)));
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8" />
         <title>Barcode Labels — MRIs</title>
+        <script>window.addEventListener('load', function(){ window.focus(); window.print(); window.addEventListener('afterprint', function(){ window.close(); }); });<\/script>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           html, body { width: ${s.width}mm; margin: 0; padding: 0; font-family: Arial, sans-serif; background: #fff; }
           @page { size: ${s.width}mm ${s.height}mm; margin: 0; }
-          .label { width: ${s.width}mm; height: ${s.height}mm; position: relative; overflow: hidden; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid; page-break-after: avoid; break-after: avoid; }
-          .label + .label { page-break-before: always; break-before: page; }
-          .label-inner { position: absolute; top: 50%; left: 2mm; transform: translateY(-50%); display: flex; flex-direction: column; align-items: flex-start; gap: 1mm; width: ${Math.max(20, s.width - 14)}mm; }
-          .barcode-img { display: block; width: ${imgW}mm; max-height: ${Math.round(s.height * 0.5)}mm; height: auto; flex-shrink: 1; margin: 0 auto; object-fit: contain; }
-          .barcode-num { display: block; font-family: monospace; font-size: 6.5pt; color: #333; letter-spacing: 0.5px; text-align: center; width: ${textW}mm; flex-shrink: 0; }
-          .product-name { display: block; font-size: 7.5pt; font-weight: 700; text-align: center; width: ${textW}mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .unit { display: block; font-size: 6.5pt; color: #555; width: ${textW}mm; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .label { width: ${s.width}mm; height: ${s.height}mm; position: relative; overflow: hidden; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid; }
+          .label:not(:last-child) { page-break-after: always; break-after: page; }
+          .label:last-child { page-break-after: avoid; break-after: avoid; }
+          .label-inner { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1mm; width: ${innerW}mm; }
+          .barcode-img { display: block; width: ${imgW}mm; max-height: ${imgMaxH}mm; height: auto; flex-shrink: 1; object-fit: contain; }
+          .barcode-num { display: block; font-family: monospace; font-size: ${smallPt}pt; color: #333; letter-spacing: 0.5px; text-align: center; width: ${textW}mm; flex-shrink: 0; }
+          .product-name { display: block; font-size: ${namePt}pt; font-weight: 700; text-align: center; width: ${textW}mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .unit { display: block; font-size: ${smallPt}pt; color: #555; width: ${textW}mm; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         </style>
       </head>
-      <body>${labels}<script>window.onload=function(){window.focus();window.print();window.onafterprint=function(){window.close();};};<\/script></body>
+      <body>${labels}</body>
       </html>
     `);
     printWindow.document.close();
