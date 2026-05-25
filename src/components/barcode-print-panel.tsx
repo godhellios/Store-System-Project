@@ -15,6 +15,7 @@ type LabelSettings = {
   showUnit?: boolean;
   offsetX?: number;
   offsetY?: number;
+  barcodeWidthPct?: number;
 };
 
 type UnitConversion = { id: string; name: string; conversionFactor: number; barcode: string | null };
@@ -124,7 +125,7 @@ function PrintConfirmModal({
 // ── HTML generation ───────────────────────────────────────────────────────────
 function buildPrintHtml(labelsHtml: string, s: LabelSettings, baseUrl?: string): string {
   const shortSide = Math.min(s.width, s.height);
-  const imgW = Math.max(20, s.width - 6);
+  const imgW = Math.max(10, s.width * ((s.barcodeWidthPct ?? 90) / 100));
   const textW = Math.max(20, s.width - 4);
   const innerW = Math.max(20, s.width - 4);
   const imgMaxH = Math.round(s.height * ((s.barcodeHeightPct ?? 45) / 100));

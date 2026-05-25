@@ -1103,11 +1103,11 @@ const LABEL_PRESETS = [
 const MM_TO_PX = 96 / 25.4; // screen pixels per mm at 96 dpi
 
 function LabelPreview({
-  width, height, namePt, smallPt, barcodeHeightPct,
+  width, height, namePt, smallPt, barcodeHeightPct, barcodeWidthPct,
   showBarcodeNum, showProductName, showUnit, offsetX, offsetY,
 }: {
   width: number; height: number; namePt: number; smallPt: number;
-  barcodeHeightPct: number; showBarcodeNum: boolean;
+  barcodeHeightPct: number; barcodeWidthPct: number; showBarcodeNum: boolean;
   showProductName: boolean; showUnit: boolean;
   offsetX: number; offsetY: number;
 }) {
@@ -1115,7 +1115,7 @@ function LabelPreview({
   const lpx = width * MM_TO_PX;
   const hpx = height * MM_TO_PX;
   const scale = CONTAINER / Math.max(lpx, hpx);
-  const imgW = Math.max(20, width - 6) * MM_TO_PX;
+  const imgW = Math.max(10, width * (barcodeWidthPct / 100)) * MM_TO_PX;
   const imgMaxH = height * MM_TO_PX * (barcodeHeightPct / 100);
   const innerW = Math.max(20, width - 4) * MM_TO_PX;
 
@@ -1204,6 +1204,7 @@ function PrinterSettingsManager() {
   const [namePt, setNamePt] = useState(9);
   const [smallPt, setSmallPt] = useState(7);
   const [barcodeHeightPct, setBarcodeHeightPct] = useState(45);
+  const [barcodeWidthPct, setBarcodeWidthPct] = useState(90);
   const [showBarcodeNum, setShowBarcodeNum] = useState(true);
   const [showProductName, setShowProductName] = useState(true);
   const [showUnit, setShowUnit] = useState(true);
@@ -1225,6 +1226,7 @@ function PrinterSettingsManager() {
             if (s.namePt) setNamePt(s.namePt);
             if (s.smallPt) setSmallPt(s.smallPt);
             if (s.barcodeHeightPct != null) setBarcodeHeightPct(s.barcodeHeightPct);
+            if (s.barcodeWidthPct != null) setBarcodeWidthPct(s.barcodeWidthPct);
             if (s.showBarcodeNum != null) setShowBarcodeNum(s.showBarcodeNum);
             if (s.showProductName != null) setShowProductName(s.showProductName);
             if (s.showUnit != null) setShowUnit(s.showUnit);
@@ -1246,7 +1248,7 @@ function PrinterSettingsManager() {
         key: "barcode_label_settings",
         value: JSON.stringify({
           width, height, printerName: printerName.trim() || undefined,
-          namePt, smallPt, barcodeHeightPct,
+          namePt, smallPt, barcodeHeightPct, barcodeWidthPct,
           showBarcodeNum, showProductName, showUnit,
           offsetX, offsetY,
         }),
@@ -1321,8 +1323,14 @@ function PrinterSettingsManager() {
         </div>
 
         {/* Barcode image size */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-sm font-semibold text-slate-800 mb-4">Ukuran Gambar Barcode</p>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <p className="text-sm font-semibold text-slate-800">Ukuran Gambar Barcode</p>
+          <Slider
+            label="Lebar barcode"
+            value={barcodeWidthPct}
+            min={20} max={100} step={5} unit="%"
+            onChange={setBarcodeWidthPct}
+          />
           <Slider
             label="Tinggi barcode"
             value={barcodeHeightPct}
@@ -1423,6 +1431,7 @@ function PrinterSettingsManager() {
                 width={width} height={height}
                 namePt={namePt} smallPt={smallPt}
                 barcodeHeightPct={barcodeHeightPct}
+                barcodeWidthPct={barcodeWidthPct}
                 showBarcodeNum={showBarcodeNum}
                 showProductName={showProductName}
                 showUnit={showUnit}
