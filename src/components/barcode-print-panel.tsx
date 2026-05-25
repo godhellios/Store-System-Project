@@ -2,23 +2,6 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
-import bwipjs from "bwip-js";
-
-function barcodeDataUri(code: string): string {
-  try {
-    const svg = bwipjs.toSVG({
-      bcid: "code128",
-      text: code,
-      scale: 2,
-      height: 10,
-      includetext: true,
-      textxalign: "center",
-    });
-    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
-  } catch {
-    return "";
-  }
-}
 
 type LabelSettings = {
   width: number;
@@ -297,7 +280,7 @@ export function BarcodePrintPanel({
 
       const makeLabelHtml = (barcode: string, unitLine: string) =>
         `<div class="label"><div class="label-inner">` +
-        `<img src="${barcodeDataUri(barcode)}" alt="${barcode}" class="barcode-img" />` +
+        `<img src="/api/barcodes/${encodeURIComponent(barcode)}" alt="${barcode}" class="barcode-img" />` +
         (showBarcodeNum ? `<div class="barcode-num">${barcode}</div>` : "") +
         (showProductName ? `<div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>` : "") +
         (showUnit ? `<div class="unit">${unitLine}</div>` : "") +
