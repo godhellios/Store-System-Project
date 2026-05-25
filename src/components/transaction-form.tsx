@@ -878,19 +878,9 @@ export function TransactionForm({
                       Menunggu persetujuan Admin. Stok belum berubah.
                     </p>
                   )}
-                  <p className="text-sm text-slate-600 mb-5">Cetak label barcode untuk barang yang baru diterima?</p>
-                  <button
-                    onClick={() => { router.push(barcodeUrl); router.refresh(); }}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 mb-3"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                    </svg>
-                    Cetak Label Barcode
-                  </button>
                   <button
                     onClick={() => { router.push(isPending ? `/orders/${orderId}` : "/orders"); router.refresh(); }}
-                    className="w-full py-3 border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-xl transition-colors"
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors"
                   >
                     Selesai
                   </button>
