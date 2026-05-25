@@ -13,6 +13,8 @@ type LabelSettings = {
   showBarcodeNum?: boolean;
   showProductName?: boolean;
   showUnit?: boolean;
+  offsetX?: number;
+  offsetY?: number;
 };
 
 type UnitConversion = { id: string; name: string; conversionFactor: number; barcode: string | null };
@@ -128,6 +130,8 @@ function buildPrintHtml(labelsHtml: string, s: LabelSettings, baseUrl?: string):
   const imgMaxH = Math.round(s.height * ((s.barcodeHeightPct ?? 45) / 100));
   const namePt = s.namePt ?? Math.max(8, Math.min(11, Math.round(shortSide * 0.22)));
   const smallPt = s.smallPt ?? Math.max(7, Math.min(10, Math.round(shortSide * 0.18)));
+  const offsetX = s.offsetX ?? 0;
+  const offsetY = s.offsetY ?? 0;
 
   return `<!DOCTYPE html>
 <html>
@@ -143,7 +147,7 @@ function buildPrintHtml(labelsHtml: string, s: LabelSettings, baseUrl?: string):
     .label { width: ${s.width}mm; height: ${s.height}mm; position: relative; overflow: hidden; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid; }
     .label:not(:last-child) { page-break-after: always; break-after: page; }
     .label:last-child { page-break-after: avoid; break-after: avoid; }
-    .label-inner { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); display: flex; flex-direction: column; align-items: center; gap: 1mm; width: ${innerW}mm; }
+    .label-inner { position: absolute; top: calc(50% + ${offsetY}mm); left: calc(50% + ${offsetX}mm); transform: translate(-50%,-50%); display: flex; flex-direction: column; align-items: center; gap: 1mm; width: ${innerW}mm; }
     .barcode-img { display: block; width: ${imgW}mm; max-height: ${imgMaxH}mm; height: auto; flex-shrink: 1; object-fit: contain; }
     .barcode-num { display: block; font-family: monospace; font-size: ${smallPt}pt; color: #333; letter-spacing: 0.5px; text-align: center; width: ${textW}mm; flex-shrink: 0; }
     .product-name { display: block; font-size: ${namePt}pt; font-weight: 700; text-align: center; width: ${textW}mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

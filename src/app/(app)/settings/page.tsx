@@ -1104,11 +1104,12 @@ const MM_TO_PX = 96 / 25.4; // screen pixels per mm at 96 dpi
 
 function LabelPreview({
   width, height, namePt, smallPt, barcodeHeightPct,
-  showBarcodeNum, showProductName, showUnit,
+  showBarcodeNum, showProductName, showUnit, offsetX, offsetY,
 }: {
   width: number; height: number; namePt: number; smallPt: number;
   barcodeHeightPct: number; showBarcodeNum: boolean;
   showProductName: boolean; showUnit: boolean;
+  offsetX: number; offsetY: number;
 }) {
   const CONTAINER = 220;
   const lpx = width * MM_TO_PX;
@@ -1138,7 +1139,9 @@ function LabelPreview({
       >
         <div
           style={{
-            position: "absolute", top: "50%", left: "50%",
+            position: "absolute",
+            top: `calc(50% + ${offsetY * MM_TO_PX}px)`,
+            left: `calc(50% + ${offsetX * MM_TO_PX}px)`,
             transform: "translate(-50%, -50%)",
             display: "flex", flexDirection: "column", alignItems: "center",
             gap: 3, width: innerW, overflow: "hidden",
@@ -1204,6 +1207,8 @@ function PrinterSettingsManager() {
   const [showBarcodeNum, setShowBarcodeNum] = useState(true);
   const [showProductName, setShowProductName] = useState(true);
   const [showUnit, setShowUnit] = useState(true);
+  const [offsetX, setOffsetX] = useState(0);
+  const [offsetY, setOffsetY] = useState(0);
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
 
@@ -1223,6 +1228,8 @@ function PrinterSettingsManager() {
             if (s.showBarcodeNum != null) setShowBarcodeNum(s.showBarcodeNum);
             if (s.showProductName != null) setShowProductName(s.showProductName);
             if (s.showUnit != null) setShowUnit(s.showUnit);
+            if (s.offsetX != null) setOffsetX(s.offsetX);
+            if (s.offsetY != null) setOffsetY(s.offsetY);
           } catch { /* ignore */ }
         }
         setFetched(true);
@@ -1241,6 +1248,7 @@ function PrinterSettingsManager() {
           width, height, printerName: printerName.trim() || undefined,
           namePt, smallPt, barcodeHeightPct,
           showBarcodeNum, showProductName, showUnit,
+          offsetX, offsetY,
         }),
       }),
     });
@@ -1323,6 +1331,29 @@ function PrinterSettingsManager() {
           />
         </div>
 
+        {/* Content position offset */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <p className="text-sm font-semibold text-slate-800">Posisi Konten</p>
+          <Slider
+            label="Geser kiri/kanan (X)"
+            value={offsetX} min={-15} max={15} step={0.5} unit="mm"
+            onChange={setOffsetX}
+          />
+          <Slider
+            label="Geser atas/bawah (Y)"
+            value={offsetY} min={-15} max={15} step={0.5} unit="mm"
+            onChange={setOffsetY}
+          />
+          {(offsetX !== 0 || offsetY !== 0) && (
+            <button
+              onClick={() => { setOffsetX(0); setOffsetY(0); }}
+              className="text-xs text-slate-500 hover:text-blue-600 underline"
+            >
+              Reset ke tengah
+            </button>
+          )}
+        </div>
+
         {/* Font sizes */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
           <p className="text-sm font-semibold text-slate-800">Ukuran Font</p>
@@ -1395,6 +1426,8 @@ function PrinterSettingsManager() {
                 showBarcodeNum={showBarcodeNum}
                 showProductName={showProductName}
                 showUnit={showUnit}
+                offsetX={offsetX}
+                offsetY={offsetY}
               />
             </div>
             <p className="text-[11px] text-slate-400 text-center mt-2">
