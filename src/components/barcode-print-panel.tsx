@@ -120,7 +120,8 @@ function PrintConfirmModal({
 }
 
 // ── HTML generation ───────────────────────────────────────────────────────────
-function buildPrintHtml(labelsHtml: string, s: LabelSettings): string {
+// baseUrl is required when printing via QZ Tray so relative /api/barcodes/... URLs resolve correctly
+function buildPrintHtml(labelsHtml: string, s: LabelSettings, baseUrl?: string): string {
   const shortSide = Math.min(s.width, s.height);
   const imgW = Math.max(20, s.width - 6);
   const textW = Math.max(20, s.width - 4);
@@ -133,6 +134,7 @@ function buildPrintHtml(labelsHtml: string, s: LabelSettings): string {
 <html>
 <head>
   <meta charset="utf-8" />
+  ${baseUrl ? `<base href="${baseUrl}/" />` : ""}
   <title>Barcode Labels — MRIs</title>
   <script>window.addEventListener('load',function(){window.focus();window.print();window.addEventListener('afterprint',function(){window.close();});});<\/script>
   <style>
@@ -303,7 +305,7 @@ export function BarcodePrintPanel({
     const s = settings;
     const isPortrait = s.height >= s.width;
     const labelsHtml = buildLabelsHtml();
-    const fullHtml = buildPrintHtml(labelsHtml, s);
+    const fullHtml = buildPrintHtml(labelsHtml, s, window.location.origin);
 
     const config = qz.configs.create(s.printerName, {
       size: { width: s.width, height: s.height },
