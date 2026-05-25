@@ -267,7 +267,8 @@ export function BarcodePrintPanel({
   }, 0);
 
   // Build all label divs HTML (shared between QZ and window.print paths)
-  const buildLabelsHtml = useCallback(() => {
+  // barcodeDataUris: pre-fetched map used by QZ path so HTML is self-contained
+  const buildLabelsHtml = useCallback((barcodeDataUris?: Map<string, string>) => {
     const s = settings;
     const showBarcodeNum = s.showBarcodeNum ?? true;
     const showProductName = s.showProductName ?? true;
@@ -278,9 +279,12 @@ export function BarcodePrintPanel({
       const sel = selectedBarcodes.get(p.id) ?? new Set();
       const batch: string[] = [];
 
+      const imgSrc = (barcode: string) =>
+        barcodeDataUris?.get(barcode) ?? `/api/barcodes/${encodeURIComponent(barcode)}`;
+
       const makeLabelHtml = (barcode: string, unitLine: string) =>
         `<div class="label"><div class="label-inner">` +
-        `<img src="/api/barcodes/${encodeURIComponent(barcode)}" alt="${barcode}" class="barcode-img" />` +
+        `<img src="${imgSrc(barcode)}" alt="${barcode}" class="barcode-img" />` +
         (showBarcodeNum ? `<div class="barcode-num">${barcode}</div>` : "") +
         (showProductName ? `<div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>` : "") +
         (showUnit ? `<div class="unit">${unitLine}</div>` : "") +
@@ -301,10 +305,37 @@ export function BarcodePrintPanel({
     const qz = qzRef.current;
     if (!qz?.websocket.isActive()) throw new Error("QZ not connected");
 
+    // Collect unique barcodes from selected items
+    const allBarcodes = new Set<string>();
+    for (const p of selectedProducts) {
+      const sel = selectedBarcodes.get(p.id) ?? new Set();
+      if (sel.has("base")) allBarcodes.add(p.barcode);
+      for (const uc of (p.unitConversions ?? [])) {
+        if (uc.barcode && sel.has(uc.id)) allBarcodes.add(uc.barcode);
+      }
+    }
+
+    // Fetch barcode images as data URIs so the HTML is self-contained
+    const entries = await Promise.all(
+      [...allBarcodes].map(async (bc) => {
+        const res = await fetch(`/api/barcodes/${encodeURIComponent(bc)}`);
+        if (!res.ok) return [bc, ""] as const;
+        const blob = await res.blob();
+        const dataUri = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => resolve("");
+          reader.readAsDataURL(blob);
+        });
+        return [bc, dataUri] as const;
+      })
+    );
+    const barcodeDataUris = new Map(entries);
+
     const s = settings;
     const isPortrait = s.height >= s.width;
-    const labelsHtml = buildLabelsHtml();
-    const fullHtml = buildPrintHtml(labelsHtml, s, window.location.origin);
+    const labelsHtml = buildLabelsHtml(barcodeDataUris);
+    const fullHtml = buildPrintHtml(labelsHtml, s);
 
     const config = qz.configs.create(s.printerName, {
       size: { width: s.width, height: s.height },
