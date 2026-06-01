@@ -79,6 +79,7 @@ const NAV: NavSection[] = [
       { href: "/settings", label: "Settings", labelKey: "nav.links.settings", icon: "⚙" },
       { href: "/settings/users", label: "User Management", labelKey: "nav.links.userManagement", icon: "↳", indent: true, small: true },
       { href: "/settings/audit-log", label: "Audit Log", labelKey: "nav.links.auditLog", icon: "↳", indent: true, small: true },
+      { href: "/settings/opening-stock", label: "Opening Stock", labelKey: "nav.links.openingStock", icon: "↳", indent: true, small: true },
     ],
   },
 ];

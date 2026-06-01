@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import RecentOrdersTable from "@/components/recent-orders-table";
+import { LowStockCard } from "@/components/low-stock-card";
 import { getT } from "@/modules/i18n";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -141,31 +142,14 @@ export default async function DashboardPage() {
         {data.locationStock.map((loc) => {
           const lowItems = loc.stock.filter((s) => s.quantity <= s.product.reorderPoint);
           return (
-            <div key={loc.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className={`px-4 py-3 text-white text-sm font-semibold flex items-center justify-between ${LOC_HEADER[loc.name] ?? "bg-slate-600"}`}>
-                <span>{loc.name}</span>
-                {lowItems.length > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{lowItems.length}</span>
-                )}
-              </div>
-              {lowItems.length === 0 ? (
-                <p className="px-4 py-3 text-xs text-green-600 flex items-center gap-1.5">
-                  <span>✓</span> {t("dashboard.allStockAbove", "All stock above reorder point")}
-                </p>
-              ) : (
-                lowItems.map((s) => (
-                  <div key={s.id} className="flex justify-between items-center px-4 py-2.5 border-b border-slate-50 last:border-0 text-sm">
-                    <div className="truncate mr-2">
-                      <div className="text-slate-700 text-xs font-medium truncate">{s.product.name}</div>
-                      <div className="text-[11px] text-slate-400">{t("dashboard.reorderAt", "reorder at")} {s.product.reorderPoint}</div>
-                    </div>
-                    <span className="font-semibold text-red-500 dark:text-red-400 whitespace-nowrap text-xs">
-                      {s.quantity} {s.product.unit?.name?.toLowerCase() ?? ""} ⚠
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
+            <LowStockCard
+              key={loc.id}
+              name={loc.name}
+              headerColor={LOC_HEADER[loc.name] ?? "bg-slate-600"}
+              lowItems={lowItems}
+              labelReorderAt={t("dashboard.reorderAt", "reorder at")}
+              labelAllStockAbove={t("dashboard.allStockAbove", "All stock above reorder point")}
+            />
           );
         })}
       </div>
