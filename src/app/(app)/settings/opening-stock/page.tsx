@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Papa from "papaparse";
 import toast from "react-hot-toast";
-import type { ValidatedRow } from "@/app/api/opening-stock/route";
+import type { ValidatedRow } from "@/lib/opening-stock";
 
 type Step = "upload" | "preview" | "done";
 type RawRow = Record<string, string>;
@@ -89,7 +89,11 @@ export default function OpeningStockPage() {
         toast.error(data.error ?? "Import failed — re-validate and try again");
         return;
       }
-      toast.success(`Imported ${data.imported} stock entries`);
+      if (data.imported === 0) {
+        toast("No new balances imported — every row already had stock.", { icon: "ℹ️" });
+      } else {
+        toast.success(`Imported ${data.imported} stock entries`);
+      }
       setStep("done");
     } catch {
       toast.error("Import failed");
@@ -106,6 +110,7 @@ export default function OpeningStockPage() {
 
   const errorCount = validatedRows.filter((r) => r.status === "error").length;
   const warnCount = validatedRows.filter((r) => r.status === "warning").length;
+  const skipCount = validatedRows.filter((r) => r.status === "skip").length;
   const okCount = validatedRows.filter((r) => r.status === "ok").length;
   const importableCount = okCount + warnCount;
 
@@ -146,6 +151,11 @@ export default function OpeningStockPage() {
               {warnCount} warning{warnCount !== 1 ? "s" : ""}
             </span>
           )}
+          {skipCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-medium">
+              {skipCount} skipped
+            </span>
+          )}
           {errorCount > 0 && (
             <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
               {errorCount} error{errorCount !== 1 ? "s" : ""}
@@ -180,6 +190,8 @@ export default function OpeningStockPage() {
                       ? "bg-red-50"
                       : row.status === "warning"
                       ? "bg-amber-50"
+                      : row.status === "skip"
+                      ? "bg-sky-50"
                       : ""
                   }
                 >
@@ -202,6 +214,9 @@ export default function OpeningStockPage() {
                     )}
                     {row.status === "warning" && (
                       <span className="text-amber-600 text-xs">⚠ {row.message}</span>
+                    )}
+                    {row.status === "skip" && (
+                      <span className="text-sky-600 text-xs">⊘ {row.message}</span>
                     )}
                     {row.status === "error" && (
                       <span className="text-red-600 text-xs">✗ {row.message}</span>
@@ -230,7 +245,13 @@ export default function OpeningStockPage() {
         </div>
         {warnCount > 0 && (
           <p className="text-xs text-amber-600">
-            Warning rows will be imported — existing stock values will be overwritten.
+            Warning rows are duplicated in the file — the last value for each product + location wins.
+          </p>
+        )}
+        {skipCount > 0 && (
+          <p className="text-xs text-sky-600">
+            {skipCount} row{skipCount !== 1 ? "s" : ""} already have stock and will be skipped — use an
+            Adjustment to change an existing balance.
           </p>
         )}
       </div>

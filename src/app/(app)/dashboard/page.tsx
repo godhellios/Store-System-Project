@@ -6,11 +6,26 @@ import { getT } from "@/modules/i18n";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+type LowStockItem = {
+  id: string;
+  quantity: number;
+  product: { name: string; reorderPoint: number; unit: { name: string } | null };
+};
+
+type LowStockRow = {
+  id: string;
+  quantity: number;
+  locationId: string;
+  productName: string;
+  reorderPoint: number;
+  unitName: string | null;
+};
+
 async function getDashboardData() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [totalProducts, grnsToday, ordersOutToday, recentOrders, locationStock, lowStockResult] =
+  const [totalProducts, grnsToday, ordersOutToday, recentOrders, locations, lowStockRows] =
     await Promise.all([
       prisma.product.count({ where: { isActive: true } }),
       prisma.order.count({
@@ -37,31 +52,54 @@ async function getDashboardData() {
       }),
       prisma.location.findMany({
         where: { isActive: true },
-        include: {
-          stock: {
-            where: { product: { isActive: true, reorderPoint: { gt: 0 } } },
-            include: { product: { include: { unit: true } } },
-            orderBy: { quantity: "asc" },
-          },
-        },
+        select: { id: true, name: true },
       }),
-      prisma.$queryRaw<[{ count: bigint }]>`
-        SELECT COUNT(*) AS count
+      // Fetch only the rows actually at/below reorder point. The two-column
+      // comparison (quantity <= reorderPoint) can't be expressed in a Prisma
+      // `where`, so it's done in SQL — this drives both the per-location cards
+      // and the alert count, so the number and the lists can never disagree.
+      prisma.$queryRaw<LowStockRow[]>`
+        SELECT s.id, s.quantity, s."locationId",
+               p.name AS "productName", p."reorderPoint",
+               u.name AS "unitName"
         FROM "Stock" s
         JOIN "Product" p ON s."productId" = p.id
+        LEFT JOIN "Unit" u ON p."unitId" = u.id
         WHERE p."isActive" = true
           AND p."reorderPoint" > 0
           AND s.quantity <= p."reorderPoint"
+        ORDER BY s.quantity ASC
       `,
     ]);
 
-  const lowStockCount = Number(lowStockResult[0].count);
+  // Group the low-stock rows by location (rows arrive sorted by quantity asc).
+  const lowByLocation = new Map<string, LowStockItem[]>();
+  for (const r of lowStockRows) {
+    const item: LowStockItem = {
+      id: r.id,
+      quantity: r.quantity,
+      product: {
+        name: r.productName,
+        reorderPoint: r.reorderPoint,
+        unit: r.unitName ? { name: r.unitName } : null,
+      },
+    };
+    const arr = lowByLocation.get(r.locationId);
+    if (arr) arr.push(item);
+    else lowByLocation.set(r.locationId, [item]);
+  }
+
+  const locationStock = locations.map((loc) => ({
+    id: loc.id,
+    name: loc.name,
+    lowItems: lowByLocation.get(loc.id) ?? [],
+  }));
 
   return {
     totalProducts,
     grnsToday,
     ordersOutToday,
-    lowStockCount,
+    lowStockCount: lowStockRows.length,
     recentOrders,
     locationStock,
   };
@@ -139,19 +177,16 @@ export default async function DashboardPage() {
         <Link href="/products?lowStock=1" className="text-xs text-blue-600 hover:underline">{t("dashboard.viewAllLowStock", "View all low stock →")}</Link>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {data.locationStock.map((loc) => {
-          const lowItems = loc.stock.filter((s) => s.quantity <= s.product.reorderPoint);
-          return (
-            <LowStockCard
-              key={loc.id}
-              name={loc.name}
-              headerColor={LOC_HEADER[loc.name] ?? "bg-slate-600"}
-              lowItems={lowItems}
-              labelReorderAt={t("dashboard.reorderAt", "reorder at")}
-              labelAllStockAbove={t("dashboard.allStockAbove", "All stock above reorder point")}
-            />
-          );
-        })}
+        {data.locationStock.map((loc) => (
+          <LowStockCard
+            key={loc.id}
+            name={loc.name}
+            headerColor={LOC_HEADER[loc.name] ?? "bg-slate-600"}
+            lowItems={loc.lowItems}
+            labelReorderAt={t("dashboard.reorderAt", "reorder at")}
+            labelAllStockAbove={t("dashboard.allStockAbove", "All stock above reorder point")}
+          />
+        ))}
       </div>
 
       {/* Recent orders */}
