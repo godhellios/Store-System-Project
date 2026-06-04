@@ -9,43 +9,64 @@ import {
   applySkipProtect,
   importableRows,
   computeOpeningStockCosts,
+  productsWithoutStockAtLocation,
   type ParsedRow,
 } from "@/lib/opening-stock";
 
 export const maxDuration = 60;
 
-// ── GET — download CSV template listing only products with no stock yet ──────
+// ── GET — products that still need an opening balance AT a given location ─────
+// ?locationId=<id>            → CSV template, Location column pre-filled
+// ?locationId=<id>&format=json → JSON product list for the manual-add picker
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const [products, locations] = await Promise.all([
+  const params = new URL(req.url).searchParams;
+  const locationId = params.get("locationId")?.trim();
+  const asJson = params.get("format") === "json";
+  if (!locationId) return NextResponse.json({ error: "locationId is required" }, { status: 400 });
+
+  const location = await prisma.location.findUnique({
+    where: { id: locationId },
+    select: { name: true },
+  });
+  if (!location) return NextResponse.json({ error: "Location not found" }, { status: 404 });
+
+  const [allProducts, stockHere] = await Promise.all([
     prisma.product.findMany({
-      // Only products that have no balance anywhere yet — opening stock is a
-      // first-time-only set. Already-stocked products are changed via Adjustment.
-      where: { isActive: true, stock: { none: { quantity: { gt: 0 } } } },
-      select: { sku: true, name: true, category: { select: { name: true } } },
-      orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
-    }),
-    prisma.location.findMany({
       where: { isActive: true },
-      select: { name: true },
+      select: { id: true, sku: true, name: true },
       orderBy: { name: "asc" },
+    }),
+    // Only balances at this location matter for the per-location filter.
+    prisma.stock.findMany({
+      where: { locationId, quantity: { gt: 0 } },
+      select: { productId: true, locationId: true, quantity: true },
     }),
   ]);
 
-  const locationList = locations.map((l) => l.name).join(", ");
+  const products = productsWithoutStockAtLocation(allProducts, stockHere, locationId);
+
+  if (asJson) {
+    return NextResponse.json(
+      { location: location.name, products: products.map((p) => ({ id: p.id, sku: p.sku, name: p.name })) },
+      { headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
+  }
+
   const csvLines = [
     "# Opening Stock Import — MRIS",
-    `# Valid locations: ${locationList}`,
-    "# This template lists only products with NO stock yet — fill in their opening balances.",
-    "# To open an already-stocked product at a NEW location, add its SKU as a new row manually.",
+    `# Location: ${location.name} (pre-filled below)`,
+    "# Lists only products with NO balance at this location — fill in Qty (and optional UnitCost).",
     "# ProductName column is for reference only — parser uses SKU.",
     "# Leave Qty blank or 0 to skip a row.",
     "SKU,ProductName,Location,Qty,UnitCost",
-    ...products.map((p) => `${p.sku},"${p.name.replace(/"/g, '""')}",,,`),
+    ...products.map(
+      (p) => `${p.sku},"${p.name.replace(/"/g, '""')}","${location.name}",,`,
+    ),
   ];
 
   return new Response(csvLines.join("\n"), {

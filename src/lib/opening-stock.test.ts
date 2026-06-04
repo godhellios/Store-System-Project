@@ -4,6 +4,7 @@ import {
   applySkipProtect,
   importableRows,
   computeOpeningStockCosts,
+  productsWithoutStockAtLocation,
   type ParsedRow,
   type ValidatedRow,
 } from "./opening-stock";
@@ -238,5 +239,54 @@ describe("end-to-end skip behavior", () => {
     const result = importableRows(validated);
     expect(result).toHaveLength(1);
     expect(result[0].productId).toBe("p2");
+  });
+});
+
+describe("productsWithoutStockAtLocation", () => {
+  const ids = (rows: { id: string }[]) => rows.map((p) => p.id).sort();
+
+  it("includes a product with no stock anywhere", () => {
+    const result = productsWithoutStockAtLocation(products, [], "l1");
+    expect(ids(result)).toEqual(["p1", "p2"]);
+  });
+
+  it("still includes a product stocked at another location when targeting a different one", () => {
+    // p1 is stocked at l1; for l2 it has no balance, so it must still appear.
+    const result = productsWithoutStockAtLocation(
+      products,
+      [{ productId: "p1", locationId: "l1", quantity: 100 }],
+      "l2",
+    );
+    expect(ids(result)).toContain("p1");
+  });
+
+  it("excludes a product already stocked at the target location", () => {
+    const result = productsWithoutStockAtLocation(
+      products,
+      [{ productId: "p1", locationId: "l1", quantity: 100 }],
+      "l1",
+    );
+    expect(ids(result)).toEqual(["p2"]);
+  });
+
+  it("includes a product whose only row at the target location is qty 0", () => {
+    const result = productsWithoutStockAtLocation(
+      products,
+      [{ productId: "p1", locationId: "l1", quantity: 0 }],
+      "l1",
+    );
+    expect(ids(result)).toContain("p1");
+  });
+
+  it("excludes at the target location even when the product is also stocked elsewhere", () => {
+    const result = productsWithoutStockAtLocation(
+      products,
+      [
+        { productId: "p1", locationId: "l1", quantity: 5 },
+        { productId: "p1", locationId: "l2", quantity: 9 },
+      ],
+      "l1",
+    );
+    expect(ids(result)).toEqual(["p2"]);
   });
 });

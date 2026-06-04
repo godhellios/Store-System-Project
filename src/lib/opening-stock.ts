@@ -162,6 +162,24 @@ export function applySkipProtect(
   return validated;
 }
 
+/**
+ * Products that still need an opening balance AT A SPECIFIC location: those with
+ * no existing stock row of qty > 0 at `locationId`. A product stocked at a
+ * different location still qualifies here, because opening stock is per-location.
+ */
+export function productsWithoutStockAtLocation(
+  products: OpeningStockProduct[],
+  existingStock: ExistingStock[],
+  locationId: string,
+): OpeningStockProduct[] {
+  const stockedHere = new Set(
+    existingStock
+      .filter((s) => s.locationId === locationId && s.quantity > 0)
+      .map((s) => s.productId),
+  );
+  return products.filter((p) => !stockedHere.has(p.id));
+}
+
 /** Rows that will actually be written: fresh balances (`ok`) and in-file duplicates (`warning`). */
 export function importableRows(validated: ValidatedRow[]): ValidatedRow[] {
   return validated.filter(
