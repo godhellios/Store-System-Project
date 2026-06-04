@@ -5,9 +5,8 @@ import { getT } from "@/modules/i18n";
 
 export default async function GoodsOutPage() {
   await blockViewer();
-  const [locations, waSetting, t] = await Promise.all([
+  const [locations, t] = await Promise.all([
     prisma.location.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    prisma.systemSetting.findUnique({ where: { key: "whatsapp_number" } }),
     getT(),
   ]);
   return (
@@ -16,7 +15,6 @@ export default async function GoodsOutPage() {
       <TransactionForm
         type="GOODS_OUT"
         locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
-        whatsappNumber={waSetting?.value ?? "6281283118487"}
       />
     </div>
   );
