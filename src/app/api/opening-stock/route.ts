@@ -14,7 +14,7 @@ import {
 
 export const maxDuration = 60;
 
-// ── GET — download CSV template pre-filled with all active products ──────────
+// ── GET — download CSV template listing only products with no stock yet ──────
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -52,6 +52,7 @@ export async function GET() {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": 'attachment; filename="opening-stock-template.csv"',
+      "Cache-Control": "no-store, max-age=0",
     },
   });
 }

@@ -16,7 +16,7 @@ export default function OpeningStockPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function downloadTemplate() {
-    const res = await fetch("/api/opening-stock");
+    const res = await fetch("/api/opening-stock", { cache: "no-store" });
     if (!res.ok) { toast.error("Failed to generate template"); return; }
     const blob = await res.blob();
     const a = Object.assign(document.createElement("a"), {
@@ -278,7 +278,8 @@ export default function OpeningStockPage() {
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-700">Download template</p>
             <p className="text-sm text-slate-500">
-              Contains all active products. Open in Google Sheets or Excel.
+              Lists only products that have no stock yet — already-stocked products are left out
+              (change those with an Adjustment). Open in Google Sheets or Excel.
             </p>
             <button
               onClick={downloadTemplate}
@@ -332,7 +333,8 @@ export default function OpeningStockPage() {
       </ol>
 
       <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 text-sm text-amber-700">
-        <strong>Note:</strong> Importing will overwrite existing stock quantities for the products included.
+        <strong>Note:</strong> Opening stock is first-time-only. Any product + location that already
+        has a balance is skipped, never overwritten — change existing balances with an Adjustment.
         This page is admin-only and intended for initial setup only.
       </div>
     </div>
