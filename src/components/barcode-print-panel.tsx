@@ -461,6 +461,7 @@ export function BarcodePrintPanel({
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <span className="text-[10px] text-slate-400 select-none">copies</span>
                       <input type="number" inputMode="numeric" min={1} max={100} value={getCopies(p.id)}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => setCopy(p.id, parseInt(e.target.value) || 1)}
                         className="w-12 text-center px-1 py-0.5 border border-slate-300 rounded text-xs" />
                       <button onClick={() => removeFromQueue(p)}

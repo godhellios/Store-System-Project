@@ -269,7 +269,8 @@ export function OpeningStockManual() {
               <div>
                 <span className="text-xs text-slate-500">Qty</span>
                 <input
-                  type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)}
+                  type="number" min={1} value={qty}
+                  onFocus={(e) => e.target.select()} onChange={(e) => setQty(e.target.value)}
                   className="block w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   autoFocus
                 />
@@ -277,7 +278,8 @@ export function OpeningStockManual() {
               <div>
                 <span className="text-xs text-slate-500">Unit cost (optional)</span>
                 <input
-                  type="number" min={0} step="any" value={unitCost} onChange={(e) => setUnitCost(e.target.value)}
+                  type="number" min={0} step="any" value={unitCost}
+                  onFocus={(e) => e.target.select()} onChange={(e) => setUnitCost(e.target.value)}
                   className="block w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
               </div>

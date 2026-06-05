@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { useT } from "@/modules/i18n/provider";
+import { NumberField } from "@/components/number-field";
 
 type Location = { id: string; name: string; type: string };
 type UnitConversion = { id: string; name: string; conversionFactor: number };
@@ -17,7 +18,7 @@ type LineItem = {
   barcode: string;
   baseUnitId: string;
   baseUnitName: string;
-  quantity: number;
+  quantity: number | null;
   inputUnitId: string;
   inputUnitName: string;
   conversionFactor: number;
@@ -250,7 +251,7 @@ export function TransactionForm({
     }
     setLines((prev) => {
       const existing = prev.find((l) => l.productId === product.id && l.inputUnitId === product.unit.id);
-      if (existing) return prev.map((l) => l.productId === product.id && l.inputUnitId === product.unit.id ? { ...l, quantity: l.quantity + 1 } : l);
+      if (existing) return prev.map((l) => l.productId === product.id && l.inputUnitId === product.unit.id ? { ...l, quantity: (l.quantity ?? 0) + 1 } : l);
       return [...prev, buildLineItem(product, null)];
     });
     toast.success(`Added: ${product.name}`, { duration: 1500 });
@@ -284,7 +285,7 @@ export function TransactionForm({
       );
       if (existing) {
         return prev.map((l) =>
-          l._key === existing._key ? { ...l, quantity: l.quantity + 1 } : l
+          l._key === existing._key ? { ...l, quantity: (l.quantity ?? 0) + 1 } : l
         );
       }
       return [...prev, buildLineItem(product, matchedUnit)];
@@ -296,7 +297,7 @@ export function TransactionForm({
     }
   }
 
-  function updateLine(key: string, field: keyof LineItem, value: string | number) {
+  function updateLine(key: string, field: keyof LineItem, value: string | number | null) {
     setLines((prev) => prev.map((l) => l._key === key ? { ...l, [field]: value } : l));
   }
 
@@ -319,6 +320,7 @@ export function TransactionForm({
     if (cfg.fromLabel && !fromLocationId)            { toast.error("Select source location"); return false; }
     if (cfg.toLabel   && !toLocationId)              { toast.error("Select destination location"); return false; }
     if (type === "TRANSFER" && fromLocationId === toLocationId) { toast.error("Source and destination must be different"); return false; }
+    if (lines.some((l) => l.quantity == null || l.quantity < 1)) { toast.error("Enter a quantity for every item"); return false; }
     return true;
   }
 
@@ -343,8 +345,8 @@ export function TransactionForm({
         notes:          notes          || undefined,
         lines: lines.map((l) => ({
           productId: l.productId,
-          quantity:  Math.round(l.quantity * l.conversionFactor),
-          inputQty:  l.conversionFactor !== 1 ? l.quantity        : undefined,
+          quantity:  Math.round((l.quantity ?? 0) * l.conversionFactor),
+          inputQty:  l.conversionFactor !== 1 ? (l.quantity ?? 0)  : undefined,
           inputUnit: l.conversionFactor !== 1 ? l.inputUnitName   : undefined,
           notes:     l.notes || undefined,
         })),
@@ -361,7 +363,7 @@ export function TransactionForm({
     if (type === "GRN") {
       const params = new URLSearchParams();
       lines.forEach((l) => params.append("productId", l.productId));
-      params.set("copies", lines.map((l) => `${l.productId}:${Math.round(l.quantity * l.conversionFactor)}`).join(","));
+      params.set("copies", lines.map((l) => `${l.productId}:${Math.round((l.quantity ?? 0) * l.conversionFactor)}`).join(","));
       setFlowState({
         step: "grn_done",
         orderId: data.order!.id,
@@ -400,8 +402,8 @@ export function TransactionForm({
           notes:          notes          || undefined,
           lines: lines.map((l) => ({
             productId: l.productId,
-            quantity:  Math.round(l.quantity * l.conversionFactor),
-            inputQty:  l.conversionFactor !== 1 ? l.quantity      : undefined,
+            quantity:  Math.round((l.quantity ?? 0) * l.conversionFactor),
+            inputQty:  l.conversionFactor !== 1 ? (l.quantity ?? 0) : undefined,
             inputUnit: l.conversionFactor !== 1 ? l.inputUnitName : undefined,
             notes:     l.notes || undefined,
           })),
@@ -447,7 +449,7 @@ export function TransactionForm({
     return s?.quantity ?? 0;
   }
 
-  const totalBaseUnits = lines.reduce((s, l) => s + Math.round(l.quantity * l.conversionFactor), 0);
+  const totalBaseUnits = lines.reduce((s, l) => s + Math.round((l.quantity ?? 0) * l.conversionFactor), 0);
 
   return (
     <div>
@@ -597,7 +599,7 @@ export function TransactionForm({
             </p>
           ) : lines.map((line, i) => {
             const hasPackaging = line.unitConversions.length > 0;
-            const baseQty = Math.round(line.quantity * line.conversionFactor);
+            const baseQty = Math.round((line.quantity ?? 0) * line.conversionFactor);
             return (
               <div key={line._key} className="px-4 py-3">
                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -612,9 +614,10 @@ export function TransactionForm({
                   </button>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <input type="number" inputMode="numeric" min="1" value={line.quantity}
-                    onChange={(e) => updateLine(line._key, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-20 text-center px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <NumberField min={1} value={line.quantity} placeholder="Qty"
+                    aria-invalid={line.quantity == null}
+                    onChange={(v) => updateLine(line._key, "quantity", v)}
+                    className={`w-20 text-center px-2 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${line.quantity == null ? "border-red-400 bg-red-50" : "border-slate-300"}`} />
                   {hasPackaging ? (
                     <select value={line.inputUnitId} onChange={(e) => changeInputUnit(line._key, e.target.value)}
                       className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -672,7 +675,7 @@ export function TransactionForm({
                 </td></tr>
               ) : lines.map((line, i) => {
                 const hasPackaging = line.unitConversions.length > 0;
-                const baseQty = Math.round(line.quantity * line.conversionFactor);
+                const baseQty = Math.round((line.quantity ?? 0) * line.conversionFactor);
                 return (
                   <tr key={line._key} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="px-4 py-2 text-slate-400 text-xs">{i + 1}</td>
@@ -681,9 +684,10 @@ export function TransactionForm({
                       <div className="text-xs font-mono text-slate-400">{line.sku}</div>
                     </td>
                     <td className="px-4 py-2 text-center">
-                      <input type="number" inputMode="numeric" min="1" value={line.quantity}
-                        onChange={(e) => updateLine(line._key, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-20 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <NumberField min={1} value={line.quantity} placeholder="Qty"
+                        aria-invalid={line.quantity == null}
+                        onChange={(v) => updateLine(line._key, "quantity", v)}
+                        className={`w-20 text-center px-2 py-1 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${line.quantity == null ? "border-red-400 bg-red-50" : "border-slate-300"}`} />
                     </td>
                     <td className="px-4 py-2">
                       {hasPackaging ? (

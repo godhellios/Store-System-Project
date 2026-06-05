@@ -149,6 +149,7 @@ export function OrderActions({
                             min="0"
                             step="1"
                             value={cost}
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => setLineCosts((prev) => ({ ...prev, [line.id]: e.target.value }))}
                             placeholder="0"
                             className="w-24 px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 text-right"

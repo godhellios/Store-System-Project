@@ -184,7 +184,7 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
                       ref={(el) => { inputRefs.current[line.id] = el; }}
                       type="number" inputMode="numeric" min="0"
                       value={counts[line.id]}
-                      onChange={(e) => setCount(line.id, e.target.value)}
+                      onFocus={(e) => e.target.select()} onChange={(e) => setCount(line.id, e.target.value)}
                       disabled={status === "confirmed"}
                       className="w-28 text-center px-3 py-3 border-2 border-slate-300 rounded-xl text-base font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:bg-slate-50"
                       placeholder="Count"
@@ -232,7 +232,7 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
                         ref={(el) => { inputRefs.current[line.id] = el; }}
                         type="number" inputMode="numeric" min="0"
                         value={counts[line.id]}
-                        onChange={(e) => setCount(line.id, e.target.value)}
+                        onFocus={(e) => e.target.select()} onChange={(e) => setCount(line.id, e.target.value)}
                         disabled={status === "confirmed"}
                         className="w-24 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-slate-50"
                         placeholder="—"
@@ -344,7 +344,7 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
                   {isEditable ? (
                     <input
                       type="number" inputMode="numeric" min="0" value={counts[line.id]}
-                      onChange={(e) => setCount(line.id, e.target.value)}
+                      onFocus={(e) => e.target.select()} onChange={(e) => setCount(line.id, e.target.value)}
                       className="w-28 text-center px-3 py-3 border-2 border-slate-300 rounded-xl text-base font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Count"
                     />
@@ -396,7 +396,7 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
                     {isEditable ? (
                       <input
                         type="number" inputMode="numeric" min="0" value={counts[line.id]}
-                        onChange={(e) => setCount(line.id, e.target.value)}
+                        onFocus={(e) => e.target.select()} onChange={(e) => setCount(line.id, e.target.value)}
                         className="w-24 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="—"
                       />

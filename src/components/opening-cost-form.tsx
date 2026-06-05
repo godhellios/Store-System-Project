@@ -63,6 +63,7 @@ export function OpeningCostForm({ mode, productId, currentAvgCost }: Props) {
               step="any"
               placeholder="e.g. 10000"
               value={value}
+              onFocus={(e) => e.target.select()}
               onChange={(e) => { setValue(e.target.value); setError(null); }}
               className="w-32 px-2 py-1 border border-slate-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
@@ -114,6 +115,7 @@ export function OpeningCostForm({ mode, productId, currentAvgCost }: Props) {
                     step="any"
                     placeholder="e.g. 12000"
                     value={value}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => { setValue(e.target.value); setError(null); }}
                     className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     autoFocus

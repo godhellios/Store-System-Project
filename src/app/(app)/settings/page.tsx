@@ -437,7 +437,8 @@ function UnitManager() {
         {newParentId && (
           <div className="w-24">
             <label className="block text-xs text-slate-500 mb-0.5">{t("settings.units.factorLabel", "Factor *")}</label>
-            <input type="number" inputMode="decimal" min="1" step="any" value={newFactor} onChange={(e) => setNewFactor(e.target.value)}
+            <input type="number" inputMode="decimal" min="1" step="any" value={newFactor}
+              onFocus={(e) => e.target.select()} onChange={(e) => setNewFactor(e.target.value)}
               placeholder="e.g. 12"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
@@ -478,6 +479,7 @@ function UnitManager() {
                   <div className="w-20">
                     <label className="block text-xs text-slate-400 mb-0.5">{t("settings.units.factorEditLabel", "Factor")}</label>
                     <input type="number" inputMode="decimal" min="1" step="any" value={editing.conversionFactor}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => setEditing({ ...editing, conversionFactor: e.target.value })}
                       className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none" />
                   </div>
@@ -1294,6 +1296,7 @@ function PrinterSettingsManager() {
             <div className="flex items-center gap-1.5">
               <div className="flex flex-col items-center gap-0.5">
                 <input type="number" min={10} max={300} value={width}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => setWidth(Math.max(10, parseInt(e.target.value) || 60))}
                   className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -1302,6 +1305,7 @@ function PrinterSettingsManager() {
               <span className="text-slate-400 pb-3">×</span>
               <div className="flex flex-col items-center gap-0.5">
                 <input type="number" min={10} max={300} value={height}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => setHeight(Math.max(10, parseInt(e.target.value) || 40))}
                   className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />

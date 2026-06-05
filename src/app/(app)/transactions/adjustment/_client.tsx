@@ -4,10 +4,11 @@ import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useT } from "@/modules/i18n/provider";
+import { NumberField } from "@/components/number-field";
 
 type Location = { id: string; name: string };
 type ProductResult = { id: string; sku: string; name: string };
-type AdjLine = { productId: string; productName: string; productSku: string; direction: "add" | "remove"; qty: number; reason: string; currentStock: number | null; unitName: string; stockLoading: boolean };
+type AdjLine = { productId: string; productName: string; productSku: string; direction: "add" | "remove"; qty: number | null; reason: string; currentStock: number | null; unitName: string; stockLoading: boolean };
 type PendingOrder = {
   id: string; orderNumber: string; createdAt: Date | string; createdByName: string | null;
   adjustmentReason: string | null; notes: string | null;
@@ -100,7 +101,8 @@ export function AdjustmentClient({
 
   async function handleSubmit() {
     if (!locationId) { toast.error("Select a location"); return; }
-    const validLines = lines.filter((l) => l.productId && l.qty > 0);
+    if (lines.some((l) => l.productId && (l.qty == null || l.qty < 1))) { toast.error("Enter a quantity for every item"); return; }
+    const validLines = lines.filter((l) => l.productId && l.qty != null && l.qty > 0);
     if (!validLines.length) { toast.error("Add at least one product with quantity"); return; }
 
     const stillLoading = validLines.some((l) => l.stockLoading);
@@ -110,7 +112,7 @@ export function AdjustmentClient({
     }
 
     const wouldGoNegative = validLines.filter(
-      (l) => l.direction === "remove" && l.currentStock !== null && l.currentStock - l.qty < 0
+      (l) => l.direction === "remove" && l.currentStock !== null && l.currentStock - (l.qty ?? 0) < 0
     );
     if (wouldGoNegative.length) {
       toast.error(
@@ -123,7 +125,7 @@ export function AdjustmentClient({
     try {
       const apiLines = validLines.map((l) => ({
         productId: l.productId,
-        quantity: l.direction === "add" ? l.qty : -l.qty,
+        quantity: l.direction === "add" ? (l.qty ?? 0) : -(l.qty ?? 0),
         notes: l.reason,
       }));
       const res = await fetch("/api/orders", {
@@ -240,8 +242,8 @@ export function AdjustmentClient({
                     <span className="text-slate-400">Loading stock…</span>
                   ) : line.currentStock !== null ? (() => {
                     const after = line.direction === "add"
-                      ? line.currentStock + line.qty
-                      : line.currentStock - line.qty;
+                      ? line.currentStock + (line.qty ?? 0)
+                      : line.currentStock - (line.qty ?? 0);
                     const belowZero = after < 0;
                     return (
                       <>
@@ -270,12 +272,13 @@ export function AdjustmentClient({
                 </select>
 
                 {/* Quantity */}
-                <input
-                  type="number"
+                <NumberField
                   min={1}
                   value={line.qty}
-                  onChange={(e) => updateLine(idx, "qty", Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-20 px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-200"
+                  placeholder="Qty"
+                  aria-invalid={!!line.productId && line.qty == null}
+                  onChange={(v) => updateLine(idx, "qty", v)}
+                  className={`w-20 px-2 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-200 ${!!line.productId && line.qty == null ? "border-red-400 bg-red-50" : "border-slate-300 dark:border-slate-600"}`}
                 />
 
                 {/* Reason */}

@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { NumberField } from "@/components/number-field";
 
 type UnitConversion = { id: string; name: string; conversionFactor: number };
 
@@ -13,7 +14,7 @@ type LineItem = {
   sku: string;
   baseUnitId: string;
   baseUnitName: string;
-  quantity: number;
+  quantity: number | null;
   inputUnitId: string;
   inputUnitName: string;
   conversionFactor: number;
@@ -185,7 +186,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
   function addProduct(product: SearchProduct) {
     setLines((prev) => {
       const existing = prev.find((l) => l.productId === product.id);
-      if (existing) return prev.map((l) => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
+      if (existing) return prev.map((l) => l.productId === product.id ? { ...l, quantity: (l.quantity ?? 0) + 1 } : l);
       return [...prev, buildLineItem(product)];
     });
     toast.success(`Added: ${product.name}`, { duration: 1500 });
@@ -210,13 +211,13 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
     scanRef.current?.focus();
     setLines((prev) => {
       const existing = prev.find((l) => l.productId === product.id);
-      if (existing) return prev.map((l) => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
+      if (existing) return prev.map((l) => l.productId === product.id ? { ...l, quantity: (l.quantity ?? 0) + 1 } : l);
       return [...prev, buildLineItem(product)];
     });
     toast.success(`Added: ${product.name}`, { duration: 1500 });
   }
 
-  function updateLine(key: string, field: keyof LineItem, value: string | number) {
+  function updateLine(key: string, field: keyof LineItem, value: string | number | null) {
     setLines((prev) => prev.map((l) => l._key === key ? { ...l, [field]: value } : l));
   }
 
@@ -260,10 +261,10 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
         notes: notes || null,
         lines: lines.map((l) => ({
           productId: l.productId,
-          quantity: Math.round(l.quantity * l.conversionFactor),
+          quantity: Math.round((l.quantity ?? 0) * l.conversionFactor),
           inputQty: l.conversionFactor !== 1
-            ? l.quantity
-            : (l.inputUnitName !== l.baseUnitName ? l.quantity : undefined),
+            ? (l.quantity ?? 0)
+            : (l.inputUnitName !== l.baseUnitName ? (l.quantity ?? 0) : undefined),
           inputUnit: l.conversionFactor !== 1
             ? l.inputUnitName
             : (l.inputUnitName !== l.baseUnitName ? l.inputUnitName : undefined),
@@ -283,7 +284,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
     router.refresh();
   }
 
-  const totalBaseUnits = lines.reduce((s, l) => s + Math.round(l.quantity * l.conversionFactor), 0);
+  const totalBaseUnits = lines.reduce((s, l) => s + Math.round((l.quantity ?? 0) * l.conversionFactor), 0);
 
   return (
     <div>
@@ -392,7 +393,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
                 </td></tr>
               ) : lines.map((line, i) => {
                 const hasPackaging = line.unitConversions.length > 0;
-                const baseQty = Math.round(line.quantity * line.conversionFactor);
+                const baseQty = Math.round((line.quantity ?? 0) * line.conversionFactor);
                 return (
                   <tr key={line._key} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="px-4 py-2 text-slate-400 text-xs">{i + 1}</td>
@@ -401,9 +402,10 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
                       <div className="text-xs font-mono text-slate-400">{line.sku}</div>
                     </td>
                     <td className="px-4 py-2 text-center">
-                      <input type="number" inputMode="numeric" min="1" value={line.quantity}
-                        onChange={(e) => updateLine(line._key, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-20 text-center px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <NumberField min={1} value={line.quantity} placeholder="Qty"
+                        aria-invalid={line.quantity == null}
+                        onChange={(v) => updateLine(line._key, "quantity", v)}
+                        className={`w-20 text-center px-2 py-1 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${line.quantity == null ? "border-red-400 bg-red-50" : "border-slate-300"}`} />
                     </td>
                     <td className="px-4 py-2">
                       {hasPackaging ? (
@@ -466,7 +468,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
               Cancel
             </button>
             <button
-              onClick={() => { if (lines.length === 0) { toast.error("Add at least one item"); return; } setConfirmOpen(true); }}
+              onClick={() => { if (lines.length === 0) { toast.error("Add at least one item"); return; } if (lines.some((l) => l.quantity == null || l.quantity < 1)) { toast.error("Enter a quantity for every item"); return; } setConfirmOpen(true); }}
               className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
               Save Changes
             </button>
@@ -496,7 +498,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
                 </thead>
                 <tbody>
                   {lines.map((l) => {
-                    const base = Math.round(l.quantity * l.conversionFactor);
+                    const base = Math.round((l.quantity ?? 0) * l.conversionFactor);
                     return (
                       <tr key={l._key} className="border-t border-slate-50">
                         <td className="py-1.5 text-slate-700 font-medium">{l.name}</td>
