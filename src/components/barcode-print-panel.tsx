@@ -480,22 +480,22 @@ export function BarcodePrintPanel({
         </div>
 
         {/* Re-label from stock — pick a warehouse to auto-fill label counts from on-hand qty */}
-        <div className="mb-3 rounded-xl border border-sky-200 bg-sky-50 overflow-hidden">
+        <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 overflow-hidden">
           <div className="px-3.5 py-2.5 flex flex-wrap items-center gap-2.5">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-sky-800">
-              <svg className="w-4 h-4 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-800">
+              <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
               Re-label from stock
             </span>
             <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}
-              className="px-2.5 py-1.5 border border-sky-300 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-400">
+              className="px-2.5 py-1.5 border border-blue-300 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400">
               <option value="">Choose warehouse…</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
             {warehouseId && (
               <button onClick={addAllInViewWithStock}
-                className="sm:ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700 transition-colors">
+                className="sm:ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
                 </svg>
@@ -504,9 +504,9 @@ export function BarcodePrintPanel({
             )}
           </div>
           {warehouseId && (
-            <div className="px-3.5 py-1.5 bg-sky-100/60 border-t border-sky-200 flex items-center justify-between gap-3 text-[10px] text-sky-700">
+            <div className="px-3.5 py-1.5 bg-blue-100/60 border-t border-blue-200 flex items-center justify-between gap-3 text-[10px] text-blue-700">
               <span>Counts auto-fill from stock — <b className="font-semibold">box</b> = full boxes, <b className="font-semibold">pcs</b> = one per box + leftover. Editable before printing.</span>
-              <button onClick={() => fillCountsFromStock()} className="font-semibold underline whitespace-nowrap hover:text-sky-900">↺ Refill counts</button>
+              <button onClick={() => fillCountsFromStock()} className="font-semibold underline whitespace-nowrap hover:text-blue-900">↺ Refill counts</button>
             </div>
           )}
         </div>
@@ -575,7 +575,7 @@ export function BarcodePrintPanel({
                       </div>
                       <div className="text-[10px] font-mono text-slate-400">
                         {p.sku}
-                        {warehouseId && <span className="ml-1 text-sky-500">· stock here: {stock} {p.unit?.name ?? ""}</span>}
+                        {warehouseId && <span className="ml-1 text-blue-500">· stock here: {stock} {p.unit?.name ?? ""}</span>}
                       </div>
                     </div>
                     <button onClick={() => removeFromQueue(p)}
