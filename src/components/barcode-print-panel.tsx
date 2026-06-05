@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
+import { NumberField } from "@/components/number-field";
+import { labelCounts } from "@/lib/label-counts";
 
 type LabelSettings = {
   width: number;
@@ -24,8 +26,10 @@ type Product = {
   colorVariant: string | null; isActive: boolean; categoryId: string;
   category: { name: string }; unit: { name: string };
   unitConversions: UnitConversion[];
+  stock: { locationId: string; quantity: number }[];
 };
 type Category = { id: string; name: string };
+type LocationOption = { id: string; name: string };
 
 function allBarcodeKeys(p: Product): Set<string> {
   return new Set(["base", ...(p.unitConversions ?? []).filter((uc) => uc.barcode).map((uc) => uc.id)]);
@@ -164,20 +168,23 @@ function buildPrintHtml(labelsHtml: string, s: LabelSettings, baseUrl?: string):
 export function BarcodePrintPanel({
   products: allProducts,
   categories,
+  locations,
   preselect,
-  initialCopies = {},
+  initialCounts = {},
   labelSettings: savedSettings = null,
 }: {
   products: Product[];
   categories: Category[];
+  locations: LocationOption[];
   preselect: string[];
-  initialCopies?: Record<string, number>;
+  initialCounts?: Record<string, Record<string, number>>;
   labelSettings?: LabelSettings | null;
 }) {
   const settings = savedSettings ?? DEFAULT_SETTINGS;
 
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [qzStatus, setQzStatus] = useState<"idle" | "connecting" | "connected" | "unavailable">("idle");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -218,7 +225,9 @@ export function BarcodePrintPanel({
   const [selectedBarcodes, setSelectedBarcodes] = useState<Map<string, Set<string>>>(
     new Map(allProducts.filter((p) => preselect.includes(p.id)).map((p) => [p.id, allBarcodeKeys(p)]))
   );
-  const [copies, setCopies] = useState<Record<string, number>>(initialCopies);
+  // Per-product, per-barcode label counts: counts[productId][barcodeKey] = n,
+  // where barcodeKey is "base" or a unit-conversion id. Lets box and pcs differ.
+  const [counts, setCounts] = useState<Record<string, Record<string, number>>>(initialCounts);
 
   const searchResults = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -262,13 +271,77 @@ export function BarcodePrintPanel({
     return selectedBarcodes.get(productId)?.has(key) ?? false;
   }
 
-  function getCopies(id: string) { return copies[id] ?? 1; }
-  function setCopy(id: string, n: number) { setCopies((c) => ({ ...c, [id]: Math.max(1, n) })); }
+  // Default 1 per barcode for a manually-added product (matches old behavior);
+  // GRN / stock auto-fill set explicit per-unit counts that override this.
+  function getCount(pid: string, key: string): number { return counts[pid]?.[key] ?? 1; }
+  function setCount(pid: string, key: string, n: number | null) {
+    setCounts((c) => ({ ...c, [pid]: { ...(c[pid] ?? {}), [key]: Math.max(0, n ?? 0) } }));
+  }
+
+  function stockAt(p: Product): number {
+    if (!warehouseId) return 0;
+    return (p.stock ?? []).filter((s) => s.locationId === warehouseId).reduce((sum, s) => sum + s.quantity, 0);
+  }
+
+  // Auto-fill counts from current warehouse stock: each packaging unit gets its
+  // full-box count (floor), the base unit gets one-per-box-plus-remainder (ceil).
+  function unitCountsFromStock(p: Product): Record<string, number> {
+    const stock = stockAt(p);
+    const packs = (p.unitConversions ?? []).filter((uc) => uc.barcode && uc.conversionFactor > 1);
+    const row: Record<string, number> = {};
+    if (packs.length) {
+      const minFactor = Math.min(...packs.map((uc) => uc.conversionFactor));
+      row.base = labelCounts(stock, minFactor).pcsLabels;
+      for (const uc of packs) row[uc.id] = Math.floor(stock / uc.conversionFactor);
+    } else {
+      row.base = stock;
+    }
+    return row;
+  }
+
+  function fillCountsFromStock(productIds?: string[]) {
+    if (!warehouseId) { toast.error("Pick a warehouse first"); return; }
+    const ids = productIds ?? [...queue.keys()];
+    setCounts((prev) => {
+      const next = { ...prev };
+      for (const id of ids) {
+        const p = queue.get(id) ?? allProducts.find((x) => x.id === id);
+        if (p) next[id] = unitCountsFromStock(p);
+      }
+      return next;
+    });
+    toast.success("Counts filled from stock");
+  }
+
+  // Add every product in the current search/category view that has stock at the
+  // chosen warehouse, and fill each product's label counts from that stock.
+  function addAllInViewWithStock() {
+    if (!warehouseId) { toast.error("Pick a warehouse first"); return; }
+    const withStock = searchResults.filter((p) => stockAt(p) > 0);
+    if (withStock.length === 0) { toast("No products have stock here for this filter", { icon: "ℹ️" }); return; }
+    setQueue((prev) => { const next = new Map(prev); withStock.forEach((p) => next.set(p.id, p)); return next; });
+    setSelectedBarcodes((prev) => {
+      const next = new Map(prev);
+      withStock.forEach((p) => { if (!next.has(p.id)) next.set(p.id, allBarcodeKeys(p)); });
+      return next;
+    });
+    setCounts((prev) => {
+      const next = { ...prev };
+      withStock.forEach((p) => { next[p.id] = unitCountsFromStock(p); });
+      return next;
+    });
+    toast.success(`Added ${withStock.length} product(s) with stock`);
+  }
 
   const selectedProducts = [...queue.values()];
   const totalLabels = selectedProducts.reduce((sum, p) => {
     const sel = selectedBarcodes.get(p.id) ?? new Set();
-    return sum + getCopies(p.id) * sel.size;
+    let n = 0;
+    if (sel.has("base")) n += getCount(p.id, "base");
+    for (const uc of (p.unitConversions ?? [])) {
+      if (uc.barcode && sel.has(uc.id)) n += getCount(p.id, uc.id);
+    }
+    return sum + n;
   }, 0);
 
   // Build all label divs HTML (shared between QZ and window.print paths)
@@ -280,9 +353,8 @@ export function BarcodePrintPanel({
     const showUnit = s.showUnit ?? true;
 
     return selectedProducts.flatMap((p) => {
-      const n = getCopies(p.id);
       const sel = selectedBarcodes.get(p.id) ?? new Set();
-      const batch: string[] = [];
+      const out: string[] = [];
 
       const imgSrc = (barcode: string) =>
         barcodeDataUris?.get(barcode) ?? `/api/barcodes/${encodeURIComponent(barcode)}`;
@@ -295,15 +367,19 @@ export function BarcodePrintPanel({
         (showUnit ? `<div class="unit">${unitLine}</div>` : "") +
         `</div></div>`;
 
-      if (sel.has("base")) batch.push(makeLabelHtml(p.barcode, `${p.unit?.name ?? ""} · ${p.sku}`));
+      const pushN = (n: number, barcode: string, unitLine: string) => {
+        for (let i = 0; i < n; i++) out.push(makeLabelHtml(barcode, unitLine));
+      };
+
+      if (sel.has("base")) pushN(getCount(p.id, "base"), p.barcode, `${p.unit?.name ?? ""} · ${p.sku}`);
       for (const uc of (p.unitConversions ?? [])) {
         if (!uc.barcode || !sel.has(uc.id)) continue;
-        batch.push(makeLabelHtml(uc.barcode!, `${uc.name} (×${uc.conversionFactor}) · ${p.sku}`));
+        pushN(getCount(p.id, uc.id), uc.barcode!, `${uc.name} (×${uc.conversionFactor}) · ${p.sku}`);
       }
-      return Array.from({ length: n }, () => [...batch]).flat();
+      return out;
     }).join("");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProducts, selectedBarcodes, copies, settings]);
+  }, [selectedProducts, selectedBarcodes, counts, settings]);
 
   // QZ Tray direct print — bypasses Chrome dialog entirely
   async function printViaQZ() {
@@ -395,6 +471,31 @@ export function BarcodePrintPanel({
           </select>
         </div>
 
+        {/* Re-label from stock: pick a warehouse → auto-fill label counts from on-hand qty */}
+        <div className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-lg bg-sky-50 border border-sky-100">
+          <span className="text-xs font-medium text-sky-800">Re-label from stock:</span>
+          <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}
+            className="px-2 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+            <option value="">Choose warehouse…</option>
+            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+          {warehouseId && (
+            <>
+              <button onClick={addAllInViewWithStock}
+                className="text-xs px-2.5 py-1.5 rounded-lg bg-sky-600 text-white font-medium hover:bg-sky-700 transition-colors">
+                + Add all in view with stock
+              </button>
+              <button onClick={() => fillCountsFromStock()}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-sky-300 text-sky-700 font-medium hover:bg-sky-100 transition-colors">
+                ↺ Refill counts from stock
+              </button>
+              <span className="text-[10px] text-sky-600 w-full">
+                Box label = full boxes · Pcs label = one per box + leftover. Counts are editable before printing.
+              </span>
+            </>
+          )}
+        </div>
+
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 text-xs text-slate-500">
             <span>{searchResults.length} result{searchResults.length !== 1 ? "s" : ""}</span>
@@ -449,6 +550,7 @@ export function BarcodePrintPanel({
               <p className="px-4 py-8 text-center text-xs text-slate-400">No products selected</p>
             ) : selectedProducts.map((p) => {
               const ucWithBarcode = (p.unitConversions ?? []).filter((uc) => uc.barcode);
+              const stock = stockAt(p);
               return (
                 <div key={p.id} className="px-3 py-2.5">
                   <div className="flex items-center gap-2 mb-1.5">
@@ -456,37 +558,40 @@ export function BarcodePrintPanel({
                       <div className="text-xs font-semibold text-slate-800 truncate">
                         {p.name}{p.colorVariant ? <span className="text-slate-400"> — {p.colorVariant}</span> : null}
                       </div>
-                      <div className="text-[10px] font-mono text-slate-400">{p.sku}</div>
+                      <div className="text-[10px] font-mono text-slate-400">
+                        {p.sku}
+                        {warehouseId && <span className="ml-1 text-sky-500">· stock here: {stock} {p.unit?.name ?? ""}</span>}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <span className="text-[10px] text-slate-400 select-none">copies</span>
-                      <input type="number" inputMode="numeric" min={1} max={100} value={getCopies(p.id)}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => setCopy(p.id, parseInt(e.target.value) || 1)}
-                        className="w-12 text-center px-1 py-0.5 border border-slate-300 rounded text-xs" />
-                      <button onClick={() => removeFromQueue(p)}
-                        className="text-slate-300 hover:text-red-500 text-base leading-none px-0.5">×</button>
-                    </div>
+                    <button onClick={() => removeFromQueue(p)}
+                      className="flex-shrink-0 text-slate-300 hover:text-red-500 text-base leading-none px-0.5">×</button>
                   </div>
+                  {/* Each barcode line has its own label count (box ≠ pcs). */}
                   <div className="space-y-1 pl-0.5">
-                    <label className="flex items-center gap-2 cursor-pointer group">
+                    <div className="flex items-center gap-2">
                       <input type="checkbox" checked={isBarcodeSelected(p.id, "base")} onChange={() => toggleBarcode(p.id, "base")}
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                      <span className="text-[11px] text-slate-600 group-hover:text-slate-800 truncate">
+                      <span className="flex-1 min-w-0 text-[11px] text-slate-600 truncate">
                         <span className="font-medium">{p.unit?.name ?? "Base"}</span>
                         <span className="text-slate-400 font-mono ml-1">{p.barcode}</span>
                       </span>
-                    </label>
+                      <NumberField min={0} value={getCount(p.id, "base")} placeholder="0"
+                        onChange={(v) => setCount(p.id, "base", v)}
+                        className="w-12 text-center px-1 py-0.5 border border-slate-300 rounded text-xs" />
+                    </div>
                     {ucWithBarcode.map((uc) => (
-                      <label key={uc.id} className="flex items-center gap-2 cursor-pointer group">
+                      <div key={uc.id} className="flex items-center gap-2">
                         <input type="checkbox" checked={isBarcodeSelected(p.id, uc.id)} onChange={() => toggleBarcode(p.id, uc.id)}
                           className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                        <span className="text-[11px] text-slate-600 group-hover:text-slate-800 truncate">
+                        <span className="flex-1 min-w-0 text-[11px] text-slate-600 truncate">
                           <span className="font-medium">{uc.name}</span>
                           <span className="text-slate-400 ml-1">×{uc.conversionFactor}</span>
                           <span className="text-slate-400 font-mono ml-1">{uc.barcode}</span>
                         </span>
-                      </label>
+                        <NumberField min={0} value={getCount(p.id, uc.id)} placeholder="0"
+                          onChange={(v) => setCount(p.id, uc.id, v)}
+                          className="w-12 text-center px-1 py-0.5 border border-slate-300 rounded text-xs" />
+                      </div>
                     ))}
                   </div>
                 </div>

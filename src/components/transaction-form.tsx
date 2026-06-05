@@ -363,7 +363,14 @@ export function TransactionForm({
     if (type === "GRN") {
       const params = new URLSearchParams();
       lines.forEach((l) => params.append("productId", l.productId));
-      params.set("copies", lines.map((l) => `${l.productId}:${Math.round((l.quantity ?? 0) * l.conversionFactor)}`).join(","));
+      // Pass received base qty + the box factor so the barcode page can split
+      // each line into box labels (full boxes) + pcs labels (one per box + leftover).
+      params.set("copies", lines.map((l) => {
+        const baseQty = Math.round((l.quantity ?? 0) * l.conversionFactor);
+        const packFactors = (l.unitConversions ?? []).map((c) => c.conversionFactor).filter((f) => f > 1);
+        const factor = l.conversionFactor > 1 ? l.conversionFactor : (packFactors.length ? Math.min(...packFactors) : 1);
+        return `${l.productId}:${baseQty}:${factor}`;
+      }).join(","));
       setFlowState({
         step: "grn_done",
         orderId: data.order!.id,
