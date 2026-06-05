@@ -9,6 +9,10 @@ import { sendPushNotification } from "@/modules/push-notify/send";
 import { writeAuditLog } from "@/lib/audit-log";
 import { viewerGuard } from "@/lib/role-guard";
 
+// Large orders do meaningful work in one transaction — give the function room
+// well beyond the platform default so a big order is never killed mid-save.
+export const maxDuration = 60;
+
 const ORDER_PREFIX: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "OUT", TRANSFER: "TRF", ADJUSTMENT: "ADJ",
 };

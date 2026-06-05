@@ -7,6 +7,10 @@ import { writeAuditLog } from "@/lib/audit-log";
 export { PATCH } from "./_approve";
 export { PUT } from "./_edit";
 
+// Covers approve (PATCH), edit (PUT), and delete — all touch every order line,
+// so give big orders headroom beyond the platform default.
+export const maxDuration = 60;
+
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,7 +57,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     }
     await tx.movement.deleteMany({ where: { orderId: id } });
     await tx.order.delete({ where: { id } });
-  });
+  }, { timeout: 20000, maxWait: 15000 });
 
   const deleteDesc = order.type === "ADJUSTMENT"
     ? `Deleted ${order.orderNumber} (ADJUSTMENT/${order.adjustmentStatus}${order.adjustmentStatus === "APPROVED" ? " — stock reversed" : ""})`
