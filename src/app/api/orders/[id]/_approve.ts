@@ -68,7 +68,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           }
         }
         await tx.order.update({ where: { id }, data: { grnStatus: "APPROVED", ...reviewFields } });
-      });
+      }, { timeout: 20000, maxWait: 15000 });
       writeAuditLog({ session, action: "APPROVE_GRN", description: `Approved ${order.orderNumber}${note ? ` — "${note}"` : ""}`, entityId: id, entityType: "ORDER" });
     } else {
       await prisma.order.update({ where: { id }, data: { grnStatus: "REJECTED", ...reviewFields } });
@@ -91,7 +91,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             if (failures.length) throw new InsufficientStockError(`Insufficient stock:\n${failures.join("\n")}`);
           }
           await tx.order.update({ where: { id }, data: { goodsOutStatus: "APPROVED", ...reviewFields } });
-        });
+        }, { timeout: 20000, maxWait: 15000 });
       } catch (err) {
         if (err instanceof InsufficientStockError) return NextResponse.json({ error: err.message }, { status: 400 });
         console.error("Goods Out approval failed:", err);
@@ -128,7 +128,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             if (failures.length) throw new InsufficientStockError(`Insufficient stock:\n${failures.join("\n")}`);
           }
           await tx.order.update({ where: { id }, data: { transferStatus: "APPROVED", ...reviewFields } });
-        });
+        }, { timeout: 20000, maxWait: 15000 });
       } catch (err) {
         if (err instanceof InsufficientStockError) return NextResponse.json({ error: err.message }, { status: 400 });
         console.error("Transfer approval failed:", err);
@@ -160,7 +160,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           await applyAdjustmentLineTx(tx, line.productId, order.toLocationId, line.quantity);
         }
         await tx.order.update({ where: { id }, data: { adjustmentStatus: "APPROVED", ...reviewFields } });
-      });
+      }, { timeout: 20000, maxWait: 15000 });
     } catch (err) {
       if (err instanceof InsufficientStockError) {
         await prisma.order.update({ where: { id }, data: { adjustmentStatus: "REJECTED", ...reviewFields, reviewNote: err.message } });

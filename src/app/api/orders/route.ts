@@ -186,30 +186,33 @@ export async function POST(req: Request) {
         }
       }
 
+      // Batch the line + movement inserts into two round-trips (instead of two
+      // per line) so large orders stay well under the transaction timeout.
+      // Pre-generate OrderLine ids so each Movement can reference its line.
+      const lineRows = lines.map((line) => ({
+        id: crypto.randomUUID(),
+        orderId: order.id,
+        productId: line.productId,
+        quantity: line.quantity,
+        inputQty: line.inputQty ?? null,
+        inputUnit: line.inputUnit ?? null,
+        notes: line.notes ?? null,
+      }));
+      await tx.orderLine.createMany({ data: lineRows });
+      await tx.movement.createMany({
+        data: lineRows.map((lr) => ({
+          orderId: order.id,
+          orderLineId: lr.id,
+          productId: lr.productId,
+          fromLocationId: fromLocationId ?? null,
+          toLocationId: toLocationId ?? null,
+          quantity: Math.abs(lr.quantity),
+          type: MOVEMENT_TYPE[type],
+        })),
+      });
+
+      // Stock side-effects (immediate cases only; deferred ones wait for approval).
       for (const line of lines) {
-        const orderLine = await tx.orderLine.create({
-          data: {
-            orderId: order.id,
-            productId: line.productId,
-            quantity: line.quantity,
-            inputQty: line.inputQty ?? null,
-            inputUnit: line.inputUnit ?? null,
-            notes: line.notes,
-          },
-        });
-
-        await tx.movement.create({
-          data: {
-            orderId: order.id,
-            orderLineId: orderLine.id,
-            productId: line.productId,
-            fromLocationId: fromLocationId ?? null,
-            toLocationId: toLocationId ?? null,
-            quantity: Math.abs(line.quantity),
-            type: MOVEMENT_TYPE[type],
-          },
-        });
-
         if (type === "GRN") {
           if (isAdmin) {
             await tx.stock.upsert({
@@ -245,7 +248,7 @@ export async function POST(req: Request) {
       }
 
         return { order, txWarnings };
-      });
+      }, { timeout: 20000, maxWait: 15000 });
       break; // success — exit retry loop
     } catch (err) {
       const isOrderNumberCollision =

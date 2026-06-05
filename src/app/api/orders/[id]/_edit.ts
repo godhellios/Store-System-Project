@@ -81,29 +81,31 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           },
         });
 
-        // 4. Create new lines and apply stock
+        // 4. Create new lines + movements (batched — two round-trips, not per line)
+        const newRows = lines!.map((line) => ({
+          id: crypto.randomUUID(),
+          orderId: id,
+          productId: line.productId,
+          quantity: line.quantity,
+          inputQty: line.inputQty ?? null,
+          inputUnit: line.inputUnit ?? null,
+          notes: line.notes?.trim() || null,
+        }));
+        await tx.orderLine.createMany({ data: newRows });
+        await tx.movement.createMany({
+          data: newRows.map((lr) => ({
+            orderId: id,
+            orderLineId: lr.id,
+            productId: lr.productId,
+            fromLocationId: current.fromLocationId ?? null,
+            toLocationId: current.toLocationId ?? null,
+            quantity: lr.quantity,
+            type: MOVEMENT_TYPE[current.type],
+          })),
+        });
+
+        // 5. Apply stock per line (immediate orders only)
         for (const line of lines!) {
-          const orderLine = await tx.orderLine.create({
-            data: {
-              orderId: id,
-              productId: line.productId,
-              quantity: line.quantity,
-              inputQty: line.inputQty ?? null,
-              inputUnit: line.inputUnit ?? null,
-              notes: line.notes?.trim() || null,
-            },
-          });
-          await tx.movement.create({
-            data: {
-              orderId: id,
-              orderLineId: orderLine.id,
-              productId: line.productId,
-              fromLocationId: current.fromLocationId ?? null,
-              toLocationId: current.toLocationId ?? null,
-              quantity: line.quantity,
-              type: MOVEMENT_TYPE[current.type],
-            },
-          });
           if (!skipStock) {
             if (current.type === "GRN" && current.toLocationId) {
               await tx.stock.upsert({
@@ -129,7 +131,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             }
           }
         }
-      });
+      }, { timeout: 20000, maxWait: 15000 });
     } catch (err) {
       console.error("Order update failed:", err);
       return NextResponse.json({ error: "Failed to update order — please try again" }, { status: 500 });
