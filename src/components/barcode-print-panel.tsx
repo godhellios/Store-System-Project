@@ -299,9 +299,10 @@ export function BarcodePrintPanel({
     return row;
   }
 
-  function fillCountsFromStock(productIds?: string[]) {
-    if (!warehouseId) { toast.error("Pick a warehouse first"); return; }
+  function fillCountsFromStock(productIds?: string[], silent = false) {
+    if (!warehouseId) { if (!silent) toast.error("Pick a warehouse first"); return; }
     const ids = productIds ?? [...queue.keys()];
+    if (ids.length === 0) return;
     setCounts((prev) => {
       const next = { ...prev };
       for (const id of ids) {
@@ -310,7 +311,7 @@ export function BarcodePrintPanel({
       }
       return next;
     });
-    toast.success("Counts filled from stock");
+    if (!silent) toast.success("Counts refilled from stock");
   }
 
   // Add every product in the current search/category view that has stock at the
@@ -332,6 +333,13 @@ export function BarcodePrintPanel({
     });
     toast.success(`Added ${withStock.length} product(s) with stock`);
   }
+
+  // When the warehouse changes, silently re-sync counts for whatever's already
+  // queued, so the numbers always match the chosen warehouse — no manual refill.
+  useEffect(() => {
+    if (warehouseId) fillCountsFromStock(undefined, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouseId]);
 
   const selectedProducts = [...queue.values()];
   const totalLabels = selectedProducts.reduce((sum, p) => {
@@ -471,28 +479,35 @@ export function BarcodePrintPanel({
           </select>
         </div>
 
-        {/* Re-label from stock: pick a warehouse → auto-fill label counts from on-hand qty */}
-        <div className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-lg bg-sky-50 border border-sky-100">
-          <span className="text-xs font-medium text-sky-800">Re-label from stock:</span>
-          <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}
-            className="px-2 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
-            <option value="">Choose warehouse…</option>
-            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select>
-          {warehouseId && (
-            <>
+        {/* Re-label from stock — pick a warehouse to auto-fill label counts from on-hand qty */}
+        <div className="mb-3 rounded-xl border border-sky-200 bg-sky-50 overflow-hidden">
+          <div className="px-3.5 py-2.5 flex flex-wrap items-center gap-2.5">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-sky-800">
+              <svg className="w-4 h-4 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+              Re-label from stock
+            </span>
+            <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}
+              className="px-2.5 py-1.5 border border-sky-300 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-400">
+              <option value="">Choose warehouse…</option>
+              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+            {warehouseId && (
               <button onClick={addAllInViewWithStock}
-                className="text-xs px-2.5 py-1.5 rounded-lg bg-sky-600 text-white font-medium hover:bg-sky-700 transition-colors">
-                + Add all in view with stock
+                className="sm:ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700 transition-colors">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+                </svg>
+                Add all{categoryId ? " in category" : " in view"} with stock
               </button>
-              <button onClick={() => fillCountsFromStock()}
-                className="text-xs px-2.5 py-1.5 rounded-lg border border-sky-300 text-sky-700 font-medium hover:bg-sky-100 transition-colors">
-                ↺ Refill counts from stock
-              </button>
-              <span className="text-[10px] text-sky-600 w-full">
-                Box label = full boxes · Pcs label = one per box + leftover. Counts are editable before printing.
-              </span>
-            </>
+            )}
+          </div>
+          {warehouseId && (
+            <div className="px-3.5 py-1.5 bg-sky-100/60 border-t border-sky-200 flex items-center justify-between gap-3 text-[10px] text-sky-700">
+              <span>Counts auto-fill from stock — <b className="font-semibold">box</b> = full boxes, <b className="font-semibold">pcs</b> = one per box + leftover. Editable before printing.</span>
+              <button onClick={() => fillCountsFromStock()} className="font-semibold underline whitespace-nowrap hover:text-sky-900">↺ Refill counts</button>
+            </div>
           )}
         </div>
 
