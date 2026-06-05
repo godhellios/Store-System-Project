@@ -122,7 +122,7 @@ export default function LoginPage() {
             📖 Staff Guide
           </a>
           <p className="text-xs text-gray-400">
-            {t("login.footer", "© 2026 Mitra Ramah — MRIs v1.5.2")}
+            {t("login.footer", "© 2026 Mitra Ramah — MRIs v1.5.3")}
           </p>
         </div>
       </div>
