@@ -481,38 +481,18 @@ export function BarcodePrintPanel({
   // barcode → number → name → unit, centered as a block, 1mm gaps, X/Y offsets.
   // The barcode image is drawn at its NATIVE pixel width (1 px = 1 printer dot);
   // only its height is stretched, which never affects bar widths.
-  //
-  // On PORTRAIT stock (height > width, e.g. 40×60mm) the content is composed
-  // along the LONG axis and rotated 90° onto the label. Packing-unit barcodes
-  // (e.g. THR-00415-BOXOF, ~200 modules) physically cannot fit across a 40mm
-  // label at a scannable bar width — they need the 60mm axis. This matches the
-  // old known-good labels (5cm barcode on 4cm-wide stock). A 90° rotation maps
-  // pixels 1:1, so bars stay whole printer dots.
   function renderLabelPng(item: LabelItem, barcodeImg: HTMLImageElement): string {
     const s = settings;
     const dp = PRINTER_DPMM;
-    const physW = Math.round(s.width * dp);
-    const physH = Math.round(s.height * dp);
-    const rotate = s.height > s.width; // portrait stock → compose landscape, rotate
-    const W = rotate ? physH : physW;  // logical composition width = long axis
-    const H = rotate ? physW : physH;
-
+    const W = Math.round(s.width * dp);
+    const H = Math.round(s.height * dp);
     const canvas = document.createElement("canvas");
-    canvas.width = physW;
-    canvas.height = physH;
+    canvas.width = W;
+    canvas.height = H;
     const ctx = canvas.getContext("2d")!;
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, physW, physH);
-    ctx.save();
-    if (rotate) {
-      // Logical (0,0) → physical top-right; logical +x runs down the label
-      ctx.translate(physW, 0);
-      ctx.rotate(Math.PI / 2);
-    }
-
-    const wMm = W / dp; // logical width in mm (the long side when rotated)
-    const hMm = H / dp;
+    ctx.fillRect(0, 0, W, H);
 
     // Same defaults as buildPrintHtml so QZ output matches the browser preview
     const shortSide = Math.min(s.width, s.height);
@@ -523,12 +503,9 @@ export function BarcodePrintPanel({
     const smallPx = ptToPx(smallPt);
     const lineH = (px: number) => Math.round(px * 1.3);
     const gap = Math.round(1 * dp); // 1mm between elements
-    const textW = Math.round((wMm - 4) * dp);
-    // Barcode may use the full logical width minus a 3mm quiet zone per side
-    // (scannability beats the widthPct styling knob, which still governs the
-    // browser-print fallback).
-    const maxBarW = Math.round((wMm - 6) * dp);
-    const barH = Math.max(8, Math.round(hMm * ((s.barcodeHeightPct ?? 45) / 100) * dp));
+    const textW = Math.round((s.width - 4) * dp);
+    const maxBarW = Math.round(s.width * ((s.barcodeWidthPct ?? 90) / 100) * dp);
+    const barH = Math.max(8, Math.round(s.height * ((s.barcodeHeightPct ?? 45) / 100) * dp));
     const showNum = s.showBarcodeNum ?? true;
     const showName = s.showProductName ?? true;
     const showUnit = s.showUnit ?? true;
@@ -541,19 +518,8 @@ export function BarcodePrintPanel({
     if (showName) total += gap + lineH(namePx);
     if (showUnit) total += gap + lineH(smallPx);
 
-    // Offsets keep their PHYSICAL meaning (X = across the label, Y = down the
-    // label) regardless of rotation.
-    const offX = rotate ? (s.offsetY ?? 0) : (s.offsetX ?? 0);
-    const offY = rotate ? -(s.offsetX ?? 0) : (s.offsetY ?? 0);
-
-    // Clamp so offsets can never push content past the label edges (printing
-    // onto the next label). The barcode is the widest element; clamp the
-    // center so it stays fully inside.
-    let y = Math.round((H - total) / 2 + offY * dp);
-    y = Math.min(Math.max(y, 0), Math.max(0, H - total));
-    let cx = Math.round(W / 2 + offX * dp);
-    const halfBar = Math.round(barW / 2);
-    cx = Math.min(Math.max(cx, halfBar), W - halfBar);
+    let y = Math.round((H - total) / 2 + (s.offsetY ?? 0) * dp);
+    const cx = Math.round(W / 2 + (s.offsetX ?? 0) * dp);
 
     ctx.drawImage(barcodeImg, cx - Math.round(barW / 2), y, barW, barH);
     y += barH;
@@ -586,7 +552,6 @@ export function BarcodePrintPanel({
       ctx.fillText(fit(item.unitLine, textW), cx, y);
     }
 
-    ctx.restore();
     return canvas.toDataURL("image/png").split(",")[1]; // raw base64 for QZ
   }
 
@@ -615,9 +580,7 @@ export function BarcodePrintPanel({
       }
     }
     const s = settings;
-    // Barcode budget = the label's LONG axis minus 3mm quiet zone per side —
-    // must match renderLabelPng's maxBarW (portrait stock prints rotated 90°).
-    const maxw = Math.round((Math.max(s.width, s.height) - 6) * PRINTER_DPMM);
+    const maxw = Math.round(s.width * ((s.barcodeWidthPct ?? 90) / 100) * PRINTER_DPMM);
     const entries = await Promise.all(
       [...allBarcodes].map(async (bc) => {
         const res = await fetch(`/api/barcodes/${encodeURIComponent(bc)}?fmt=png&maxw=${maxw}`);
