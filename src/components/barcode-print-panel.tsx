@@ -440,18 +440,32 @@ export function BarcodePrintPanel({
   const [batchState, setBatchState] = useState<{ chunks: string[][]; index: number } | null>(null);
   const [batchPrinting, setBatchPrinting] = useState(false);
 
-  // Build a QZ config from current label settings
+  // Build a QZ config from current label settings.
+  //
+  // Barcode scannability fix (2026-06-10): print as a rasterized bitmap, not raw
+  // HTML. With `rasterize: false`, QZ hands the label HTML to the printer driver,
+  // which renders the bars itself at low resolution and rounds bar widths
+  // unevenly — the result is visible but unscannable (Code128 needs exact 1:2:3:4
+  // bar-width ratios). With `rasterize: true` + `density` matched to the printer,
+  // QZ renders the (vector SVG) barcode to a crisp bitmap at the printer's native
+  // resolution, so every bar lands on whole dots and the ratios stay exact.
+  //
+  // PRINTER_DPMM = printer resolution in dots/mm. 8 dpmm ≈ 203 DPI, the standard
+  // for thermal label printers. If labels still won't scan on a 300-DPI printer,
+  // change this to 12.
   function makeQzConfig() {
     const qz = qzRef.current;
     const s = settings;
     const isPortrait = s.height >= s.width;
+    const PRINTER_DPMM = 8; // 203 DPI
     return qz.configs.create(s.printerName, {
       size: { width: s.width, height: s.height },
       units: "mm",
       margins: 0,
       orientation: isPortrait ? "portrait" : "landscape",
       scaleContent: false,
-      rasterize: false,
+      rasterize: true,
+      density: PRINTER_DPMM,
     });
   }
 
