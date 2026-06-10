@@ -139,7 +139,11 @@ export function AppShell({
   }
 
   return (
-    <div className="flex min-h-screen">
+    // Desktop: lock the shell to the viewport height so `main` scrolls internally
+    // and the sidebar fills the full height (no white gap below Sign out on long
+    // pages). Mobile keeps min-h-screen + whole-page scroll (sidebar is a fixed
+    // overlay there, so it's unaffected).
+    <div className="flex min-h-screen md:h-[100dvh] md:min-h-0 md:overflow-hidden">
 
       {/* ── Location required overlay ─────────────────────── */}
       {geoBlocked && (
@@ -231,12 +235,12 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50 dark:bg-slate-950">
+        <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-50 dark:bg-slate-950">
           {children}
         </main>
 
         <footer className="text-center text-xs text-slate-400 dark:text-slate-500 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
-          {t("app.footer", "© 2026 Mitra Ramah — All rights reserved | MRIs v1.5.6")}
+          {t("app.footer", "© 2026 Mitra Ramah — All rights reserved | MRIs v1.5.7")}
         </footer>
       </div>
     </div>
