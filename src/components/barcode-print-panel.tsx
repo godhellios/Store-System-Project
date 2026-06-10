@@ -18,6 +18,7 @@ type LabelSettings = {
   offsetX?: number;
   offsetY?: number;
   barcodeWidthPct?: number;
+  batchSize?: number; // pause every N physical labels (QZ only); 0/undefined = print all at once
 };
 
 type UnitConversion = { id: string; name: string; conversionFactor: number; barcode: string | null };
@@ -120,6 +121,50 @@ function PrintConfirmModal({
             className="flex-1 px-4 py-2.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition-colors">
             Buka Dialog Print
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Batch checkpoint modal (shown between QZ batches) ─────────────────────────
+function BatchCheckpointModal({
+  printedSoFar, total, batchNo, batchCount, printing, onContinue, onReprint, onStop,
+}: {
+  printedSoFar: number; total: number; batchNo: number; batchCount: number;
+  printing: boolean; onContinue: () => void; onReprint: () => void; onStop: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+        <h2 className="text-base font-semibold text-slate-800 mb-1">
+          Batch {batchNo} dari {batchCount} selesai
+        </h2>
+        <p className="text-sm text-slate-600 mb-1">
+          <b>{printedSoFar}</b> dari <b>{total}</b> label sudah dicetak.
+        </p>
+        <p className="text-xs text-slate-500 mb-4">
+          Periksa hasil cetak & rapikan posisi gulungan label sebelum melanjutkan.
+        </p>
+        <div className="w-full bg-slate-100 rounded-full h-2 mb-5 overflow-hidden">
+          <div className="bg-blue-600 h-2 rounded-full transition-all"
+            style={{ width: `${Math.round((printedSoFar / total) * 100)}%` }} />
+        </div>
+        <div className="space-y-2">
+          <button onClick={onContinue} disabled={printing}
+            className="w-full px-4 py-2.5 text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg font-semibold transition-colors">
+            {printing ? "Mencetak…" : "Lanjut — cetak batch berikutnya"}
+          </button>
+          <div className="flex gap-2">
+            <button onClick={onReprint} disabled={printing}
+              className="flex-1 px-4 py-2.5 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 font-medium transition-colors">
+              Cetak ulang batch ini
+            </button>
+            <button onClick={onStop} disabled={printing}
+              className="flex-1 px-4 py-2.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 font-medium transition-colors">
+              Berhenti
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -352,9 +397,10 @@ export function BarcodePrintPanel({
     return sum + n;
   }, 0);
 
-  // Build all label divs HTML (shared between QZ and window.print paths)
+  // Build the flat list of label divs (one HTML string per physical label).
+  // Shared between QZ and window.print paths; QZ chunks this for batch printing.
   // barcodeDataUris: pre-fetched map used by QZ path so HTML is self-contained
-  const buildLabelsHtml = useCallback((barcodeDataUris?: Map<string, string>) => {
+  const buildLabelsArray = useCallback((barcodeDataUris?: Map<string, string>) => {
     const s = settings;
     const showBarcodeNum = s.showBarcodeNum ?? true;
     const showProductName = s.showProductName ?? true;
@@ -385,16 +431,41 @@ export function BarcodePrintPanel({
         pushN(getCount(p.id, uc.id), uc.barcode!, `${uc.name} (×${uc.conversionFactor}) · ${p.sku}`);
       }
       return out;
-    }).join("");
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProducts, selectedBarcodes, counts, settings]);
 
-  // QZ Tray direct print — bypasses Chrome dialog entirely
-  async function printViaQZ() {
+  // ── Batch printing state (QZ only) ──
+  // chunks: the full label list split into batches; index: last batch printed.
+  const [batchState, setBatchState] = useState<{ chunks: string[][]; index: number } | null>(null);
+  const [batchPrinting, setBatchPrinting] = useState(false);
+
+  // Build a QZ config from current label settings
+  function makeQzConfig() {
+    const qz = qzRef.current;
+    const s = settings;
+    const isPortrait = s.height >= s.width;
+    return qz.configs.create(s.printerName, {
+      size: { width: s.width, height: s.height },
+      units: "mm",
+      margins: 0,
+      orientation: isPortrait ? "portrait" : "landscape",
+      scaleContent: false,
+      rasterize: false,
+    });
+  }
+
+  // Print one chunk (array of self-contained label HTML strings) as a single QZ job.
+  // Each job restarts at the printer's top-of-form, which is what resets the drift.
+  async function printChunk(labelStrings: string[]) {
     const qz = qzRef.current;
     if (!qz?.websocket.isActive()) throw new Error("QZ not connected");
+    const fullHtml = buildPrintHtml(labelStrings.join(""), settings);
+    await qz.print(makeQzConfig(), [{ type: "html", format: "plain", data: fullHtml }]);
+  }
 
-    // Collect unique barcodes from selected items
+  // Fetch every selected barcode image once as a data URI so the HTML is self-contained.
+  async function fetchBarcodeDataUris(): Promise<Map<string, string>> {
     const allBarcodes = new Set<string>();
     for (const p of selectedProducts) {
       const sel = selectedBarcodes.get(p.id) ?? new Set();
@@ -403,8 +474,6 @@ export function BarcodePrintPanel({
         if (uc.barcode && sel.has(uc.id)) allBarcodes.add(uc.barcode);
       }
     }
-
-    // Fetch barcode images as data URIs so the HTML is self-contained
     const entries = await Promise.all(
       [...allBarcodes].map(async (bc) => {
         const res = await fetch(`/api/barcodes/${encodeURIComponent(bc)}`);
@@ -419,30 +488,89 @@ export function BarcodePrintPanel({
         return [bc, dataUri] as const;
       })
     );
-    const barcodeDataUris = new Map(entries);
-
-    const s = settings;
-    const isPortrait = s.height >= s.width;
-    const labelsHtml = buildLabelsHtml(barcodeDataUris);
-    const fullHtml = buildPrintHtml(labelsHtml, s);
-
-    const config = qz.configs.create(s.printerName, {
-      size: { width: s.width, height: s.height },
-      units: "mm",
-      margins: 0,
-      orientation: isPortrait ? "portrait" : "landscape",
-      scaleContent: false,
-      rasterize: false,
-    });
-
-    await qz.print(config, [{ type: "html", format: "plain", data: fullHtml }]);
+    return new Map(entries);
   }
 
-  // Browser window.print() fallback
+  // QZ Tray direct print. When settings.batchSize > 0 and the run exceeds it,
+  // print the first batch then pause for a checkpoint (continue / reprint / stop)
+  // so the operator can re-seat the roll between batches — prevents label drift.
+  async function startQZPrint() {
+    if (batchState) return; // a batch run is already in progress
+    const tid = toast.loading("Menyiapkan…");
+    try {
+      const dataUris = await fetchBarcodeDataUris();
+      const labels = buildLabelsArray(dataUris);
+      const bs = settings.batchSize && settings.batchSize > 0 ? Math.floor(settings.batchSize) : 0;
+
+      // Batching off, or the whole run fits in one batch → single job (old behavior)
+      if (bs === 0 || labels.length <= bs) {
+        await printChunk(labels);
+        toast.success(`${labels.length} label dicetak`, { id: tid });
+        return;
+      }
+
+      // Split into batches, print the first, then open the checkpoint modal
+      const chunks: string[][] = [];
+      for (let i = 0; i < labels.length; i += bs) chunks.push(labels.slice(i, i + bs));
+      await printChunk(chunks[0]);
+      toast.success(`Batch 1/${chunks.length} dicetak`, { id: tid });
+      setBatchState({ chunks, index: 0 });
+    } catch (err) {
+      toast.dismiss(tid);
+      throw err; // handled by handlePrint → falls back to browser dialog
+    }
+  }
+
+  // Checkpoint: print the next batch (and finish if it was the last one)
+  async function continueBatch() {
+    if (!batchState) return;
+    const nextIndex = batchState.index + 1;
+    setBatchPrinting(true);
+    try {
+      await printChunk(batchState.chunks[nextIndex]);
+      if (nextIndex >= batchState.chunks.length - 1) {
+        const total = batchState.chunks.reduce((n, c) => n + c.length, 0);
+        toast.success(`Selesai — ${total} label dicetak`);
+        setBatchState(null);
+      } else {
+        setBatchState({ ...batchState, index: nextIndex });
+      }
+    } catch {
+      toast.error("Gagal mencetak batch — coba lagi");
+    } finally {
+      setBatchPrinting(false);
+    }
+  }
+
+  // Checkpoint: reprint the batch that just came out (e.g. it jammed / drifted)
+  async function reprintBatch() {
+    if (!batchState) return;
+    setBatchPrinting(true);
+    try {
+      await printChunk(batchState.chunks[batchState.index]);
+      toast.success(`Batch ${batchState.index + 1} dicetak ulang`);
+    } catch {
+      toast.error("Gagal mencetak ulang batch");
+    } finally {
+      setBatchPrinting(false);
+    }
+  }
+
+  // Checkpoint: stop the run, leaving remaining batches unprinted
+  function stopBatch() {
+    if (!batchState) return;
+    const printed = batchState.chunks.slice(0, batchState.index + 1).reduce((n, c) => n + c.length, 0);
+    const total = batchState.chunks.reduce((n, c) => n + c.length, 0);
+    toast(`Dihentikan — ${printed} dari ${total} label dicetak`, { icon: "🛑" });
+    setBatchState(null);
+  }
+
+  // Browser window.print() fallback — prints all at once (no batching; the
+  // Chrome dialog already gives a natural pause per job).
   function printViaWindow() {
     const printWindow = window.open("", "_blank");
     if (!printWindow) { toast.error("Popup blocked — allow popups for this site"); return; }
-    const html = buildPrintHtml(buildLabelsHtml(), settings);
+    const html = buildPrintHtml(buildLabelsArray().join(""), settings);
     printWindow.document.write(html);
     printWindow.document.close();
   }
@@ -452,12 +580,10 @@ export function BarcodePrintPanel({
     const canUseQZ = qzStatus === "connected" && !!settings.printerName;
 
     if (canUseQZ) {
-      const tid = toast.loading("Mencetak…");
       try {
-        await printViaQZ();
-        toast.success(`${totalLabels} label dicetak`, { id: tid });
-      } catch (err) {
-        toast.error("QZ Tray error — beralih ke dialog browser", { id: tid });
+        await startQZPrint();
+      } catch {
+        toast.error("QZ Tray error — beralih ke dialog browser");
         setShowConfirm(true);
       }
     } else {
@@ -634,6 +760,19 @@ export function BarcodePrintPanel({
           settings={settings}
           onConfirm={() => { setShowConfirm(false); printViaWindow(); }}
           onCancel={() => setShowConfirm(false)}
+        />
+      )}
+
+      {batchState && (
+        <BatchCheckpointModal
+          printedSoFar={batchState.chunks.slice(0, batchState.index + 1).reduce((n, c) => n + c.length, 0)}
+          total={batchState.chunks.reduce((n, c) => n + c.length, 0)}
+          batchNo={batchState.index + 1}
+          batchCount={batchState.chunks.length}
+          printing={batchPrinting}
+          onContinue={continueBatch}
+          onReprint={reprintBatch}
+          onStop={stopBatch}
         />
       )}
     </div>

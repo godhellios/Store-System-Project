@@ -1212,6 +1212,7 @@ function PrinterSettingsManager() {
   const [showUnit, setShowUnit] = useState(true);
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
+  const [batchSize, setBatchSize] = useState(50);
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
 
@@ -1234,6 +1235,7 @@ function PrinterSettingsManager() {
             if (s.showUnit != null) setShowUnit(s.showUnit);
             if (s.offsetX != null) setOffsetX(s.offsetX);
             if (s.offsetY != null) setOffsetY(s.offsetY);
+            if (s.batchSize != null) setBatchSize(s.batchSize);
           } catch { /* ignore */ }
         }
         setFetched(true);
@@ -1252,7 +1254,7 @@ function PrinterSettingsManager() {
           width, height, printerName: printerName.trim() || undefined,
           namePt, smallPt, barcodeHeightPct, barcodeWidthPct,
           showBarcodeNum, showProductName, showUnit,
-          offsetX, offsetY,
+          offsetX, offsetY, batchSize,
         }),
       }),
     });
@@ -1413,6 +1415,25 @@ function PrinterSettingsManager() {
             placeholder="e.g. Xprinter XP-365B"
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+
+        {/* Batch printing (QZ Tray only) */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <p className="text-sm font-semibold text-slate-800 mb-0.5">Cetak Per Batch</p>
+          <p className="text-xs text-slate-500 mb-3">
+            Berhenti sejenak setiap sekian label agar Anda bisa merapikan gulungan label
+            (mencegah posisi cetak bergeser turun pada cetakan panjang). Hanya berlaku untuk
+            cetak langsung via QZ Tray. Isi <b>0</b> untuk cetak semua sekaligus tanpa jeda.
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number" min={0} max={1000} value={batchSize}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setBatchSize(Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-24 px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="text-xs text-slate-400">label per batch</span>
+          </div>
         </div>
 
         <button
