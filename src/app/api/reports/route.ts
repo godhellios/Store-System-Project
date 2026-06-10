@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { computeRestockSuggestions, type RestockInput } from "@/lib/restock";
 import ExcelJS from "exceljs";
 
 export async function GET(req: Request) {
@@ -337,6 +338,119 @@ export async function GET(req: Request) {
     rows.sort((a, b) => b.totalOut - a.totalOut);
 
     return NextResponse.json({ rows, dayRange, fromDate: fromDate.toISOString(), toDate: toDate.toISOString() });
+  }
+
+  if (report === "restock") {
+    // Read-only: gathers existing data (stock, out-velocity, reorder points,
+    // packaging, last cost/supplier) and runs the pure restock logic. No writes.
+    const isAdmin = session.user.role === "ADMIN" || session.user.role === "VIEWER";
+    const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86400000);
+    const toDate = to ? new Date(to + "T23:59:59") : new Date();
+    const dayRange = Math.max(1, Math.round((toDate.getTime() - fromDate.getTime()) / 86400000));
+    const coverageDays = Math.max(1, parseInt(searchParams.get("coverageDays") ?? "30", 10) || 30);
+
+    // Out-velocity per product over the window.
+    const movements = await prisma.movement.findMany({
+      where: {
+        type: "OUT",
+        createdAt: { gte: fromDate, lte: toDate },
+        product: { isActive: true, ...(categoryId ? { categoryId } : {}) },
+        ...(locationId ? { fromLocationId: locationId } : {}),
+      },
+      select: { productId: true, quantity: true },
+    });
+    const outByProduct: Record<string, number> = {};
+    for (const m of movements) outByProduct[m.productId] = (outByProduct[m.productId] ?? 0) + m.quantity;
+
+    // Candidate products: anything with a reorder point set, or anything that moved.
+    const movedIds = Object.keys(outByProduct);
+    const products = await prisma.product.findMany({
+      where: {
+        isActive: true,
+        ...(categoryId ? { categoryId } : {}),
+        OR: [{ reorderPoint: { gt: 0 } }, ...(movedIds.length ? [{ id: { in: movedIds } }] : [])],
+      },
+      include: { category: true, unit: true, unitConversions: true },
+    });
+    const productIds = products.map((p) => p.id);
+
+    // Current stock per candidate (optionally at one location).
+    const stockRows = productIds.length ? await prisma.stock.findMany({
+      where: { productId: { in: productIds }, ...(locationId ? { locationId } : {}) },
+      select: { productId: true, quantity: true },
+    }) : [];
+    const stockByProduct: Record<string, number> = {};
+    for (const s of stockRows) stockByProduct[s.productId] = (stockByProduct[s.productId] ?? 0) + s.quantity;
+
+    const inputs: RestockInput[] = products.map((p) => {
+      const factors = p.unitConversions.map((uc) => uc.conversionFactor).filter((f) => f > 1);
+      return {
+        productId: p.id,
+        name: p.name,
+        sku: p.sku,
+        category: p.category.name,
+        unit: p.unit.name,
+        reorderPoint: p.reorderPoint,
+        currentStock: stockByProduct[p.id] ?? 0,
+        totalOut: outByProduct[p.id] ?? 0,
+        lastCost: isAdmin && p.lastCost != null ? Number(p.lastCost) : null,
+        lastSupplier: null, // filled below for the resulting candidates only
+        boxFactor: factors.length ? Math.max(...factors) : null,
+      };
+    });
+
+    const rows = computeRestockSuggestions(inputs, { dayRange, coverageDays });
+
+    // Attach the last supplier for the surfaced candidates only (small set).
+    const candidateIds = rows.map((r) => r.productId);
+    if (candidateIds.length) {
+      const grnLines = await prisma.orderLine.findMany({
+        where: { productId: { in: candidateIds }, order: { type: "GRN" } },
+        select: { productId: true, order: { select: { createdAt: true, supplier: true, supplierRef: { select: { name: true } } } } },
+        orderBy: { order: { createdAt: "desc" } },
+      });
+      const supplierByProduct: Record<string, string> = {};
+      for (const l of grnLines) {
+        if (supplierByProduct[l.productId]) continue; // first = most recent
+        const name = l.order.supplierRef?.name ?? l.order.supplier ?? "";
+        if (name) supplierByProduct[l.productId] = name;
+      }
+      for (const r of rows) r.lastSupplier = supplierByProduct[r.productId] ?? null;
+    }
+
+    const totalEstCost = isAdmin
+      ? rows.reduce((s, r) => s + (r.estCost ?? 0), 0)
+      : null;
+
+    if (format === "xlsx") {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet("Restock");
+      const header = ["Product", "SKU", "Category", "Urgency", "Current Stock", "Unit", "Reorder Pt", "Days Left", "Order Qty", "Last Supplier"];
+      if (isAdmin) header.push("Last Cost", "Est. Cost");
+      ws.addRow(header);
+      for (const r of rows) {
+        const row = [r.name, r.sku, r.category, r.urgency, r.currentStock, r.unit, r.reorderPoint, r.daysOfStock ?? "", r.suggestedQty, r.lastSupplier ?? ""];
+        if (isAdmin) row.push(r.lastCost ?? "", r.estCost ?? "");
+        ws.addRow(row);
+      }
+      const buf = await wb.xlsx.writeBuffer();
+      return new NextResponse(buf, {
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="restock-${Date.now()}.xlsx"`,
+        },
+      });
+    }
+
+    return NextResponse.json({
+      rows,
+      dayRange,
+      coverageDays,
+      isAdmin,
+      totalEstCost,
+      fromDate: fromDate.toISOString(),
+      toDate: toDate.toISOString(),
+    });
   }
 
   return NextResponse.json({ error: "Unknown report" }, { status: 400 });

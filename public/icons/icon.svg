@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Full-bleed navy background: doubles as a maskable icon (content stays in the safe center zone) -->
+  <rect width="512" height="512" fill="#1e3a5f"/>
+  <!-- Wordmark, centered within the maskable safe zone (~center 60%) -->
+  <text x="256" y="256" text-anchor="middle" dominant-baseline="central"
+        font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="170"
+        letter-spacing="-6">
+    <tspan fill="#ffffff">MR</tspan><tspan fill="#60a5fa">Is</tspan>
+  </text>
+</svg>

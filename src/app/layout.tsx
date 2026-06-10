@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: "MRIs — Mitra Ramah Inventory System",
   description: "Inventory management for Mitra Ramah",
   manifest: "/manifest.json",
+  icons: { apple: "/icons/apple-touch-icon.png" },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "MRIs" },
   formatDetection: { telephone: false },
   other: { "mobile-web-app-capable": "yes" },

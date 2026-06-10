@@ -256,7 +256,8 @@
     "tabs": {
       "stockOnHand": "Stock On Hand",
       "movementLog": "Movement Log",
-      "lowStock": "Low Stock"
+      "lowStock": "Low Stock",
+      "restock": "Restock"
     },
     "filters": {
       "location": "Location",

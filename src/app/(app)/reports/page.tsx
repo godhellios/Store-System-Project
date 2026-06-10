@@ -27,6 +27,15 @@ type TurnoverReport = {
   rows: { name: string; sku: string; category: string; unit: string; moves: number; totalOut: number; currentStock: number; avgDailyOut: number; daysOfStock: number | null }[];
   dayRange: number;
 };
+type RestockRow = {
+  productId: string; name: string; sku: string; category: string; unit: string;
+  reorderPoint: number; currentStock: number; avgDailyOut: number; daysOfStock: number | null;
+  suggestedQty: number; estCost: number | null; lastCost: number | null; lastSupplier: string | null;
+  urgency: "out" | "critical" | "low" | "watch";
+};
+type RestockReport = {
+  rows: RestockRow[]; dayRange: number; coverageDays: number; isAdmin: boolean; totalEstCost: number | null;
+};
 
 export default function ReportsPage() {
   const { data: session } = useSession();
@@ -46,6 +55,7 @@ export default function ReportsPage() {
     t("reports.tabs.receiving", "Penerimaan"),
     ...(isAdmin ? ["Inventory Value"] : []),
     "Turnover",
+    t("reports.tabs.restock", "Restock"),
   ];
 
   const [tab, setTab] = useState(0);
@@ -54,6 +64,7 @@ export default function ReportsPage() {
   const [receivingData, setReceivingData] = useState<ReceivingReport | null>(null);
   const [inventoryValueData, setInventoryValueData] = useState<InventoryValueReport | null>(null);
   const [turnoverData, setTurnoverData] = useState<TurnoverReport | null>(null);
+  const [restockData, setRestockData] = useState<RestockReport | null>(null);
 
   const [locationId, setLocationId] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -76,8 +87,8 @@ export default function ReportsPage() {
 
   // Tab indices depend on isAdmin (inventory-value tab only shown to admins)
   const TAB_REPORTS = isAdmin
-    ? ["stock", "movements", "low-stock", "receiving", "inventory-value", "turnover"]
-    : ["stock", "movements", "low-stock", "receiving", "turnover"];
+    ? ["stock", "movements", "low-stock", "receiving", "inventory-value", "turnover", "restock"]
+    : ["stock", "movements", "low-stock", "receiving", "turnover", "restock"];
 
   async function fetchData() {
     setLoading(true);
@@ -86,10 +97,13 @@ export default function ReportsPage() {
     const res = await fetch(`/api/reports?${qs}`);
     if (!res.ok) { toast.error("Failed to load report"); setLoading(false); return; }
     const json = await res.json();
-    if (report === "receiving") { setReceivingData(json); setInventoryValueData(null); setTurnoverData(null); setData([]); }
-    else if (report === "inventory-value") { setInventoryValueData(json); setReceivingData(null); setTurnoverData(null); setData([]); }
-    else if (report === "turnover") { setTurnoverData(json); setReceivingData(null); setInventoryValueData(null); setData([]); }
-    else { setData(json); setReceivingData(null); setInventoryValueData(null); setTurnoverData(null); }
+    // Clear all card-style report states, then set the active one.
+    setReceivingData(null); setInventoryValueData(null); setTurnoverData(null); setRestockData(null); setData([]);
+    if (report === "receiving") setReceivingData(json);
+    else if (report === "inventory-value") setInventoryValueData(json);
+    else if (report === "turnover") setTurnoverData(json);
+    else if (report === "restock") setRestockData(json);
+    else setData(json);
     setLoading(false);
   }
 
@@ -107,6 +121,21 @@ export default function ReportsPage() {
   const MOVE_BADGE: Record<string, string> = {
     IN: "bg-green-100 text-green-700", OUT: "bg-orange-100 text-orange-700",
     TRANSFER: "bg-blue-100 text-blue-700", ADJUSTMENT: "bg-gray-100 text-gray-600",
+  };
+
+  // Restock urgency styling
+  type Urg = "out" | "critical" | "low" | "watch";
+  const URGENCY_LABEL: Record<Urg, string> = { out: "Out", critical: "Urgent", low: "Low", watch: "Soon" };
+  const URGENCY_BADGE: Record<Urg, string> = {
+    out: "bg-red-600 text-white", critical: "bg-red-100 text-red-700",
+    low: "bg-amber-100 text-amber-700", watch: "bg-slate-100 text-slate-500",
+  };
+  const URGENCY_CARD: Record<Urg, string> = {
+    out: "border-red-300 bg-red-50", critical: "border-red-200 bg-red-50/60",
+    low: "border-amber-200 bg-amber-50/50", watch: "border-slate-200",
+  };
+  const URGENCY_ROW: Record<Urg, string> = {
+    out: "bg-red-50 hover:bg-red-50", critical: "bg-red-50/40", low: "", watch: "",
   };
 
   return (
@@ -146,7 +175,7 @@ export default function ReportsPage() {
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-        {["movements", "receiving", "turnover"].includes(TAB_REPORTS[tab]) && <>
+        {["movements", "receiving", "turnover", "restock"].includes(TAB_REPORTS[tab]) && <>
           <div>
             <label className="text-xs text-slate-500 block mb-1">{t("reports.filters.from", "From")}</label>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
@@ -428,13 +457,102 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {loading && ["receiving", "inventory-value", "turnover"].includes(TAB_REPORTS[tab]) && (
+      {/* Restock Tab */}
+      {TAB_REPORTS[tab] === "restock" && !loading && restockData && (
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-slate-600">
+            Suggested orders to cover <span className="font-semibold">{restockData.coverageDays} days</span> of demand,
+            based on the last <span className="font-semibold">{restockData.dayRange} days</span> of outbound movement and reorder points.
+            {restockData.isAdmin && restockData.totalEstCost != null && restockData.totalEstCost > 0 && (
+              <span className="block mt-1 text-slate-500">
+                Estimated total: <span className="font-semibold text-slate-700">Rp {restockData.totalEstCost.toLocaleString("id-ID")}</span> (based on last cost)
+              </span>
+            )}
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-2">
+            {restockData.rows.length === 0 ? (
+              <p className="text-center text-xs text-slate-400 py-10">Nothing needs reordering. 🎉</p>
+            ) : restockData.rows.map((r) => (
+              <div key={r.productId} className={`bg-white rounded-xl border px-4 py-3 ${URGENCY_CARD[r.urgency]}`}>
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm text-slate-800 leading-tight">{r.name}</div>
+                    <div className="text-xs font-mono text-slate-400 mt-0.5">{r.sku} · {r.category}</div>
+                  </div>
+                  <span className={`flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide ${URGENCY_BADGE[r.urgency]}`}>
+                    {URGENCY_LABEL[r.urgency]}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2 mt-1.5">
+                  <span className="text-xs text-slate-400">Order</span>
+                  <span className="font-bold text-base text-blue-700">{r.suggestedQty.toLocaleString("id-ID")}</span>
+                  <span className="text-xs text-slate-500">{r.unit}</span>
+                </div>
+                <div className="text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+                  <span>Stock: {r.currentStock.toLocaleString("id-ID")}</span>
+                  <span>Reorder at: {r.reorderPoint || "—"}</span>
+                  <span>{r.daysOfStock != null ? `${r.daysOfStock}d left` : "no recent sales"}</span>
+                  {r.lastSupplier && <span>Last: {r.lastSupplier}</span>}
+                  {restockData.isAdmin && r.estCost != null && r.estCost > 0 && <span className="text-slate-600 font-medium">≈ Rp {r.estCost.toLocaleString("id-ID")}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                    <th className="px-4 py-2.5 text-left font-medium">Product</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Category</th>
+                    <th className="px-4 py-2.5 text-center font-medium">Urgency</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Stock</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Reorder Pt</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Days Left</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Order Qty</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Last Supplier</th>
+                    {restockData.isAdmin && <th className="px-4 py-2.5 text-right font-medium">Est. Cost</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {restockData.rows.length === 0 ? (
+                    <tr><td colSpan={restockData.isAdmin ? 9 : 8} className="px-4 py-10 text-center text-slate-400 text-xs">Nothing needs reordering. 🎉</td></tr>
+                  ) : restockData.rows.map((r) => (
+                    <tr key={r.productId} className={`border-t border-slate-100 hover:bg-slate-50 ${URGENCY_ROW[r.urgency]}`}>
+                      <td className="px-4 py-2.5">
+                        <div className="font-medium text-slate-800">{r.name}</div>
+                        <div className="text-xs font-mono text-slate-400">{r.sku}</div>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-slate-500">{r.category}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide ${URGENCY_BADGE[r.urgency]}`}>{URGENCY_LABEL[r.urgency]}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-slate-700">{r.currentStock.toLocaleString("id-ID")} <span className="text-xs text-slate-400">{r.unit}</span></td>
+                      <td className="px-4 py-2.5 text-right text-slate-500">{r.reorderPoint || "—"}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-600">{r.daysOfStock != null ? `${r.daysOfStock}d` : "—"}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-blue-700">{r.suggestedQty.toLocaleString("id-ID")}</td>
+                      <td className="px-4 py-2.5 text-xs text-slate-500">{r.lastSupplier ?? <span className="text-slate-300">—</span>}</td>
+                      {restockData.isAdmin && <td className="px-4 py-2.5 text-right text-slate-700">{r.estCost != null && r.estCost > 0 ? `Rp ${r.estCost.toLocaleString("id-ID")}` : "—"}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading && ["receiving", "inventory-value", "turnover", "restock"].includes(TAB_REPORTS[tab]) && (
         <div className="text-center py-12 text-slate-400 text-sm">{t("common.loading", "Loading…")}</div>
       )}
 
-      {!["receiving", "inventory-value", "turnover"].includes(TAB_REPORTS[tab]) && loading ? (
+      {!["receiving", "inventory-value", "turnover", "restock"].includes(TAB_REPORTS[tab]) && loading ? (
         <div className="text-center py-12 text-slate-400 text-sm">{t("common.loading", "Loading…")}</div>
-      ) : !["receiving", "inventory-value", "turnover"].includes(TAB_REPORTS[tab]) && (
+      ) : !["receiving", "inventory-value", "turnover", "restock"].includes(TAB_REPORTS[tab]) && (
         <>
           {/* Mobile card lists */}
           <div className="md:hidden space-y-2">
