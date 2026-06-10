@@ -35,10 +35,12 @@ type LocationOption = { id: string; name: string };
 // One physical label to print
 type LabelItem = { barcode: string; name: string; unitLine: string };
 
-// Printer resolution in dots/mm. 8 dpmm ≈ 203 DPI, the standard for thermal
-// label printers. If output is ~2/3 the expected size on a 300 DPI printer,
-// change this to 12.
-const PRINTER_DPMM = 8;
+// Printer resolution. Confirmed 300 DPI by physical measurement (2026-06-10):
+// a 369-dot barcode printed at exactly 3.1cm = 300 DPI, 1:1 dots. If the
+// printer is ever swapped for a 203 DPI model, labels will print ~1.5× too
+// large/clipped — change this to 203.
+const PRINTER_DPI = 300;
+const PRINTER_DPMM = PRINTER_DPI / 25.4; // ≈ 11.81 dots/mm
 
 function allBarcodeKeys(p: Product): Set<string> {
   return new Set(["base", ...(p.unitConversions ?? []).filter((uc) => uc.barcode).map((uc) => uc.id)]);
@@ -461,13 +463,16 @@ export function BarcodePrintPanel({
     const qz = qzRef.current;
     const s = settings;
     const isPortrait = s.height >= s.width;
+    // Size in inches so density can be declared in DPI, matching the printer's
+    // native resolution exactly (300 DPI; mm-based density would be 11.81, a
+    // float QZ handles less predictably).
     return qz.configs.create(s.printerName, {
-      size: { width: s.width, height: s.height },
-      units: "mm",
+      size: { width: s.width / 25.4, height: s.height / 25.4 },
+      units: "in",
       margins: 0,
       orientation: isPortrait ? "portrait" : "landscape",
       scaleContent: false,
-      density: PRINTER_DPMM,
+      density: PRINTER_DPI,
       interpolation: "nearest-neighbor",
     });
   }

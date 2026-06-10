@@ -20,7 +20,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ barcode:
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const probe: Buffer = await (bwipjs as any).toBuffer({ ...opts, scale: 1 });
     const modules = probe.readUInt32BE(16); // PNG IHDR width
-    const scale = Math.min(4, Math.max(1, maxw > 0 ? Math.floor(maxw / modules) : 2));
+    const scale = Math.min(6, Math.max(1, maxw > 0 ? Math.floor(maxw / modules) : 2));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const png: Buffer = await (bwipjs as any).toBuffer({ ...opts, scale });
