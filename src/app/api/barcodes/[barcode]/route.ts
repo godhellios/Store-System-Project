@@ -14,7 +14,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ barcode:
   // integer scale that fits.
   if (searchParams.get("fmt") === "png") {
     const maxw = parseInt(searchParams.get("maxw") ?? "0", 10);
-    const opts = { bcid: "code128", text, height: 12, includetext: false };
+    // backgroundcolor: explicit white — a transparent background can be
+    // composited onto something dark and destroy scan contrast.
+    const opts = { bcid: "code128", text, height: 12, includetext: false, backgroundcolor: "FFFFFF" };
 
     // Probe at scale 1 to learn the module count (PNG width = modules at scale 1)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,6 +41,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ barcode:
     text,
     scale: 3,
     height: 15,
+    backgroundcolor: "FFFFFF", // white, never transparent (dark mode / dark viewers)
   });
 
   // Keep bar edges hard (no anti-aliasing → no gray pixels) when the label is
