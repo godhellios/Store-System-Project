@@ -546,8 +546,14 @@ export function BarcodePrintPanel({
     const offX = rotate ? (s.offsetY ?? 0) : (s.offsetX ?? 0);
     const offY = rotate ? -(s.offsetX ?? 0) : (s.offsetY ?? 0);
 
+    // Clamp so offsets can never push content past the label edges (printing
+    // onto the next label). The barcode is the widest element; clamp the
+    // center so it stays fully inside.
     let y = Math.round((H - total) / 2 + offY * dp);
-    const cx = Math.round(W / 2 + offX * dp);
+    y = Math.min(Math.max(y, 0), Math.max(0, H - total));
+    let cx = Math.round(W / 2 + offX * dp);
+    const halfBar = Math.round(barW / 2);
+    cx = Math.min(Math.max(cx, halfBar), W - halfBar);
 
     ctx.drawImage(barcodeImg, cx - Math.round(barW / 2), y, barW, barH);
     y += barH;
