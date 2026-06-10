@@ -293,7 +293,9 @@ export function BarcodePrintPanel({
         p.name.toLowerCase().includes(term) ||
         p.sku.toLowerCase().includes(term) ||
         p.barcode.toLowerCase().includes(term) ||
-        (p.colorVariant ?? "").toLowerCase().includes(term)
+        (p.colorVariant ?? "").toLowerCase().includes(term) ||
+        // Packing-unit barcodes (scanned box labels) must find the product too
+        (p.unitConversions ?? []).some((uc) => uc.barcode?.toLowerCase().includes(term))
       );
     });
   }, [allProducts, q, categoryId]);

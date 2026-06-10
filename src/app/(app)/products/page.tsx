@@ -49,6 +49,8 @@ export default async function ProductsPage({
         { sku: { contains: q, mode: "insensitive" as const } },
         { barcode: { contains: q, mode: "insensitive" as const } },
         { colorVariant: { contains: q, mode: "insensitive" as const } },
+        // Packing-unit barcodes (e.g. scanned box labels) must find the product too
+        { unitConversions: { some: { barcode: { contains: q, mode: "insensitive" as const } } } },
       ]}] : []),
     ],
     ...(lowStockIds !== null ? { id: { in: lowStockIds } } : {}),

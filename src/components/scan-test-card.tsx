@@ -26,7 +26,8 @@ export function ScanTestCard({ products }: { products: Product[] }) {
       .filter((p) =>
         p.name.toLowerCase().includes(term) ||
         p.sku.toLowerCase().includes(term) ||
-        p.barcode.toLowerCase().includes(term)
+        p.barcode.toLowerCase().includes(term) ||
+        p.unitConversions.some((uc) => uc.barcode?.toLowerCase().includes(term))
       )
       .slice(0, 8);
   }, [products, term]);
