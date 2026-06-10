@@ -32,6 +32,14 @@ type Product = {
 type Category = { id: string; name: string };
 type LocationOption = { id: string; name: string };
 
+// One physical label to print
+type LabelItem = { barcode: string; name: string; unitLine: string };
+
+// Printer resolution in dots/mm. 8 dpmm ≈ 203 DPI, the standard for thermal
+// label printers. If output is ~2/3 the expected size on a 300 DPI printer,
+// change this to 12.
+const PRINTER_DPMM = 8;
+
 function allBarcodeKeys(p: Product): Set<string> {
   return new Set(["base", ...(p.unitConversions ?? []).filter((uc) => uc.barcode).map((uc) => uc.id)]);
 }
@@ -397,32 +405,17 @@ export function BarcodePrintPanel({
     return sum + n;
   }, 0);
 
-  // Build the flat list of label divs (one HTML string per physical label).
-  // Shared between QZ and window.print paths; QZ chunks this for batch printing.
-  // barcodeDataUris: pre-fetched map used by QZ path so HTML is self-contained
-  const buildLabelsArray = useCallback((barcodeDataUris?: Map<string, string>) => {
-    const s = settings;
-    const showBarcodeNum = s.showBarcodeNum ?? true;
-    const showProductName = s.showProductName ?? true;
-    const showUnit = s.showUnit ?? true;
-
+  // Build the flat list of labels (one item per physical label). The QZ path
+  // renders each item to a PNG on a canvas; the window.print fallback turns
+  // them into HTML via labelItemHtml().
+  const buildLabelsArray = useCallback((): LabelItem[] => {
     return selectedProducts.flatMap((p) => {
       const sel = selectedBarcodes.get(p.id) ?? new Set();
-      const out: string[] = [];
-
-      const imgSrc = (barcode: string) =>
-        barcodeDataUris?.get(barcode) ?? `/api/barcodes/${encodeURIComponent(barcode)}`;
-
-      const makeLabelHtml = (barcode: string, unitLine: string) =>
-        `<div class="label"><div class="label-inner">` +
-        `<img src="${imgSrc(barcode)}" alt="${barcode}" class="barcode-img" />` +
-        (showBarcodeNum ? `<div class="barcode-num">${barcode}</div>` : "") +
-        (showProductName ? `<div class="product-name">${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}</div>` : "") +
-        (showUnit ? `<div class="unit">${unitLine}</div>` : "") +
-        `</div></div>`;
+      const out: LabelItem[] = [];
+      const name = `${p.name}${p.colorVariant ? ` — ${p.colorVariant}` : ""}`;
 
       const pushN = (n: number, barcode: string, unitLine: string) => {
-        for (let i = 0; i < n; i++) out.push(makeLabelHtml(barcode, unitLine));
+        for (let i = 0; i < n; i++) out.push({ barcode, name, unitLine });
       };
 
       if (sel.has("base")) pushN(getCount(p.id, "base"), p.barcode, `${p.unit?.name ?? ""} · ${p.sku}`);
@@ -433,53 +426,146 @@ export function BarcodePrintPanel({
       return out;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProducts, selectedBarcodes, counts, settings]);
+  }, [selectedProducts, selectedBarcodes, counts]);
+
+  // One label as HTML — used only by the window.print fallback (real browser
+  // rendering, so modern CSS is fine there).
+  function labelItemHtml(it: LabelItem): string {
+    const s = settings;
+    return `<div class="label"><div class="label-inner">` +
+      `<img src="/api/barcodes/${encodeURIComponent(it.barcode)}" alt="${it.barcode}" class="barcode-img" />` +
+      ((s.showBarcodeNum ?? true) ? `<div class="barcode-num">${it.barcode}</div>` : "") +
+      ((s.showProductName ?? true) ? `<div class="product-name">${it.name}</div>` : "") +
+      ((s.showUnit ?? true) ? `<div class="unit">${it.unitLine}</div>` : "") +
+      `</div></div>`;
+  }
 
   // ── Batch printing state (QZ only) ──
   // chunks: the full label list split into batches; index: last batch printed.
-  const [batchState, setBatchState] = useState<{ chunks: string[][]; index: number } | null>(null);
+  const [batchState, setBatchState] = useState<{ chunks: LabelItem[][]; index: number } | null>(null);
   const [batchPrinting, setBatchPrinting] = useState(false);
+  // Barcode PNGs (printer-resolution, whole-dot bars) for the current print run,
+  // fetched once in startQZPrint and reused across batch continues/reprints.
+  const barcodePngsRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
   // Build a QZ config from current label settings.
   //
-  // Barcode scannability fix (2026-06-10): print as a rasterized bitmap, not raw
-  // HTML. With `rasterize: false`, QZ hands the label HTML to the printer driver,
-  // which renders the bars itself at low resolution and rounds bar widths
-  // unevenly — the result is visible but unscannable (Code128 needs exact 1:2:3:4
-  // bar-width ratios). With `rasterize: true` + `density` matched to the printer,
-  // QZ renders the (vector SVG) barcode to a crisp bitmap at the printer's native
-  // resolution, so every bar lands on whole dots and the ratios stay exact.
-  //
-  // PRINTER_DPMM = printer resolution in dots/mm. 8 dpmm ≈ 203 DPI, the standard
-  // for thermal label printers. If labels still won't scan on a 300-DPI printer,
-  // change this to 12.
+  // Print pipeline (2026-06-10, v2 of the scannability fix): each label is sent
+  // to QZ as a FINISHED PNG image, composed on a browser canvas at the printer's
+  // resolution. No HTML rendering happens outside the browser (QZ's internal
+  // HTML engine scrambled the layout — flexbox/calc unsupported), and the
+  // barcode bitmap is placed 1:1 so every bar stays a whole number of printer
+  // dots (scannable). density declares the bitmap's resolution; scaleContent
+  // false + nearest-neighbor forbid any resampling that would distort bars.
   function makeQzConfig() {
     const qz = qzRef.current;
     const s = settings;
     const isPortrait = s.height >= s.width;
-    const PRINTER_DPMM = 8; // 203 DPI
     return qz.configs.create(s.printerName, {
       size: { width: s.width, height: s.height },
       units: "mm",
       margins: 0,
       orientation: isPortrait ? "portrait" : "landscape",
       scaleContent: false,
-      rasterize: true,
       density: PRINTER_DPMM,
+      interpolation: "nearest-neighbor",
     });
   }
 
-  // Print one chunk (array of self-contained label HTML strings) as a single QZ job.
-  // Each job restarts at the printer's top-of-form, which is what resets the drift.
-  async function printChunk(labelStrings: string[]) {
-    const qz = qzRef.current;
-    if (!qz?.websocket.isActive()) throw new Error("QZ not connected");
-    const fullHtml = buildPrintHtml(labelStrings.join(""), settings);
-    await qz.print(makeQzConfig(), [{ type: "html", format: "plain", data: fullHtml }]);
+  // Compose one label as a PNG at printer resolution, mirroring the HTML layout:
+  // barcode → number → name → unit, centered as a block, 1mm gaps, X/Y offsets.
+  // The barcode image is drawn at its NATIVE pixel width (1 px = 1 printer dot);
+  // only its height is stretched, which never affects bar widths.
+  function renderLabelPng(item: LabelItem, barcodeImg: HTMLImageElement): string {
+    const s = settings;
+    const dp = PRINTER_DPMM;
+    const W = Math.round(s.width * dp);
+    const H = Math.round(s.height * dp);
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, W, H);
+
+    // Same defaults as buildPrintHtml so QZ output matches the browser preview
+    const shortSide = Math.min(s.width, s.height);
+    const namePt = s.namePt ?? Math.max(8, Math.min(11, Math.round(shortSide * 0.22)));
+    const smallPt = s.smallPt ?? Math.max(7, Math.min(10, Math.round(shortSide * 0.18)));
+    const ptToPx = (pt: number) => Math.round(pt * (25.4 / 72) * dp);
+    const namePx = ptToPx(namePt);
+    const smallPx = ptToPx(smallPt);
+    const lineH = (px: number) => Math.round(px * 1.3);
+    const gap = Math.round(1 * dp); // 1mm between elements
+    const textW = Math.round((s.width - 4) * dp);
+    const maxBarW = Math.round(s.width * ((s.barcodeWidthPct ?? 90) / 100) * dp);
+    const barH = Math.max(8, Math.round(s.height * ((s.barcodeHeightPct ?? 45) / 100) * dp));
+    const showNum = s.showBarcodeNum ?? true;
+    const showName = s.showProductName ?? true;
+    const showUnit = s.showUnit ?? true;
+
+    // Server guarantees the PNG fits maxBarW; the min() is just a safety net.
+    const barW = Math.min(barcodeImg.naturalWidth, maxBarW);
+
+    let total = barH;
+    if (showNum) total += gap + lineH(smallPx);
+    if (showName) total += gap + lineH(namePx);
+    if (showUnit) total += gap + lineH(smallPx);
+
+    let y = Math.round((H - total) / 2 + (s.offsetY ?? 0) * dp);
+    const cx = Math.round(W / 2 + (s.offsetX ?? 0) * dp);
+
+    ctx.drawImage(barcodeImg, cx - Math.round(barW / 2), y, barW, barH);
+    y += barH;
+
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const fit = (text: string, maxW: number) => {
+      if (ctx.measureText(text).width <= maxW) return text;
+      let t = text;
+      while (t.length > 1 && ctx.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+      return t + "…";
+    };
+
+    if (showNum) {
+      y += gap;
+      ctx.font = `${smallPx}px monospace`;
+      ctx.fillText(item.barcode, cx, y);
+      y += lineH(smallPx);
+    }
+    if (showName) {
+      y += gap;
+      ctx.font = `bold ${namePx}px Arial, sans-serif`;
+      ctx.fillText(fit(item.name, textW), cx, y);
+      y += lineH(namePx);
+    }
+    if (showUnit) {
+      y += gap;
+      ctx.font = `${smallPx}px Arial, sans-serif`;
+      ctx.fillText(fit(item.unitLine, textW), cx, y);
+    }
+
+    return canvas.toDataURL("image/png").split(",")[1]; // raw base64 for QZ
   }
 
-  // Fetch every selected barcode image once as a data URI so the HTML is self-contained.
-  async function fetchBarcodeDataUris(): Promise<Map<string, string>> {
+  // Print one chunk (array of labels) as a single QZ job — one PNG per page.
+  // Each job restarts at the printer's top-of-form, which is what resets drift.
+  async function printChunk(items: LabelItem[]) {
+    const qz = qzRef.current;
+    if (!qz?.websocket.isActive()) throw new Error("QZ not connected");
+    const pngs = barcodePngsRef.current;
+    const data = items.map((it) => {
+      const img = pngs.get(it.barcode);
+      if (!img) throw new Error(`Barcode image missing: ${it.barcode}`);
+      return { type: "pixel", format: "image", flavor: "base64", data: renderLabelPng(it, img) };
+    });
+    await qz.print(makeQzConfig(), data);
+  }
+
+  // Fetch every selected barcode as a printer-resolution PNG (whole-dot bars).
+  async function fetchBarcodePngs(): Promise<Map<string, HTMLImageElement>> {
     const allBarcodes = new Set<string>();
     for (const p of selectedProducts) {
       const sel = selectedBarcodes.get(p.id) ?? new Set();
@@ -488,18 +574,26 @@ export function BarcodePrintPanel({
         if (uc.barcode && sel.has(uc.id)) allBarcodes.add(uc.barcode);
       }
     }
+    const s = settings;
+    const maxw = Math.round(s.width * ((s.barcodeWidthPct ?? 90) / 100) * PRINTER_DPMM);
     const entries = await Promise.all(
       [...allBarcodes].map(async (bc) => {
-        const res = await fetch(`/api/barcodes/${encodeURIComponent(bc)}`);
-        if (!res.ok) return [bc, ""] as const;
+        const res = await fetch(`/api/barcodes/${encodeURIComponent(bc)}?fmt=png&maxw=${maxw}`);
+        if (!res.ok) throw new Error(`Barcode fetch failed: ${bc}`);
         const blob = await res.blob();
-        const dataUri = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => resolve("");
-          reader.readAsDataURL(blob);
-        });
-        return [bc, dataUri] as const;
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
+        try {
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error(`Barcode image decode failed: ${bc}`));
+            img.src = url;
+          });
+        } finally {
+          // Image is decoded; the object URL is no longer needed
+          setTimeout(() => URL.revokeObjectURL(url), 0);
+        }
+        return [bc, img] as const;
       })
     );
     return new Map(entries);
@@ -512,8 +606,8 @@ export function BarcodePrintPanel({
     if (batchState) return; // a batch run is already in progress
     const tid = toast.loading("Menyiapkan…");
     try {
-      const dataUris = await fetchBarcodeDataUris();
-      const labels = buildLabelsArray(dataUris);
+      barcodePngsRef.current = await fetchBarcodePngs();
+      const labels = buildLabelsArray();
       const bs = settings.batchSize && settings.batchSize > 0 ? Math.floor(settings.batchSize) : 0;
 
       // Batching off, or the whole run fits in one batch → single job (old behavior)
@@ -524,7 +618,7 @@ export function BarcodePrintPanel({
       }
 
       // Split into batches, print the first, then open the checkpoint modal
-      const chunks: string[][] = [];
+      const chunks: LabelItem[][] = [];
       for (let i = 0; i < labels.length; i += bs) chunks.push(labels.slice(i, i + bs));
       await printChunk(chunks[0]);
       toast.success(`Batch 1/${chunks.length} dicetak`, { id: tid });
@@ -584,7 +678,7 @@ export function BarcodePrintPanel({
   function printViaWindow() {
     const printWindow = window.open("", "_blank");
     if (!printWindow) { toast.error("Popup blocked — allow popups for this site"); return; }
-    const html = buildPrintHtml(buildLabelsArray().join(""), settings);
+    const html = buildPrintHtml(buildLabelsArray().map((it) => labelItemHtml(it)).join(""), settings);
     printWindow.document.write(html);
     printWindow.document.close();
   }
