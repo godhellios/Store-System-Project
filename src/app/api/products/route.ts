@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSku } from "@/lib/sku";
-import { generateBaseBarcode, generateUnitBarcode, validateBarcodeUniqueness } from "@/lib/barcode";
+import { generateBaseBarcode, reserveUnitBarcodes, validateBarcodeUniqueness } from "@/lib/barcode";
 import { findSimilarProducts } from "@/lib/duplicate-detect";
 import { viewerGuard } from "@/lib/role-guard";
 import { writeAuditLog } from "@/lib/audit-log";
@@ -87,13 +87,17 @@ export async function POST(req: Request) {
       const sku = await generateSku(categoryId, tx);
       const baseBarcode = generateBaseBarcode(sku);
 
+      // Short numeric codes (Code128C) — the only style that prints scannably
+      // on 40mm label stock; reserved atomically so concurrent creates can't clash
+      const needsBarcode = validConversions.filter(
+        (c: { barcode?: string | null }) => !c.barcode?.trim()
+      ).length;
+      const reserved = await reserveUnitBarcodes(needsBarcode, tx);
+      let ri = 0;
       const conversionsWithBarcodes = validConversions.map(
         (c: { name: string; conversionFactor: number; barcode?: string | null }) => {
           const explicitBarcode = c.barcode?.trim() || null;
-          if (explicitBarcode) return { ...c, barcode: explicitBarcode };
-          // Derive suffix from conversion name (uppercase alphanumeric, max 5 chars)
-          const suffix = c.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
-          return { ...c, barcode: generateUnitBarcode(sku, suffix) };
+          return { ...c, barcode: explicitBarcode ?? reserved[ri++] };
         }
       );
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   generateBaseBarcode,
-  generateUnitBarcode,
+  reserveUnitBarcodes,
   validateBarcodeUniqueness,
 } from "./barcode";
 
@@ -11,6 +11,7 @@ import {
 
 const mockProductFindFirst = vi.fn();
 const mockUnitConversionFindFirst = vi.fn();
+const mockQueryRaw = vi.fn();
 
 const tx = {
   product: {
@@ -19,6 +20,7 @@ const tx = {
   productUnitConversion: {
     findFirst: mockUnitConversionFindFirst,
   },
+  $queryRaw: mockQueryRaw,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,24 +41,29 @@ describe("generateBaseBarcode", () => {
 });
 
 // ---------------------------------------------------------------------------
-// generateUnitBarcode
+// reserveUnitBarcodes
 // ---------------------------------------------------------------------------
 
-describe("generateUnitBarcode", () => {
-  it("2. returns SKU-SUFFIX when suffix is a non-empty string", () => {
-    expect(generateUnitBarcode("THR-00043", "BOX")).toBe("THR-00043-BOX");
+describe("reserveUnitBarcodes", () => {
+  it("2. returns sequential numeric codes ending at the counter value", async () => {
+    // Counter landed on 1120 after reserving 3 → codes 90001118..90001120
+    mockQueryRaw.mockResolvedValue([{ value: "1120" }]);
+    await expect(reserveUnitBarcodes(3, txClient)).resolves.toEqual([
+      "90001118",
+      "90001119",
+      "90001120",
+    ]);
   });
 
-  it("3. returns null when suffix is null", () => {
-    expect(generateUnitBarcode("THR-00043", null)).toBeNull();
+  it("3. returns a single code for count 1", async () => {
+    mockQueryRaw.mockResolvedValue([{ value: "1" }]);
+    await expect(reserveUnitBarcodes(1, txClient)).resolves.toEqual(["90000001"]);
   });
 
-  it("4. returns null when suffix is an empty string", () => {
-    expect(generateUnitBarcode("THR-00043", "")).toBeNull();
-  });
-
-  it("also returns null when suffix is undefined", () => {
-    expect(generateUnitBarcode("THR-00043", undefined)).toBeNull();
+  it("4. returns [] without touching the DB for count 0 or negative", async () => {
+    await expect(reserveUnitBarcodes(0, txClient)).resolves.toEqual([]);
+    await expect(reserveUnitBarcodes(-2, txClient)).resolves.toEqual([]);
+    expect(mockQueryRaw).not.toHaveBeenCalled();
   });
 });
 

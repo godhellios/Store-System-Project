@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
-import { generateBaseBarcode, generateUnitBarcode } from "@/lib/barcode";
+import { generateBaseBarcode, reserveUnitBarcodes } from "@/lib/barcode";
 import type { ClassifiedRow, ParsedUnitConversion } from "../preview/route";
 import { applyCostPostPass, type CostPostPassRow } from "@/lib/opening-cost";
 
@@ -169,10 +169,11 @@ export async function POST(req: Request) {
         if (!productId) continue;
         results.push({ index: row.index, action: row.action, status: "ok", productId });
 
+        const needsBarcode = row.unitConversions.filter((uc) => !uc.barcode).length;
+        const reserved = await reserveUnitBarcodes(needsBarcode, prisma);
+        let ri = 0;
         for (const uc of row.unitConversions) {
-          const barcode =
-            uc.barcode ||
-            generateUnitBarcode(row.sku, uc.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
+          const barcode = uc.barcode || reserved[ri++];
           allUnitConvData.push({ productId, name: uc.name, conversionFactor: uc.conversionFactor, barcode });
         }
       }
@@ -185,11 +186,12 @@ export async function POST(req: Request) {
         try {
           const product = await prisma.product.create({ data: row.data });
           if (row.unitConversions.length) {
+            const needsBarcode = row.unitConversions.filter((uc) => !uc.barcode).length;
+            const reserved = await reserveUnitBarcodes(needsBarcode, prisma);
+            let ri = 0;
             await prisma.productUnitConversion.createMany({
               data: row.unitConversions.map((uc) => {
-                const barcode =
-                  uc.barcode ||
-                  generateUnitBarcode(row.sku, uc.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
+                const barcode = uc.barcode || reserved[ri++];
                 return { productId: product.id, name: uc.name, conversionFactor: uc.conversionFactor, barcode };
               }),
             });
@@ -292,11 +294,12 @@ export async function POST(req: Request) {
           await prisma.productUnitConversion.deleteMany({ where: { id: { in: toDeleteUCIds } } });
         }
         if (toAddUCs.length > 0) {
+          const needsBarcode = toAddUCs.filter((uc) => !uc.barcode).length;
+          const reserved = await reserveUnitBarcodes(needsBarcode, prisma);
+          let ri = 0;
           await prisma.productUnitConversion.createMany({
             data: toAddUCs.map((uc) => {
-              const barcode =
-                uc.barcode ||
-                generateUnitBarcode(existing!.sku, uc.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
+              const barcode = uc.barcode || reserved[ri++];
               return { productId: existingProduct!.id, name: uc.name, conversionFactor: uc.conversionFactor, barcode };
             }),
           });
