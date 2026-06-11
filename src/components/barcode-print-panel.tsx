@@ -46,6 +46,25 @@ function allBarcodeKeys(p: Product): Set<string> {
   return new Set(["base", ...(p.unitConversions ?? []).filter((uc) => uc.barcode).map((uc) => uc.id)]);
 }
 
+// Which barcodes a product can print as packing units (unit conversions that
+// have their own barcode). Base unit is always "base".
+function packingKeys(p: Product): string[] {
+  return (p.unitConversions ?? []).filter((uc) => uc.barcode).map((uc) => uc.id);
+}
+function hasPackingBarcode(p: Product): boolean {
+  return packingKeys(p).length > 0;
+}
+
+// Label-type selector: which barcodes get pre-ticked when a product is added.
+// "both" = base + packing (legacy default); "base"/"packing" = just that kind.
+// This is a soft default — the per-product checkboxes can still be changed after.
+type LabelMode = "both" | "base" | "packing";
+function keysForMode(p: Product, mode: LabelMode): Set<string> {
+  if (mode === "base") return new Set(["base"]);
+  if (mode === "packing") return new Set(packingKeys(p));
+  return allBarcodeKeys(p);
+}
+
 const DEFAULT_SETTINGS: LabelSettings = { width: 60, height: 40 };
 
 // ── QZ Tray status badge ──────────────────────────────────────────────────────
@@ -240,6 +259,7 @@ export function BarcodePrintPanel({
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
+  const [labelMode, setLabelMode] = useState<LabelMode>("both");
   const [showConfirm, setShowConfirm] = useState(false);
   const [qzStatus, setQzStatus] = useState<"idle" | "connecting" | "connected" | "unavailable">("idle");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -304,7 +324,7 @@ export function BarcodePrintPanel({
     setQueue((prev) => { const next = new Map(prev); next.has(p.id) ? next.delete(p.id) : next.set(p.id, p); return next; });
     setSelectedBarcodes((prev) => {
       const next = new Map(prev);
-      next.has(p.id) ? next.delete(p.id) : next.set(p.id, allBarcodeKeys(p));
+      next.has(p.id) ? next.delete(p.id) : next.set(p.id, keysForMode(p, labelMode));
       return next;
     });
   }
@@ -377,18 +397,55 @@ export function BarcodePrintPanel({
     if (!warehouseId) { toast.error("Pick a warehouse first"); return; }
     const withStock = searchResults.filter((p) => stockAt(p) > 0);
     if (withStock.length === 0) { toast("No products have stock here for this filter", { icon: "ℹ️" }); return; }
-    setQueue((prev) => { const next = new Map(prev); withStock.forEach((p) => next.set(p.id, p)); return next; });
+    // Packing-only mode: skip products that have no packing barcode — there's
+    // nothing for them to print. Report the skipped count so it's not silent.
+    const toAdd = labelMode === "packing" ? withStock.filter(hasPackingBarcode) : withStock;
+    const skipped = withStock.length - toAdd.length;
+    if (toAdd.length === 0) {
+      toast("All stocked products here have no packing barcode — nothing to add", { icon: "ℹ️" });
+      return;
+    }
+    setQueue((prev) => { const next = new Map(prev); toAdd.forEach((p) => next.set(p.id, p)); return next; });
     setSelectedBarcodes((prev) => {
       const next = new Map(prev);
-      withStock.forEach((p) => { if (!next.has(p.id)) next.set(p.id, allBarcodeKeys(p)); });
+      toAdd.forEach((p) => { if (!next.has(p.id)) next.set(p.id, keysForMode(p, labelMode)); });
       return next;
     });
     setCounts((prev) => {
       const next = { ...prev };
-      withStock.forEach((p) => { next[p.id] = unitCountsFromStock(p); });
+      toAdd.forEach((p) => { next[p.id] = unitCountsFromStock(p); });
       return next;
     });
-    toast.success(`Added ${withStock.length} product(s) with stock`);
+    toast.success(
+      `Added ${toAdd.length} product${toAdd.length !== 1 ? "s" : ""} with stock` +
+      (skipped > 0 ? ` · ${skipped} skipped (no packing barcode)` : "")
+    );
+  }
+
+  // Re-tick every queued product to match the current label mode. Snapshots the
+  // previous selection first and offers Undo (mode change is a deliberate button,
+  // never a side effect, so manual per-product ticks are only overwritten on demand).
+  function applyModeToQueue() {
+    if (queue.size === 0) return;
+    const snapshot = new Map([...selectedBarcodes].map(([id, keys]) => [id, new Set(keys)] as const));
+    setSelectedBarcodes(() => {
+      const next = new Map<string, Set<string>>();
+      for (const p of queue.values()) next.set(p.id, keysForMode(p, labelMode));
+      return next;
+    });
+    const label = labelMode === "base" ? "Base only" : labelMode === "packing" ? "Packing only" : "Both";
+    toast(
+      (t) => (
+        <span className="flex items-center gap-3 text-sm">
+          Applied <b>{label}</b> to {queue.size} product{queue.size !== 1 ? "s" : ""}
+          <button
+            onClick={() => { setSelectedBarcodes(snapshot); toast.dismiss(t.id); }}
+            className="font-semibold text-blue-600 hover:underline"
+          >Undo</button>
+        </span>
+      ),
+      { duration: 6000 }
+    );
   }
 
   // When the warehouse changes, silently re-sync counts for whatever's already
@@ -734,6 +791,24 @@ export function BarcodePrintPanel({
               <option value="">Choose warehouse…</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
+            {/* Label-type selector — controls which barcodes get pre-ticked on add */}
+            <span className="flex items-center gap-1.5">
+              <span className="text-[11px] font-medium text-blue-800">Labels:</span>
+              <span className="inline-flex rounded-lg border border-blue-300 bg-white overflow-hidden text-xs">
+                {([["both", "Both"], ["base", "Base"], ["packing", "Packing"]] as const).map(([m, lbl]) => (
+                  <button key={m} type="button" onClick={() => setLabelMode(m)}
+                    className={`px-3 py-1.5 font-medium transition-colors ${labelMode === m ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-blue-50"}`}>
+                    {lbl}
+                  </button>
+                ))}
+              </span>
+            </span>
+            {queue.size > 0 && (
+              <button onClick={applyModeToQueue} type="button"
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-blue-300 text-blue-700 font-medium hover:bg-blue-50 transition-colors">
+                Apply to queue
+              </button>
+            )}
             {warehouseId && (
               <button onClick={addAllInViewWithStock}
                 className="sm:ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors">
@@ -761,7 +836,7 @@ export function BarcodePrintPanel({
                 <button
                   onClick={() => {
                     setQueue((prev) => { const next = new Map(prev); searchResults.forEach((p) => next.set(p.id, p)); return next; });
-                    setSelectedBarcodes((prev) => { const next = new Map(prev); searchResults.forEach((p) => { if (!next.has(p.id)) next.set(p.id, allBarcodeKeys(p)); }); return next; });
+                    setSelectedBarcodes((prev) => { const next = new Map(prev); searchResults.forEach((p) => { if (!next.has(p.id)) next.set(p.id, keysForMode(p, labelMode)); }); return next; });
                   }}
                   className="hover:text-blue-600 font-medium"
                 >Select all</button>
