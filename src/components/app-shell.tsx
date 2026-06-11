@@ -240,7 +240,7 @@ export function AppShell({
         </main>
 
         <footer className="text-center text-xs text-slate-400 dark:text-slate-500 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
-          {t("app.footer", "© 2026 Mitra Ramah — All rights reserved | MRIs v1.6.5")}
+          {t("app.footer", "© 2026 Mitra Ramah — All rights reserved | MRIs v1.6.6")}
         </footer>
       </div>
     </div>
