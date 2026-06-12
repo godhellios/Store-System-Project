@@ -26,7 +26,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       include: {
         fromLocation: true,
         toLocation: true,
-        lines: { include: { product: { include: { category: true, unit: true } } }, orderBy: { id: "asc" } },
+        lines: { include: { product: { include: { category: true, unit: true, unitConversions: { select: { conversionFactor: true } } } } }, orderBy: { id: "asc" } },
         supplierRef: true,
       },
     }),
@@ -35,6 +35,23 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   ]);
   if (!order) notFound();
   const whatsappNumber = waSetting?.value ?? "6281283118487";
+
+  // Build the same /barcodes?productId=…&copies=id:baseQty:factor URL the GRN
+  // save flow produces, so labels can be (re-)printed from order history with
+  // the received quantities pre-filled and split into box + pcs labels.
+  let grnLabelUrl: string | null = null;
+  if (order.type === "GRN" && !order.cancelledAt && order.lines.length > 0) {
+    const params = new URLSearchParams();
+    order.lines.forEach((l) => params.append("productId", l.productId));
+    params.set("copies", order.lines.map((l) => {
+      // OrderLine.quantity is base units; the factor used at entry is qty/inputQty.
+      const inputFactor = l.inputQty != null && l.inputQty > 0 ? l.quantity / l.inputQty : 1;
+      const packFactors = l.product.unitConversions.map((c) => c.conversionFactor).filter((f) => f > 1);
+      const factor = inputFactor > 1 ? inputFactor : (packFactors.length ? Math.min(...packFactors) : 1);
+      return `${l.productId}:${l.quantity}:${factor}`;
+    }).join(","));
+    grnLabelUrl = `/barcodes?${params.toString()}`;
+  }
 
   return (
     <div className="max-w-3xl">
@@ -129,6 +146,18 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {grnLabelUrl && userRole !== "VIEWER" && (
+            <Link
+              href={grnLabelUrl}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h1m-1 4h6m-6 4h6" />
+              </svg>
+              {t("orderDetail.printLabels", "Print Barcode Labels")}
+            </Link>
+          )}
           {order.type === "GOODS_OUT" && !order.cancelledAt && (
             <>
               {order.doSentAt && (

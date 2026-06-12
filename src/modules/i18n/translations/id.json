@@ -54,7 +54,7 @@
   },
   "app": {
     "title": "MRIs — Mitra Ramah Inventory System",
-    "footer": "© 2026 Mitra Ramah — Semua hak dilindungi | MRIs v1.3.5",
+    "footer": "© 2026 Mitra Ramah — Semua hak dilindungi | MRIs v1.6.7",
     "openNav": "Buka Menu",
     "closeMenu": "Tutup menu",
     "geo": {
@@ -76,7 +76,7 @@
     "signIn": "Masuk",
     "invalidCredentials": "Email atau kata sandi salah.",
     "displaced": "Sesi Anda digantikan oleh login dari perangkat lain. Silakan login kembali.",
-    "footer": "© 2026 Mitra Ramah — MRIs v1.3.5"
+    "footer": "© 2026 Mitra Ramah — MRIs v1.6.7"
   },
   "dashboard": {
     "totalProducts": "Total Produk",
@@ -300,7 +300,28 @@
     }
   },
   "barcodes": {
-    "title": "Label Barcode"
+    "title": "Label Barcode",
+    "sheet": {
+      "openButton": "Cetak Lembar A4",
+      "title": "Cetak Lembar Barcode A4",
+      "category": "Kategori",
+      "pickCategory": "— Pilih kategori —",
+      "filterName": "Filter nama",
+      "optional": "(opsional)",
+      "filterPlaceholder": "Contoh: Yamalon",
+      "includeUnits": "Sertakan barcode satuan kemasan",
+      "includeUnitsHint": "(Box, Lusin, dll.)",
+      "open": "Buka Lembar",
+      "hint": "Membuka tab baru → Ctrl+P untuk mencetak",
+      "close": "Tutup",
+      "docTitle": "Lembar Barcode",
+      "products": "produk",
+      "filterLabel": "filter",
+      "inclPacking": "termasuk satuan kemasan",
+      "printedAt": "Dicetak",
+      "empty": "Tidak ada produk ditemukan.",
+      "printButton": "Print / Simpan PDF"
+    }
   },
   "auditLog": {
     "title": "Riwayat Perubahan",
@@ -348,6 +369,7 @@
   "orderDetail": {
     "waSent": "WA Terkirim",
     "printed": "Dicetak",
+    "printLabels": "Cetak Label Barcode",
     "fields": {
       "date": "Tanggal",
       "from": "Dari",

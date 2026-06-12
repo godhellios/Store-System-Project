@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { BarcodePrintPanel } from "@/components/barcode-print-panel";
+import { BarcodeSheetPanel } from "@/components/barcode-sheet-panel";
 import { ScanTestCard } from "@/components/scan-test-card";
 import { blockViewer } from "@/lib/role-guard";
 import { getT } from "@/modules/i18n";
@@ -79,6 +80,7 @@ export default async function BarcodesPage({
     <div>
       <h1 className="text-base font-semibold text-slate-800 mb-4">{t("barcodes.title", "Barcode Labels")}</h1>
       <ScanTestCard products={products} />
+      <BarcodeSheetPanel categories={categories.map((c) => ({ id: c.id, name: c.name }))} />
       <BarcodePrintPanel
         products={products}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
