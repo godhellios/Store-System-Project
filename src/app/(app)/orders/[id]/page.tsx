@@ -5,6 +5,8 @@ import { blockOperator } from "@/lib/role-guard";
 import { OrderActions } from "@/components/order-actions";
 import { GoodsOutDetailActions } from "@/components/goods-out-detail-actions";
 import { LabelPrintedToggle } from "@/components/label-printed-toggle";
+import { EditEffectiveDate } from "@/components/edit-effective-date";
+import { resolveEffectiveDate } from "@/lib/effective-date";
 import { getT } from "@/modules/i18n";
 
 const TYPE_BADGE: Record<string, string> = {
@@ -229,7 +231,15 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 grid grid-cols-2 gap-4 text-sm text-gray-900">
         <div>
           <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.date", "Date")}</span>
-          {order.createdAt.toLocaleString("id-ID", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Jakarta" })}
+          {resolveEffectiveDate(order.effectiveDate, order.createdAt).toLocaleString("id-ID", { dateStyle: "full", timeZone: "Asia/Jakarta" })}
+          {userRole === "ADMIN" && !order.cancelledAt && (
+            <div className="mt-1">
+              <EditEffectiveDate
+                orderId={id}
+                currentEffectiveDate={resolveEffectiveDate(order.effectiveDate, order.createdAt).toISOString()}
+              />
+            </div>
+          )}
         </div>
         {order.fromLocation && (
           <div>

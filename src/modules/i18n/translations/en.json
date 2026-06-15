@@ -20,7 +20,16 @@
     "signOut": "Sign out",
     "previous": "Previous",
     "next": "Next",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "saveFailed": "Failed to save"
+  },
+  "effectiveDate": {
+    "change": "Change date",
+    "label": "Real date (when it happened)",
+    "reasonPlaceholder": "Reason (e.g. forgot to enter Monday's delivery)",
+    "reasonRequired": "Please enter a reason",
+    "softCapConfirm": "This is {days} days ago — are you sure?",
+    "saved": "Date updated"
   },
   "nav": {
     "sections": {
