@@ -14,6 +14,7 @@ type NavLink = {
   small?: boolean;
   adminOnly?: boolean;
   staffOnly?: boolean; // hidden from VIEWER (visible to ADMIN, STAFF, OPERATOR)
+  hideFromStaff?: boolean; // hidden from STAFF (e.g. Reports → ADMIN + VIEWER only)
 };
 
 type NavSection = {
@@ -62,7 +63,7 @@ const NAV: NavSection[] = [
       { href: "/orders", label: "Order History", labelKey: "nav.links.orderHistory", icon: "📋" },
       { href: "/approvals", label: "Pending Approval", labelKey: "nav.links.pendingApproval", icon: "⏳", indent: true, small: true, adminOnly: true },
       { href: "/movements", label: "Movement Log", labelKey: "nav.links.movementLog", icon: "≡", adminOnly: true },
-      { href: "/reports", label: "Reports", labelKey: "nav.links.reports", icon: "⊙" },
+      { href: "/reports", label: "Reports", labelKey: "nav.links.reports", icon: "⊙", hideFromStaff: true },
     ],
   },
   {
@@ -134,7 +135,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
               <div className="px-4 pt-3.5 pb-1 text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-300 font-semibold">
                 {t(sectionKey, section)}
               </div>
-              {links.filter(({ adminOnly, staffOnly }) => (!adminOnly || role === "ADMIN") && (!staffOnly || role === "ADMIN" || role === "STAFF")).map(({ href, label, labelKey, icon, indent, small }) => {
+              {links.filter(({ adminOnly, staffOnly, hideFromStaff }) => (!adminOnly || role === "ADMIN") && (!staffOnly || role === "ADMIN" || role === "STAFF") && (!hideFromStaff || role !== "STAFF")).map(({ href, label, labelKey, icon, indent, small }) => {
                 const active =
                   pathname === href ||
                   (href !== "/dashboard" && pathname.startsWith(href));

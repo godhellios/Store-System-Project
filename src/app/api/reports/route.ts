@@ -8,6 +8,9 @@ import ExcelJS from "exceljs";
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Reports are oversight-only: ADMIN + VIEWER. STAFF/OPERATOR are blocked.
+  if (session.user.role !== "ADMIN" && session.user.role !== "VIEWER")
+    return NextResponse.json({ error: "Reports are restricted to admins and viewers" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const report = searchParams.get("report") ?? "stock";

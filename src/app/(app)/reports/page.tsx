@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useT } from "@/modules/i18n/provider";
 
@@ -39,13 +38,10 @@ type RestockReport = {
 
 export default function ReportsPage() {
   const { data: session } = useSession();
-  const router = useRouter();
   const t = useT();
 
-  useEffect(() => {
-    if (session?.user.role === "OPERATOR") router.replace("/transactions/grn");
-  }, [session, router]);
-
+  // Access control (incl. blocking STAFF/OPERATOR) is enforced server-side
+  // in reports/layout.tsx via requireReportAccess().
   const isAdmin = session?.user.role === "ADMIN" || session?.user.role === "VIEWER";
 
   const TABS = [

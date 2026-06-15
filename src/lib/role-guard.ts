@@ -34,6 +34,17 @@ export async function blockViewer() {
   return session;
 }
 
+// Reports are for oversight roles only: ADMIN + VIEWER.
+// STAFF/OPERATOR are operational and don't need reporting.
+export async function requireReportAccess() {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.error) redirect("/login");
+  const role = session.user.role;
+  if (role === "ADMIN" || role === "VIEWER") return session;
+  if (role === "OPERATOR") redirect("/transactions/grn");
+  redirect("/dashboard");
+}
+
 export async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (!session || session.user.error) redirect("/login");
