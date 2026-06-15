@@ -161,10 +161,14 @@ export async function POST(req: Request) {
         const lastNum = last ? parseInt(last.orderNumber.split("-").pop() ?? "0") : 0;
         const orderNumber = `${prefix}-${year}-${String(lastNum + 1).padStart(4, "0")}`;
 
+        // Business date for this transaction (when it really happened). Captured once
+        // and stamped on the order + all its movements so they stay consistent.
+        const effectiveDate = new Date();
         const order = await tx.order.create({
         data: {
           orderNumber, type, fromLocationId, toLocationId, customer, supplier, supplierId: supplierId || null, reference, notes,
           createdByName: session.user.name ?? null,
+          effectiveDate,
           ...(isManualAdjustment ? { adjustmentStatus: "PENDING", adjustmentReason: adjustmentReason ?? null } : {}),
           ...(type === "GRN" && !isAdmin ? { grnStatus: "PENDING" } : {}),
           ...(type === "GOODS_OUT" && REQUIRE_APPROVAL.GOODS_OUT && !isAdmin ? { goodsOutStatus: "PENDING" } : {}),
@@ -212,6 +216,7 @@ export async function POST(req: Request) {
           toLocationId: toLocationId ?? null,
           quantity: Math.abs(lr.quantity),
           type: MOVEMENT_TYPE[type],
+          effectiveDate,
         })),
       });
 

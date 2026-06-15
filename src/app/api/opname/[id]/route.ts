@@ -107,6 +107,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const orderNumber = await nextOrderNumber("ADJUSTMENT");
         try {
           pendingOrderId = await prisma.$transaction(async (tx) => {
+            // Business date for this opname-generated adjustment, stamped on the
+            // order + its movements so they stay consistent.
+            const effectiveDate = new Date();
             const order = await tx.order.create({
               data: {
                 orderNumber,
@@ -116,6 +119,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                 adjustmentStatus: "PENDING",
                 adjustmentReason: "Stock Opname",
                 createdByName: session.user.name ?? null,
+                effectiveDate,
               },
             });
 
@@ -134,6 +138,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                   toLocationId: fullSession!.locationId,
                   quantity: Math.abs(diff),
                   type: MovementType.ADJUSTMENT,
+                  effectiveDate,
                 },
               });
               // Stock NOT updated here — deferred to admin approval of the adjustment order

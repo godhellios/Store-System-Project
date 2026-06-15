@@ -207,6 +207,7 @@ model Order {
   notes          String?
   createdByName     String?
   createdAt         DateTime  @default(now())
+  effectiveDate     DateTime? // business date (when it really happened); null on legacy rows → treat as createdAt
   whatsappSentAt    DateTime?
   printedAt         DateTime?
   doGeneratedAt     DateTime?
@@ -270,10 +271,12 @@ model Movement {
   quantity       Int
   type           MovementType
   createdAt      DateTime     @default(now())
+  effectiveDate  DateTime?    // business date copied from the parent order; null on legacy rows → treat as createdAt
 
   @@index([productId, createdAt])
   @@index([orderId])
   @@index([createdAt])
+  @@index([productId, effectiveDate])
 }
 
 // Stock opname (physical count) session per location

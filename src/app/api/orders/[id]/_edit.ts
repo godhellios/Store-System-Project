@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MovementType, OrderType } from "@/generated/prisma";
+import { resolveEffectiveDate } from "@/lib/effective-date";
 
 const MOVEMENT_TYPE: Record<OrderType, MovementType> = {
   GRN: MovementType.IN,
@@ -91,6 +92,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           inputUnit: line.inputUnit ?? null,
           notes: line.notes?.trim() || null,
         }));
+        // Editing line items must NOT re-date the transaction: keep the order's
+        // original business date (falling back to createdAt for legacy orders).
+        const movementEffectiveDate = resolveEffectiveDate(current.effectiveDate, current.createdAt);
         await tx.orderLine.createMany({ data: newRows });
         await tx.movement.createMany({
           data: newRows.map((lr) => ({
@@ -101,6 +105,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             toLocationId: current.toLocationId ?? null,
             quantity: lr.quantity,
             type: MOVEMENT_TYPE[current.type],
+            effectiveDate: movementEffectiveDate,
           })),
         });
 
