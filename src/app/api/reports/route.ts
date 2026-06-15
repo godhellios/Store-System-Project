@@ -68,12 +68,12 @@ export async function GET(req: Request) {
   if (report === "movements") {
     const movements = await prisma.movement.findMany({
       where: {
-        ...(from || to ? { createdAt: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to + "T23:59:59") } : {}) } } : {}),
+        ...(from || to ? { effectiveDate: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to + "T23:59:59") } : {}) } } : {}),
         ...(locationId ? { OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] } : {}),
         product: { ...(categoryId ? { categoryId } : {}) },
       },
       include: { product: { include: { unit: true } }, fromLocation: true, toLocation: true, order: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: { effectiveDate: "desc" },
       take: 1000,
     });
 
@@ -93,7 +93,7 @@ export async function GET(req: Request) {
       ws.getRow(1).font = { bold: true };
       movements.forEach((m) => {
         ws.addRow({
-          date: m.createdAt.toISOString().replace("T", " ").slice(0, 16),
+          date: (m.effectiveDate ?? m.createdAt).toISOString().replace("T", " ").slice(0, 16),
           order: m.order?.orderNumber ?? m.orderId,
           type: m.type,
           product: m.product.name,
@@ -167,7 +167,7 @@ export async function GET(req: Request) {
       where: {
         type: "GRN",
         grnStatus: "APPROVED",
-        createdAt: { gte: fromDate, lte: toDate },
+        effectiveDate: { gte: fromDate, lte: toDate },
         ...(locationId ? { toLocationId: locationId } : {}),
       },
       include: {
@@ -179,7 +179,7 @@ export async function GET(req: Request) {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { effectiveDate: "desc" },
     });
 
     // Build per-supplier and per-category summaries
@@ -216,7 +216,7 @@ export async function GET(req: Request) {
       orders: orders.map((o) => ({
         id: o.id,
         orderNumber: o.orderNumber,
-        createdAt: o.createdAt,
+        createdAt: o.effectiveDate ?? o.createdAt,
         supplier: o.supplierRef?.name ?? o.supplier ?? null,
         location: o.toLocation?.name ?? null,
         itemCount: o.lines.length,
@@ -267,13 +267,13 @@ export async function GET(req: Request) {
     twelveMonthsAgo.setDate(1);
     twelveMonthsAgo.setHours(0, 0, 0, 0);
     const grnOrders = await prisma.order.findMany({
-      where: { type: "GRN", grnStatus: "APPROVED", createdAt: { gte: twelveMonthsAgo } },
+      where: { type: "GRN", grnStatus: "APPROVED", effectiveDate: { gte: twelveMonthsAgo } },
       include: { lines: { select: { quantity: true, unitCost: true } } },
-      orderBy: { createdAt: "asc" },
+      orderBy: { effectiveDate: "asc" },
     });
     const monthlyIn: Record<string, number> = {};
     for (const o of grnOrders) {
-      const key = o.createdAt.toISOString().slice(0, 7);
+      const key = (o.effectiveDate ?? o.createdAt).toISOString().slice(0, 7);
       const val = o.lines.reduce((s, l) => s + (l.unitCost != null ? Number(l.unitCost) * l.quantity : 0), 0);
       monthlyIn[key] = (monthlyIn[key] ?? 0) + val;
     }
@@ -302,7 +302,7 @@ export async function GET(req: Request) {
     const movements = await prisma.movement.findMany({
       where: {
         type: "OUT",
-        createdAt: { gte: fromDate, lte: toDate },
+        effectiveDate: { gte: fromDate, lte: toDate },
         product: { isActive: true, ...(categoryId ? { categoryId } : {}) },
         ...(locationId ? { fromLocationId: locationId } : {}),
       },
@@ -356,7 +356,7 @@ export async function GET(req: Request) {
     const movements = await prisma.movement.findMany({
       where: {
         type: "OUT",
-        createdAt: { gte: fromDate, lte: toDate },
+        effectiveDate: { gte: fromDate, lte: toDate },
         product: { isActive: true, ...(categoryId ? { categoryId } : {}) },
         ...(locationId ? { fromLocationId: locationId } : {}),
       },
@@ -409,8 +409,8 @@ export async function GET(req: Request) {
     if (candidateIds.length) {
       const grnLines = await prisma.orderLine.findMany({
         where: { productId: { in: candidateIds }, order: { type: "GRN" } },
-        select: { productId: true, order: { select: { createdAt: true, supplier: true, supplierRef: { select: { name: true } } } } },
-        orderBy: { order: { createdAt: "desc" } },
+        select: { productId: true, order: { select: { effectiveDate: true, supplier: true, supplierRef: { select: { name: true } } } } },
+        orderBy: { order: { effectiveDate: "desc" } },
       });
       const supplierByProduct: Record<string, string> = {};
       for (const l of grnLines) {
