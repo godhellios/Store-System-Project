@@ -31,6 +31,15 @@
     "softCapConfirm": "This is {days} days ago — are you sure?",
     "saved": "Date updated"
   },
+  "warehouseChange": {
+    "change": "Change warehouse",
+    "source": "Source warehouse",
+    "destination": "Destination warehouse",
+    "reasonPlaceholder": "Reason (e.g. staff selected the wrong warehouse)",
+    "reasonRequired": "Please enter a reason",
+    "opnameConfirm": "This will alter a completed stock count from {date}. Proceed anyway?",
+    "saved": "Warehouse updated"
+  },
   "nav": {
     "sections": {
       "main": "Main",

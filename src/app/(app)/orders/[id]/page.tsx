@@ -6,6 +6,7 @@ import { OrderActions } from "@/components/order-actions";
 import { GoodsOutDetailActions } from "@/components/goods-out-detail-actions";
 import { LabelPrintedToggle } from "@/components/label-printed-toggle";
 import { EditEffectiveDate } from "@/components/edit-effective-date";
+import { ChangeWarehouse } from "@/components/change-warehouse";
 import { resolveEffectiveDate } from "@/lib/effective-date";
 import { getT } from "@/modules/i18n";
 
@@ -22,7 +23,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const userRole = session.user.role;
 
   const { id } = await params;
-  const [order, waSetting, t] = await Promise.all([
+  const [order, waSetting, activeLocations, t] = await Promise.all([
     prisma.order.findUnique({
       where: { id },
       include: {
@@ -33,6 +34,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       },
     }),
     prisma.systemSetting.findUnique({ where: { key: "whatsapp_number" } }),
+    prisma.location.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getT(),
   ]);
   if (!order) notFound();
@@ -251,6 +253,17 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <div>
             <span className="text-xs text-slate-500 block mb-0.5">{t("orderDetail.fields.to", "To")}</span>
             {order.toLocation.name}
+          </div>
+        )}
+        {userRole === "ADMIN" && !order.cancelledAt && (
+          <div className="col-span-2">
+            <ChangeWarehouse
+              orderId={id}
+              orderType={order.type as "GRN" | "GOODS_OUT" | "TRANSFER" | "ADJUSTMENT"}
+              currentFromId={order.fromLocationId}
+              currentToId={order.toLocationId}
+              locations={activeLocations}
+            />
           </div>
         )}
         {order.customer && (
