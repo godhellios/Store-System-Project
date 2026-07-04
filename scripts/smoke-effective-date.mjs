@@ -71,13 +71,16 @@ async function main() {
   // A) allowed past date
   let res = await patch(order.id, { effectiveDate: "2026-06-05", reason: "smoke: backdate" });
   check("A allowed past date → 200", res.status === 200, `status=${res.status}`);
-  const { rows: [o2] } = await db.query(`SELECT "effectiveDate" FROM "Order" WHERE id=$1`, [order.id]);
-  const { rows: mv } = await db.query(`SELECT "effectiveDate" FROM "Movement" WHERE "orderId"=$1`, [order.id]);
-  const expected = new Date("2026-06-05T12:00:00+07:00").getTime();
-  check("A order date stored at Jakarta noon", o2.effectiveDate && new Date(o2.effectiveDate).getTime() === expected,
-    o2.effectiveDate?.toISOString?.() ?? String(o2.effectiveDate));
-  check("A all movements synced to same date", mv.length > 0 && mv.every((m) => m.effectiveDate && new Date(m.effectiveDate).getTime() === expected),
-    `${mv.length} movements`);
+  // Read the stored wall-clock as text so the assertion is independent of THIS
+  // process's timezone. `effectiveDate` is `timestamp` (no tz) holding the UTC
+  // wall-clock; the node-postgres driver would otherwise local-parse it and shift
+  // the value on a non-UTC machine (false failure). Noon Jakarta (UTC+7) = 05:00 UTC.
+  const { rows: [o2] } = await db.query(`SELECT to_char("effectiveDate", 'YYYY-MM-DD HH24:MI:SS') AS wc FROM "Order" WHERE id=$1`, [order.id]);
+  const { rows: mv } = await db.query(`SELECT to_char("effectiveDate", 'YYYY-MM-DD HH24:MI:SS') AS wc FROM "Movement" WHERE "orderId"=$1`, [order.id]);
+  const expectedWC = "2026-06-05 05:00:00";
+  check("A order date stored at Jakarta noon (UTC 05:00)", o2.wc === expectedWC, `stored="${o2.wc}"`);
+  check("A all movements synced to same date", mv.length > 0 && mv.every((m) => m.wc === expectedWC),
+    `${mv.length} movements, first="${mv[0]?.wc}"`);
   const { rows: [al] } = await db.query(
     `SELECT count(*)::int n FROM "AuditLog" WHERE action='EDIT_EFFECTIVE_DATE' AND "entityId"=$1`, [order.id]);
   check("A audit entry written", al.n >= 1, `count=${al.n}`);
