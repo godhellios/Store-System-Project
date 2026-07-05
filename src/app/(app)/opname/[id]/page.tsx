@@ -14,6 +14,7 @@ export default async function OpnameDetailPage({ params }: { params: Promise<{ i
       where: { id },
       include: {
         location: true,
+        categories: { select: { name: true } },
         lines: {
           select: {
             id: true,
@@ -44,6 +45,9 @@ export default async function OpnameDetailPage({ params }: { params: Promise<{ i
         <a href="/opname" className="text-xs text-slate-500 hover:underline">← Opname</a>
         <h1 className="text-base font-semibold text-slate-800 font-mono">{opnameSession.sessionNumber}</h1>
         <span className="text-xs text-slate-500">{opnameSession.location.name}</span>
+        <span className="text-xs text-slate-400">
+          · {opnameSession.categories.length ? opnameSession.categories.map((c) => c.name).join(", ") : "All categories"}
+        </span>
       </div>
       <OpnameCountSheet
         session={{

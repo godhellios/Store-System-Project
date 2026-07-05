@@ -8,6 +8,7 @@ import { sendPushNotification } from "@/modules/push-notify/send";
 // ────────────────────────────────────────────────────────────────────────────
 import { writeAuditLog } from "@/lib/audit-log";
 import { viewerGuard } from "@/lib/role-guard";
+import { transactionBlockedBy } from "@/lib/opname-scope";
 
 // Large orders do meaningful work in one transaction — give the function room
 // well beyond the platform default so a big order is never killed mid-save.
@@ -123,18 +124,39 @@ export async function POST(req: Request) {
   }
   // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Block transactions while an opname session is open for affected location ─
+  // ── Block transactions that touch a category being counted at an affected location ─
+  // A whole-warehouse count (no categories) blocks everything there; a category
+  // count blocks only transactions whose products share a counted category.
   if (type !== "ADJUSTMENT") {
     const affectedLocationIds = [...new Set([fromLocationId, toLocationId].filter(Boolean))] as string[];
-    const openOpname = await prisma.opnameSession.findFirst({
+    const openSessions = await prisma.opnameSession.findMany({
       where: { locationId: { in: affectedLocationIds }, status: { in: ["IN_PROGRESS", "REVIEWING"] } },
-      include: { location: true },
+      select: {
+        id: true, sessionNumber: true, locationId: true,
+        location: { select: { name: true } },
+        categories: { select: { id: true, name: true } },
+      },
     });
-    if (openOpname) {
-      return NextResponse.json(
-        { error: `Cannot create transaction: ${openOpname.location.name} has an open stock opname session (${openOpname.sessionNumber}). Complete or cancel the opname first.` },
-        { status: 409 }
+    if (openSessions.length) {
+      const txProducts = await prisma.product.findMany({
+        where: { id: { in: lines.map((l) => l.productId) } },
+        select: { categoryId: true },
+      });
+      const txCategoryIds = [...new Set(txProducts.map((p) => p.categoryId).filter((c): c is string => !!c))];
+      const blocked = transactionBlockedBy(
+        openSessions.map((s) => ({ id: s.id, sessionNumber: s.sessionNumber, locationId: s.locationId, categoryIds: s.categories.map((c) => c.id) })),
+        txCategoryIds
       );
+      if (blocked) {
+        const s = openSessions.find((o) => o.id === blocked.session.id)!;
+        const catName = blocked.categoryId
+          ? (s.categories.find((c) => c.id === blocked.categoryId)?.name ?? "a counted category")
+          : "all categories";
+        return NextResponse.json(
+          { error: `Cannot create transaction: ${s.location.name} has an open stock count (${s.sessionNumber}) covering ${catName}. Complete or cancel it first.` },
+          { status: 409 }
+        );
+      }
     }
   }
   // ─────────────────────────────────────────────────────────────────────────

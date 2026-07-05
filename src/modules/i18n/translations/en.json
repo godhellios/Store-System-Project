@@ -308,6 +308,7 @@
   "opname": {
     "title": "Stock Opname",
     "noSessions": "No opname sessions yet",
+    "scopeAll": "All categories",
     "count": "Count",
     "cols": {
       "session": "Session #",

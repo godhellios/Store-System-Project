@@ -22,12 +22,13 @@ export default async function OpnamePage() {
   const [authSession, t] = await Promise.all([getServerSession(authOptions), getT()]);
   const isAdmin = authSession?.user.role === "ADMIN";
 
-  const [sessions, locations] = await Promise.all([
+  const [sessions, locations, categories] = await Promise.all([
     prisma.opnameSession.findMany({
       orderBy: { createdAt: "desc" },
-      include: { location: true, _count: { select: { lines: true } } },
+      include: { location: true, categories: { select: { name: true } }, _count: { select: { lines: true } } },
     }),
     prisma.location.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const plainLocations = locations.map((l) => ({ id: l.id, name: l.name }));
 
@@ -38,7 +39,7 @@ export default async function OpnamePage() {
         <div className="flex items-center gap-2">
           <OpnameExportButton locations={plainLocations} />
           <OpnameImportButton locations={plainLocations} isAdmin={isAdmin} />
-          <NewOpnameButton locations={plainLocations} />
+          <NewOpnameButton locations={plainLocations} categories={categories} />
         </div>
       </div>
 
@@ -63,7 +64,12 @@ export default async function OpnamePage() {
             ) : sessions.map((s) => (
               <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
                 <td className="px-4 py-2.5 font-mono font-semibold text-blue-600 text-xs">{s.sessionNumber}</td>
-                <td className="px-4 py-2.5 text-slate-700">{s.location.name}</td>
+                <td className="px-4 py-2.5 text-slate-700">
+                  {s.location.name}
+                  <span className="block text-[11px] text-slate-400">
+                    {s.categories.length ? s.categories.map((c) => c.name).join(", ") : t("opname.scopeAll", "All categories")}
+                  </span>
+                </td>
                 <td className="px-4 py-2.5">
                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[s.status]}`}>
                     {s.status.replace("_", " ")}

@@ -5,13 +5,24 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 type Location = { id: string; name: string };
+type Category = { id: string; name: string };
 
-export function NewOpnameButton({ locations }: { locations: Location[] }) {
+export function NewOpnameButton({ locations, categories }: { locations: Location[]; categories: Category[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [locationId, setLocationId] = useState("");
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function toggleCategory(id: string, checked: boolean) {
+    setCategoryIds((prev) => (checked ? [...prev, id] : prev.filter((c) => c !== id)));
+  }
+
+  function close() {
+    setOpen(false);
+    setCategoryIds([]);
+  }
 
   async function handleStart() {
     if (!locationId) { toast.error("Select a location"); return; }
@@ -19,7 +30,7 @@ export function NewOpnameButton({ locations }: { locations: Location[] }) {
     const res = await fetch("/api/opname", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ locationId, notes }),
+      body: JSON.stringify({ locationId, notes, categoryIds }),
     });
     const data = await res.json();
     setLoading(false);
@@ -49,18 +60,32 @@ export function NewOpnameButton({ locations }: { locations: Location[] }) {
               </select>
             </div>
             <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Categories</label>
+              <div className="max-h-32 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-1">
+                {categories.length === 0 && <p className="text-xs text-slate-400">No categories.</p>}
+                {categories.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="checkbox" checked={categoryIds.includes(c.id)}
+                      onChange={(e) => toggleCategory(c.id, e.target.checked)} />
+                    {c.name}
+                  </label>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Leave empty to count the whole warehouse.</p>
+            </div>
+            <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
               <input value={notes} onChange={(e) => setNotes(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Optional" />
             </div>
-            <p className="text-xs text-slate-400">This will pre-fill all current stock quantities as book values for blind counting.</p>
+            <p className="text-xs text-slate-400">Pre-fills current stock as book values for blind counting{"."}</p>
             <div className="flex gap-2">
               <button onClick={handleStart} disabled={loading || !locationId}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold py-2 rounded-lg">
                 {loading ? "Starting…" : "Start Session"}
               </button>
-              <button onClick={() => setOpen(false)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+              <button onClick={close} className="px-4 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
                 Cancel
               </button>
             </div>
