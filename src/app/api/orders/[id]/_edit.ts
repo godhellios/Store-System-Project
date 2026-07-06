@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MovementType, OrderType } from "@/generated/prisma";
 import { resolveEffectiveDate } from "@/lib/effective-date";
+import { InsufficientStockError } from "@/lib/stock";
 
 const MOVEMENT_TYPE: Record<OrderType, MovementType> = {
   GRN: MovementType.IN,
@@ -110,6 +111,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         });
 
         // 5. Apply stock per line (immediate orders only)
+        const touchedProductIds = [...new Set([
+          ...current.lines.map((l) => l.productId),
+          ...lines!.map((l) => l.productId),
+        ])];
         for (const line of lines!) {
           if (!skipStock) {
             if (current.type === "GRN" && current.toLocationId) {
@@ -136,8 +141,35 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             }
           }
         }
+
+        // 6. Guard: the reverse+reapply above must not leave any touched balance
+        // negative (e.g. editing a live GOODS_OUT beyond available stock, or
+        // shrinking a GRN whose goods were already consumed). Throwing here rolls
+        // back the whole edit.
+        if (!skipStock) {
+          const touchedLocationIds = [current.fromLocationId, current.toLocationId].filter((l): l is string => !!l);
+          if (touchedLocationIds.length) {
+            const negative = await tx.stock.findMany({
+              where: {
+                productId: { in: touchedProductIds },
+                locationId: { in: touchedLocationIds },
+                quantity: { lt: 0 },
+              },
+              include: { product: { select: { name: true, sku: true } }, location: { select: { name: true } } },
+            });
+            if (negative.length) {
+              throw new InsufficientStockError(
+                `Edit would make stock negative:\n${negative
+                  .map((s) => `"${s.product.name}" (${s.product.sku}) at ${s.location.name}: ${s.quantity}`)
+                  .join("\n")}`
+              );
+            }
+          }
+        }
       }, { timeout: 20000, maxWait: 15000 });
     } catch (err) {
+      if (err instanceof InsufficientStockError)
+        return NextResponse.json({ error: err.message }, { status: 400 });
       console.error("Order update failed:", err);
       return NextResponse.json({ error: "Failed to update order — please try again" }, { status: 500 });
     }

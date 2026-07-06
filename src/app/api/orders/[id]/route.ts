@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { InsufficientStockError } from "@/lib/stock";
 
 export { PATCH } from "./_approve";
 export { PUT } from "./_edit";
@@ -42,22 +43,52 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   if (order.type === "ADJUSTMENT" && order.adjustmentStatus === "APPROVED")
     return NextResponse.json({ error: "Approved adjustments cannot be deleted — they are part of the permanent audit trail." }, { status: 400 });
 
-  await prisma.$transaction(async (tx) => {
-    for (const line of order.lines) {
-      if (order.type === "GRN" && order.toLocationId && (order.grnStatus === "APPROVED" || order.grnStatus === null)) {
-        await tx.stock.updateMany({ where: { productId: line.productId, locationId: order.toLocationId }, data: { quantity: { decrement: line.quantity } } });
-      } else if (order.type === "GOODS_OUT" && order.fromLocationId && (order.goodsOutStatus === "APPROVED" || order.goodsOutStatus === null)) {
-        await tx.stock.updateMany({ where: { productId: line.productId, locationId: order.fromLocationId }, data: { quantity: { increment: line.quantity } } });
-      } else if (order.type === "TRANSFER" && order.fromLocationId && order.toLocationId && (order.transferStatus === "APPROVED" || order.transferStatus === null)) {
-        await tx.stock.updateMany({ where: { productId: line.productId, locationId: order.fromLocationId }, data: { quantity: { increment: line.quantity } } });
-        await tx.stock.updateMany({ where: { productId: line.productId, locationId: order.toLocationId }, data: { quantity: { decrement: line.quantity } } });
-      } else if (order.type === "ADJUSTMENT" && order.adjustmentStatus === "APPROVED" && order.toLocationId) {
-        await tx.stock.updateMany({ where: { productId: line.productId, locationId: order.toLocationId }, data: { quantity: { decrement: line.quantity } } });
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const line of order.lines) {
+        if (order.type === "GRN" && order.toLocationId && (order.grnStatus === "APPROVED" || order.grnStatus === null)) {
+          await tx.stock.updateMany({ where: { productId: line.productId, locationId: order.toLocationId }, data: { quantity: { decrement: line.quantity } } });
+        } else if (order.type === "GOODS_OUT" && order.fromLocationId && (order.goodsOutStatus === "APPROVED" || order.goodsOutStatus === null)) {
+          await tx.stock.updateMany({ where: { productId: line.productId, locationId: order.fromLocationId }, data: { quantity: { increment: line.quantity } } });
+        } else if (order.type === "TRANSFER" && order.fromLocationId && order.toLocationId && (order.transferStatus === "APPROVED" || order.transferStatus === null)) {
+          await tx.stock.updateMany({ where: { productId: line.productId, locationId: order.fromLocationId }, data: { quantity: { increment: line.quantity } } });
+          await tx.stock.updateMany({ where: { productId: line.productId, locationId: order.toLocationId }, data: { quantity: { decrement: line.quantity } } });
+        } else if (order.type === "ADJUSTMENT" && order.adjustmentStatus === "APPROVED" && order.toLocationId) {
+          await tx.stock.updateMany({ where: { productId: line.productId, locationId: order.toLocationId }, data: { quantity: { decrement: line.quantity } } });
+        }
       }
-    }
-    await tx.movement.deleteMany({ where: { orderId: id } });
-    await tx.order.delete({ where: { id } });
-  }, { timeout: 20000, maxWait: 15000 });
+
+      // Guard: reversing this order must not leave any touched balance negative
+      // (e.g. deleting a GRN whose goods were already shipped out). Throwing rolls
+      // back the whole delete.
+      const touchedLocationIds = [order.fromLocationId, order.toLocationId].filter((l): l is string => !!l);
+      if (touchedLocationIds.length) {
+        const negative = await tx.stock.findMany({
+          where: {
+            productId: { in: order.lines.map((l) => l.productId) },
+            locationId: { in: touchedLocationIds },
+            quantity: { lt: 0 },
+          },
+          include: { product: { select: { name: true, sku: true } }, location: { select: { name: true } } },
+        });
+        if (negative.length) {
+          throw new InsufficientStockError(
+            `Cannot delete — stock was already used elsewhere; reversal would go negative:\n${negative
+              .map((s) => `"${s.product.name}" (${s.product.sku}) at ${s.location.name}: ${s.quantity}`)
+              .join("\n")}`
+          );
+        }
+      }
+
+      await tx.movement.deleteMany({ where: { orderId: id } });
+      await tx.order.delete({ where: { id } });
+    }, { timeout: 20000, maxWait: 15000 });
+  } catch (err) {
+    if (err instanceof InsufficientStockError)
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    console.error("Order delete failed:", err);
+    return NextResponse.json({ error: "Failed to delete order — please try again" }, { status: 500 });
+  }
 
   const deleteDesc = order.type === "ADJUSTMENT"
     ? `Deleted ${order.orderNumber} (ADJUSTMENT/${order.adjustmentStatus}${order.adjustmentStatus === "APPROVED" ? " — stock reversed" : ""})`
