@@ -46,7 +46,9 @@ export default async function ProductDetailPage({
     }),
     prisma.movement.findMany({
       where: { productId: id },
-      orderBy: { createdAt: "desc" },
+      // Business-date order (real in/out date), createdAt as tiebreaker for same-day rows.
+      // effectiveDate is backfilled on all rows, so nulls don't reorder in practice.
+      orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
       skip: (page - 1) * perPage,
       take: perPage,
       include: {
@@ -268,7 +270,52 @@ export default async function ProductDetailPage({
         <span className="text-xs text-slate-400">{total} record{total !== 1 ? "s" : ""}</span>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
+      {/* Mobile cards — one movement per card, qty always visible, tappable order */}
+      <div className="md:hidden space-y-2 mb-4">
+        {movements.length === 0 ? (
+          <p className="bg-white rounded-xl border border-slate-200 px-4 py-10 text-center text-slate-400 text-sm">
+            No movements recorded yet.
+          </p>
+        ) : movements.map((m) => {
+          const locationLabel = m.type === "TRANSFER"
+            ? `${m.fromLocation?.name ?? "?"} → ${m.toLocation?.name ?? "?"}`
+            : m.type === "IN" || m.order.type === "GRN"
+            ? m.toLocation?.name ?? "—"
+            : m.fromLocation?.name ?? "—";
+          const displayDate = m.effectiveDate ?? m.createdAt;
+          return (
+            <div key={m.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm text-slate-600 dark:text-slate-300">
+                    {new Date(displayDate).toLocaleDateString("id-ID", {
+                      day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta",
+                    })}
+                  </div>
+                  <Link
+                    href={`/orders/${m.orderId}`}
+                    className="font-mono text-sm font-semibold text-blue-600 hover:underline inline-block mt-0.5"
+                  >
+                    {m.order.orderNumber}
+                  </Link>
+                </div>
+                <span className={`flex-shrink-0 font-bold text-xl leading-none ${MOVEMENT_COLOR[m.type]}`}>
+                  {MOVEMENT_SIGN[m.type]}{m.quantity}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-700">
+                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLOR[m.order.type]}`}>
+                  {TYPE_LABEL[m.order.type]}
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 text-right truncate">{locationLabel}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
@@ -293,13 +340,13 @@ export default async function ProductDetailPage({
                   : m.type === "IN" || m.order.type === "GRN"
                   ? m.toLocation?.name ?? "—"
                   : m.fromLocation?.name ?? "—";
+                const displayDate = m.effectiveDate ?? m.createdAt;
 
                 return (
                   <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="px-4 py-2.5 text-xs text-slate-500 whitespace-nowrap">
-                      {new Date(m.createdAt).toLocaleString("id-ID", {
-                        day: "numeric", month: "short", year: "numeric",
-                        hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta",
+                      {new Date(displayDate).toLocaleDateString("id-ID", {
+                        day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta",
                       })}
                     </td>
                     <td className="px-4 py-2.5">
