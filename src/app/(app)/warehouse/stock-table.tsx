@@ -86,15 +86,15 @@ export function WarehouseStockTable({ stock, categories, locationId, q, category
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search name, SKU, or barcode…"
-          className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 min-w-[200px] px-3 py-2.5 md:py-2 border border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+        <button type="submit" className="px-4 py-2.5 md:py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
           Search
         </button>
         <select
           value={categoryId}
           onChange={(e) => handleCategoryChange(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-2.5 md:py-2 border border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Categories</option>
           {categories.map((c) => (
@@ -115,15 +115,15 @@ export function WarehouseStockTable({ stock, categories, locationId, q, category
       </form>
 
       {/* Mobile card list */}
-      <div className="md:hidden space-y-2">
+      <div className="md:hidden space-y-3">
         {stock.length === 0 ? (
-          <p className="text-center text-xs text-slate-400 py-10">No items found</p>
+          <p className="text-center text-sm text-slate-400 py-10">No items found</p>
         ) : stock.map((s) => {
           const isLow = s.product.isActive && s.product.reorderPoint > 0 && s.quantity <= s.product.reorderPoint;
           return (
             <div
               key={s.id}
-              className={`bg-white dark:bg-slate-800 rounded-xl border px-4 py-3 ${
+              className={`bg-white dark:bg-slate-800 rounded-xl border px-4 py-4 ${
                 !s.product.isActive
                   ? "opacity-60 border-slate-200 dark:border-slate-700"
                   : isLow
@@ -131,48 +131,48 @@ export function WarehouseStockTable({ stock, categories, locationId, q, category
                   : "border-slate-200 dark:border-slate-700"
               }`}
             >
-              <div className="flex items-start justify-between gap-2 mb-1">
+              <div className="flex items-start justify-between gap-3 mb-1">
                 <div className="min-w-0">
-                  <div className={`font-medium text-sm ${!s.product.isActive ? "text-slate-400 line-through" : "text-slate-800"}`}>
+                  <div className={`font-medium text-base leading-snug ${!s.product.isActive ? "text-slate-400 line-through" : "text-slate-800"}`}>
                     {s.product.name}
                     {s.product.colorVariant && <span className="text-slate-400 font-normal"> — {s.product.colorVariant}</span>}
                   </div>
-                  <div className="text-xs font-mono text-slate-400 mt-0.5">{s.product.sku} · {s.product.category?.name}</div>
+                  <div className="text-xs font-mono text-slate-400 mt-1">{s.product.sku} · {s.product.category?.name}</div>
                 </div>
                 {!s.product.isActive ? (
-                  <span className="flex-shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Inactive</span>
+                  <span className="flex-shrink-0 text-[11px] font-semibold bg-slate-100 text-slate-400 px-2 py-1 rounded-full uppercase tracking-wide">Inactive</span>
                 ) : isLow ? (
-                  <span className="flex-shrink-0 text-[10px] font-semibold bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Low</span>
+                  <span className="flex-shrink-0 text-[11px] font-semibold bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-2 py-1 rounded-full uppercase tracking-wide">Low</span>
                 ) : (
-                  <span className="flex-shrink-0 text-[10px] font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">OK</span>
+                  <span className="flex-shrink-0 text-[11px] font-semibold bg-green-100 text-green-700 px-2 py-1 rounded-full uppercase tracking-wide">OK</span>
                 )}
               </div>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className={`font-semibold text-sm ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className={`font-bold text-2xl leading-none ${!s.product.isActive ? "text-slate-400" : isLow ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-slate-100"}`}>
                   {s.quantity}
                 </span>
-                <span className="text-xs text-slate-500">{s.product.unit?.name?.toLowerCase()}</span>
+                <span className="text-sm text-slate-500">{s.product.unit?.name?.toLowerCase()}</span>
                 {s.product.reorderPoint > 0 && (
                   <span className="text-xs text-slate-400">· reorder at {s.product.reorderPoint}</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
                 <Link
                   href={`/products/${s.product.id}`}
-                  className="flex-1 text-center text-xs px-3 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
+                  className="flex-1 text-center text-sm px-3 py-2.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
                 >
                   View Detail
                 </Link>
                 {confirmingId === s.id ? (
-                  <div className="flex items-center gap-1.5 flex-1 justify-end">
-                    <span className="text-xs text-slate-600">Remove?</span>
-                    <button onClick={() => setConfirmingId(null)} className="text-xs px-2.5 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">No</button>
-                    <button onClick={() => deleteStock(s.id)} disabled={deletingId === s.id} className="text-xs px-2.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50">
+                  <div className="flex items-center gap-2 flex-1 justify-end">
+                    <span className="text-sm text-slate-600">Remove?</span>
+                    <button onClick={() => setConfirmingId(null)} className="text-sm px-3 py-2.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">No</button>
+                    <button onClick={() => deleteStock(s.id)} disabled={deletingId === s.id} className="text-sm px-3 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50">
                       {deletingId === s.id ? "…" : "Yes"}
                     </button>
                   </div>
                 ) : (
-                  <button onClick={() => setConfirmingId(s.id)} className="flex-1 text-xs px-3 py-2 border border-red-300 rounded-lg text-red-600 hover:bg-red-50">
+                  <button onClick={() => setConfirmingId(s.id)} className="flex-1 text-sm px-3 py-2.5 border border-red-300 rounded-lg text-red-600 hover:bg-red-50">
                     Delete
                   </button>
                 )}
@@ -264,14 +264,14 @@ export function WarehouseStockTable({ stock, categories, locationId, q, category
           </p>
           <div className="flex gap-2">
             {page > 1 ? (
-              <Link href={buildUrl({ page: page - 1 })} className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">← Prev</Link>
+              <Link href={buildUrl({ page: page - 1 })} className="text-sm md:text-xs px-4 py-2.5 md:px-3 md:py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">← Prev</Link>
             ) : (
-              <span className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-300 cursor-not-allowed">← Prev</span>
+              <span className="text-sm md:text-xs px-4 py-2.5 md:px-3 md:py-1.5 border border-slate-200 rounded-lg text-slate-300 cursor-not-allowed">← Prev</span>
             )}
             {page < totalPages ? (
-              <Link href={buildUrl({ page: page + 1 })} className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">Next →</Link>
+              <Link href={buildUrl({ page: page + 1 })} className="text-sm md:text-xs px-4 py-2.5 md:px-3 md:py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">Next →</Link>
             ) : (
-              <span className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-300 cursor-not-allowed">Next →</span>
+              <span className="text-sm md:text-xs px-4 py-2.5 md:px-3 md:py-1.5 border border-slate-200 rounded-lg text-slate-300 cursor-not-allowed">Next →</span>
             )}
           </div>
         </div>

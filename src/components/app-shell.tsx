@@ -214,10 +214,10 @@ export function AppShell({
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 py-3.5 flex items-center gap-3 flex-shrink-0">
           <button
             onClick={() => setOpen(true)}
-            className="md:hidden p-1.5 -ml-1 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 flex-shrink-0"
+            className="md:hidden p-2.5 -ml-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 flex-shrink-0"
             aria-label={t("app.openNav", "Open navigation")}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
@@ -235,7 +235,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-50 dark:bg-slate-950">
+        <main className="flex-1 min-h-0 overflow-y-auto px-4 py-5 sm:p-6 bg-slate-50 dark:bg-slate-950">
           {children}
         </main>
 

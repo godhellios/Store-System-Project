@@ -471,61 +471,61 @@ export function TransactionForm({
         )}
 
         {/* ── Header fields ── */}
-        <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap gap-4 items-end">
+        <div className="px-4 md:px-5 py-4 border-b border-slate-100 flex flex-wrap gap-4 items-end">
           {cfg.fromLabel && (
-            <div>
+            <div className="w-full md:w-auto">
               <label className="block text-xs font-medium text-slate-500 mb-1">{cfg.fromLabel} *</label>
               <select value={fromLocationId} onChange={(e) => setFromLocationId(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                className="w-full md:w-auto px-3 py-2.5 md:py-1.5 border border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">{t("transactionForm.selectLocation", "Select…")}</option>
                 {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </div>
           )}
           {cfg.toLabel && (
-            <div>
+            <div className="w-full md:w-auto">
               <label className="block text-xs font-medium text-slate-500 mb-1">{cfg.toLabel} *</label>
               <select value={toLocationId} onChange={(e) => setToLocationId(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                className="w-full md:w-auto px-3 py-2.5 md:py-1.5 border border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">{t("transactionForm.selectLocation", "Select…")}</option>
                 {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </div>
           )}
           {type === "GOODS_OUT" && (
-            <div>
+            <div className="w-full md:w-auto">
               <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.customerName", "Customer Name")}</label>
               <input value={customer} onChange={(e) => setCustomer(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+                className="px-3 py-2.5 md:py-1.5 border border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-44"
                 placeholder={t("transactionForm.optional", "Optional")} />
             </div>
           )}
           {type === "GRN" && (
-            <div>
+            <div className="w-full md:w-auto">
               <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.supplierName", "Supplier")}</label>
               {suppliers.length > 0 ? (
                 <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}
-                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44">
+                  className="px-3 py-2.5 md:py-1.5 border border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-44">
                   <option value="">{t("transactionForm.optional", "— Optional —")}</option>
                   {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               ) : (
                 <input value={supplier} onChange={(e) => setSupplier(e.target.value)}
-                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+                  className="px-3 py-2.5 md:py-1.5 border border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-44"
                   placeholder={t("transactionForm.optional", "Optional")} />
               )}
             </div>
           )}
-          <div>
+          <div className="w-full md:w-auto">
             <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.referenceNo", "Reference / DO#")}</label>
             <input value={reference} onChange={(e) => setReference(e.target.value)}
-              className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+              className="px-3 py-2.5 md:py-1.5 border border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-40"
               placeholder={t("transactionForm.optional", "Optional")} />
           </div>
           <div className="flex-1 min-w-[200px]">
             <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.notes", "Notes")}</label>
             <input value={notes} onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 md:py-1.5 border border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder={t("transactionForm.optional", "Optional")} />
           </div>
         </div>
@@ -541,7 +541,7 @@ export function TransactionForm({
                 value={scanInput}
                 onChange={(e) => setScanInput(e.target.value)}
                 onKeyDown={handleScan}
-                className="w-full sm:w-56 px-3 py-2 border-2 border-green-500 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+                className="w-full sm:w-56 px-3 py-3 md:py-2 border-2 border-green-500 rounded-lg text-base md:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
                 placeholder={t("transactionForm.scanPlaceholder", "Scan barcode or type SKU…")}
                 disabled={scanning}
               />
@@ -554,7 +554,7 @@ export function TransactionForm({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery && setShowDropdown(true)}
-              className="w-full sm:w-64 px-3 py-2 border-2 border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+              className="w-full sm:w-64 px-3 py-3 md:py-2 border-2 border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
               placeholder={t("transactionForm.searchPlaceholder", "Type product name…")}
               autoComplete="off"
             />
@@ -573,10 +573,10 @@ export function TransactionForm({
                 {!searchLoading && searchResults.length > 0 && searchResults.map((p) => (
                   <button key={p.id} type="button"
                     onMouseDown={(e) => { e.preventDefault(); addProduct(p); }}
-                    className={`w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-slate-50 last:border-0 transition-colors ${!p.isActive ? "opacity-50" : ""}`}>
+                    className={`w-full text-left px-4 py-3 md:py-2.5 hover:bg-blue-50 border-b border-slate-50 last:border-0 transition-colors ${!p.isActive ? "opacity-50" : ""}`}>
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-slate-800 truncate">{p.name}</div>
+                        <div className="text-base md:text-sm font-medium text-slate-800 truncate">{p.name}</div>
                         <div className="text-xs text-slate-400 font-mono">{p.sku}</div>
                       </div>
                       <div className="text-right flex-shrink-0">
@@ -601,43 +601,44 @@ export function TransactionForm({
         {/* ── Line items — mobile cards ── */}
         <div className="md:hidden divide-y divide-slate-100">
           {lines.length === 0 ? (
-            <p className="px-4 py-10 text-center text-slate-400 text-xs">
+            <p className="px-5 py-12 text-center text-slate-400 text-sm leading-relaxed">
               {t("transactionForm.emptyPrompt", "Scan a barcode, type a SKU, or search by name above to add items")}
             </p>
           ) : lines.map((line, i) => {
             const hasPackaging = line.unitConversions.length > 0;
             const baseQty = Math.round((line.quantity ?? 0) * line.conversionFactor);
             return (
-              <div key={line._key} className="px-4 py-3">
-                <div className="flex items-start justify-between gap-2 mb-2">
+              <div key={line._key} className="px-4 py-4">
+                <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="min-w-0">
-                    <span className="text-[10px] text-slate-400 mr-1">#{i + 1}</span>
-                    <span className="font-semibold text-slate-800 text-sm">{line.name}</span>
-                    <div className="text-xs font-mono text-slate-400 mt-0.5">{line.sku}</div>
+                    <span className="text-[11px] text-slate-400 mr-1.5">#{i + 1}</span>
+                    <span className="font-semibold text-slate-800 text-base leading-snug">{line.name}</span>
+                    <div className="text-xs font-mono text-slate-400 mt-1">{line.sku}</div>
                   </div>
                   <button onClick={() => removeLine(line._key)}
-                    className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 text-lg transition-colors">
+                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 text-xl transition-colors"
+                    aria-label="Remove item">
                     ×
                   </button>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <NumberField min={1} value={line.quantity} placeholder="Qty"
                     aria-invalid={line.quantity == null}
                     onChange={(v) => updateLine(line._key, "quantity", v)}
-                    className={`w-20 text-center px-2 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${line.quantity == null ? "border-red-400 bg-red-50" : "border-slate-300"}`} />
+                    className={`w-24 text-center px-2 py-2.5 border rounded-lg text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 ${line.quantity == null ? "border-red-400 bg-red-50" : "border-slate-300"}`} />
                   {hasPackaging ? (
                     <select value={line.inputUnitId} onChange={(e) => changeInputUnit(line._key, e.target.value)}
-                      className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      className="px-3 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <option value={line.baseUnitId}>{line.baseUnitName}</option>
                       {line.unitConversions.map((c) => (
                         <option key={c.id} value={c.id}>{c.name} (×{c.conversionFactor})</option>
                       ))}
                     </select>
                   ) : (
-                    <span className="text-sm text-slate-500 px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">{line.baseUnitName}</span>
+                    <span className="text-sm text-slate-500 px-3 py-2.5 bg-slate-50 rounded-lg border border-slate-200">{line.baseUnitName}</span>
                   )}
                   {line.conversionFactor !== 1 && (
-                    <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg">
+                    <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg">
                       = {baseQty} {line.baseUnitName}
                     </span>
                   )}
@@ -647,14 +648,14 @@ export function TransactionForm({
                     const needed = baseQty;
                     const ok = avail >= needed;
                     return (
-                      <span className={`text-[10px] font-medium px-2 py-1 rounded ${ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+                      <span className={`text-[11px] font-medium px-2 py-1 rounded ${ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
                         {ok ? `✓ ${avail}` : `✗ ${avail}`}
                       </span>
                     );
                   })()}
                 </div>
                 <input value={line.notes} onChange={(e) => updateLine(line._key, "notes", e.target.value)}
-                  className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="mt-2.5 w-full px-3 py-2.5 border border-slate-200 rounded-lg text-base focus:outline-none focus:ring-1 focus:ring-blue-400"
                   placeholder={t("transactionForm.notesOptional", "Notes (optional)")} />
               </div>
             );
@@ -750,15 +751,15 @@ export function TransactionForm({
           <span className="text-xs text-slate-500">
             {lines.length} {lines.length !== 1 ? t("transactionForm.footer.lines", "lines") : t("transactionForm.footer.line", "line")} · {totalBaseUnits} {totalBaseUnits !== 1 ? t("transactionForm.footer.baseUnits", "base units") : t("transactionForm.footer.baseUnit", "base unit")} {t("transactionForm.footer.total", "total")}
           </span>
-          <div className="flex gap-3">
+          <div className="flex gap-3 w-full md:w-auto">
             <button onClick={() => router.back()}
-              className="px-4 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+              className="flex-1 md:flex-none px-4 py-3 md:py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
               {t("common.cancel", "Cancel")}
             </button>
             <button
               onClick={handleSubmit}
               disabled={submitting || lines.length === 0 || flowState.step !== "idle"}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+              className="flex-[2] md:flex-none bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-3 md:py-2 rounded-lg transition-colors"
             >
               {submitting ? t("common.saving", "Saving…") : t("transactionForm.saveOrder", "Save Order")}
             </button>
