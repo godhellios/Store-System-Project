@@ -37,7 +37,7 @@ export default async function OpnamePage() {
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-base font-semibold text-slate-800">{t("opname.title", "Stock Opname")}</h1>
         <div className="flex items-center gap-2">
-          <OpnameExportButton locations={plainLocations} />
+          <OpnameExportButton locations={plainLocations} categories={categories} />
           <OpnameImportButton locations={plainLocations} isAdmin={isAdmin} />
           <NewOpnameButton locations={plainLocations} categories={categories} />
         </div>

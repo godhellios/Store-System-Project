@@ -9,12 +9,19 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const scope = searchParams.get("scope") ?? "all";
   const locationId = searchParams.get("locationId") ?? undefined;
+  const categoryIds = (searchParams.get("categoryIds") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  // Default is every active item (so newly-added products always appear). "Only
+  // stocked here" is an opt-in shorter list. Import ignores products it can't find
+  // and treats zero-stock as 0, so exporting extra rows is always safe.
+  const onlyStocked = searchParams.get("onlyStocked") === "1";
 
-  // For location scope: products that have a stock record OR movement record at that location
+  // "Only stocked here": products that have a stock record OR movement at that location
   let locationProductIds: string[] | undefined;
-  if (scope === "location" && locationId) {
+  if (onlyStocked && locationId) {
     const [stockRows, movementRows] = await Promise.all([
       prisma.stock.findMany({
         where: { locationId },
@@ -39,6 +46,7 @@ export async function GET(req: Request) {
       where: {
         isActive: true,
         OR: [{ approvalStatus: "ACTIVE" }, { approvalStatus: null }],
+        ...(categoryIds.length ? { categoryId: { in: categoryIds } } : {}),
         ...(locationProductIds !== undefined ? { id: { in: locationProductIds } } : {}),
       },
       include: { category: true, unit: true },
@@ -137,7 +145,7 @@ export async function GET(req: Request) {
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const scopeLabel = scope === "location" && location
+  const scopeLabel = location
     ? location.name.replace(/\s+/g, "_")
     : "AllItems";
   const dateStr = new Date().toISOString().slice(0, 10);
