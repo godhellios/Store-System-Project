@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { viewerGuard } from "@/lib/role-guard";
 import { overlapsExistingCount } from "@/lib/opname-scope";
 
+export const maxDuration = 60; // full-warehouse counts now create a line per active product
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -55,10 +57,18 @@ export async function POST(req: Request) {
   const lastNum = last ? parseInt(last.sessionNumber.split("-").pop() ?? "0") : 0;
   const sessionNumber = `OPN-${year}-${String(lastNum + 1).padStart(4, "0")}`;
 
-  // Pre-fill lines with current stock for blind counting
-  const currentStock = await prisma.stock.findMany({
-    where: { locationId, product: { isActive: true, ...(catIds.length ? { categoryId: { in: catIds } } : {}) } },
-    include: { product: true },
+  // Pre-fill a line for EVERY active product in scope — not just ones that
+  // already have stock at this warehouse. A product with no balance here gets
+  // bookQty 0, so a physically-present-but-untracked item can still be counted
+  // and recorded (on approval the adjustment creates its stock row). DRAFT
+  // products are excluded. Category filter still applies when categories chosen.
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }],
+      ...(catIds.length ? { categoryId: { in: catIds } } : {}),
+    },
+    select: { id: true, stock: { where: { locationId }, select: { quantity: true } } },
   });
 
   const opnameSession = await prisma.opnameSession.create({
@@ -69,9 +79,9 @@ export async function POST(req: Request) {
       createdByName: session.user.name ?? null,
       ...(catIds.length ? { categories: { connect: catIds.map((id) => ({ id })) } } : {}),
       lines: {
-        create: currentStock.map((s) => ({
-          productId: s.productId,
-          bookQty: s.quantity,
+        create: products.map((p) => ({
+          productId: p.id,
+          bookQty: p.stock[0]?.quantity ?? 0,
         })),
       },
     },

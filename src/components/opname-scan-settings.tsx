@@ -43,7 +43,7 @@ export function OpnameScanSettings() {
   }
 
   return (
-    <div className="max-w-lg mt-6">
+    <div className="max-w-lg">
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <div className="flex items-start justify-between gap-4">
           <div>

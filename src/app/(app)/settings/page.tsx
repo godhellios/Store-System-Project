@@ -34,6 +34,7 @@ const TABS = [
   { key: "settings.tabs.notifications", label: "Notifications" },
   { key: "settings.tabs.loginHistory", label: "Login History" },
   { key: "settings.tabs.barcodePrinter", label: "Barcode Printer" },
+  { key: "settings.tabs.opnameScan", label: "Foto Opname" },
 ];
 
 // Dedicated category manager with SKU Code support
@@ -1532,7 +1533,12 @@ export default function SettingsPage() {
       )}
       {tab === 6 && (
         session?.user.role === "ADMIN"
-          ? <><PrinterSettingsManager /><OpnameScanSettings /></>
+          ? <PrinterSettingsManager />
+          : <p className="text-sm text-slate-400">{t("settings.adminOnly", "Admin access required.")}</p>
+      )}
+      {tab === 7 && (
+        session?.user.role === "ADMIN"
+          ? <OpnameScanSettings />
           : <p className="text-sm text-slate-400">{t("settings.adminOnly", "Admin access required.")}</p>
       )}
     </div>
