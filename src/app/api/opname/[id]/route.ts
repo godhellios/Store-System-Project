@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nextOrderNumber } from "@/lib/order-number";
-import { MovementType } from "@/generated/prisma";
+import { MovementType, Prisma } from "@/generated/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { viewerGuard } from "@/lib/role-guard";
 import { sendPushNotification } from "@/modules/push-notify/send";
@@ -56,15 +56,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       lines as Array<{ id: string; physicalQty: number | null; staffConfirmed?: boolean }>
     );
     try {
-      if (updates.length > 0) {
-        await prisma.$transaction(
-          updates.map((u) =>
-            prisma.opnameLine.update({
-              where: { id: u.id },
-              data: { physicalQty: u.physicalQty, difference: u.difference, staffConfirmed: u.staffConfirmed },
-            })
-          )
-        );
+      // ONE bulk UPDATE per chunk (UPDATE … FROM VALUES) instead of N individual
+      // updates — a 1000+ line count would otherwise be 1000+ DB round-trips and
+      // time out. 4 params/row; chunk well under Postgres' 65535-param limit.
+      const CHUNK = 5000;
+      for (let i = 0; i < updates.length; i += CHUNK) {
+        const slice = updates.slice(i, i + CHUNK);
+        await prisma.$executeRaw`
+          UPDATE "OpnameLine" AS o
+          SET "physicalQty" = v.phys, "difference" = v.diff, "staffConfirmed" = v.sc
+          FROM (VALUES ${Prisma.join(
+            slice.map((u) => Prisma.sql`(${u.id}::text, ${u.physicalQty}::int, ${u.difference}::int, ${u.staffConfirmed}::boolean)`)
+          )}) AS v(id, phys, diff, sc)
+          WHERE o.id = v.id
+        `;
       }
     } catch (err) {
       console.error("[opname update-counts] failed", { sessionId: id, changed: updates.length, err });
