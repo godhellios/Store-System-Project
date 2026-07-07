@@ -8,6 +8,9 @@ import toast from "react-hot-toast";
 import { PushSubscribeButton } from "@/modules/push-notify";
 // ────────────────────────────────────────────────────────────────────────────
 import { useT } from "@/modules/i18n/provider";
+// ── opname photo-scan module ─────────────────────────────────────────────────
+import { OpnameScanSettings } from "@/components/opname-scan-settings";
+// ────────────────────────────────────────────────────────────────────────────
 
 type Row = { id: string; name: string; type?: string; isActive: boolean; _count?: { products?: number; stock?: number } };
 type CategoryRow = { id: string; name: string; code: string | null; isActive: boolean; _count: { products: number } };
@@ -1529,7 +1532,7 @@ export default function SettingsPage() {
       )}
       {tab === 6 && (
         session?.user.role === "ADMIN"
-          ? <PrinterSettingsManager />
+          ? <><PrinterSettingsManager /><OpnameScanSettings /></>
           : <p className="text-sm text-slate-400">{t("settings.adminOnly", "Admin access required.")}</p>
       )}
     </div>
