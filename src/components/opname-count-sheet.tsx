@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useT } from "@/modules/i18n/provider";
+import { OpnameScanPanel, type ScanApplyRow } from "@/components/opname-scan-panel";
 
 type Line = {
   id: string;
@@ -26,7 +27,7 @@ type Session = {
 };
 type LineStatus = "empty" | "match" | "mismatch" | "confirmed";
 
-export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdmin: boolean }) {
+export function OpnameCountSheet({ session, isAdmin, scanEnabled = false }: { session: Session; isAdmin: boolean; scanEnabled?: boolean }) {
   const t = useT();
   const router = useRouter();
   const isEditable = session.status === "IN_PROGRESS";
@@ -51,6 +52,15 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
     if (confirmedLines.has(id)) {
       setConfirmedLines((prev) => { const n = new Set(prev); n.delete(id); return n; });
     }
+  }
+
+  // Photo-scan module: merge confidently-read counts into the draft (module-guarded).
+  function applyScan(rows: ScanApplyRow[]) {
+    setCounts((c) => {
+      const next = { ...c };
+      for (const r of rows) next[r.lineId] = String(r.qty);
+      return next;
+    });
   }
 
   function confirmLine(id: string) {
@@ -280,6 +290,9 @@ export function OpnameCountSheet({ session, isAdmin }: { session: Session; isAdm
 
   return (
     <div>
+      {scanEnabled && isAdmin && isEditable && (
+        <OpnameScanPanel sessionId={session.id} onApply={applyScan} />
+      )}
       {isCancelled && (
         <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-5 py-3">
           <div className="text-xs font-semibold text-red-500 uppercase tracking-wide mb-1">Session Dibatalkan</div>

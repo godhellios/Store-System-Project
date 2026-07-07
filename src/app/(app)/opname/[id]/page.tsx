@@ -4,11 +4,12 @@ import { OpnameCountSheet } from "@/components/opname-count-sheet";
 import { blockOperator } from "@/lib/role-guard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { OPNAME_SCAN_SETTING_KEY } from "@/lib/opname-scan";
 
 export default async function OpnameDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await blockOperator();
   const { id } = await params;
-  const [authSession, opnameSession] = await Promise.all([
+  const [authSession, opnameSession, scanFlag] = await Promise.all([
     getServerSession(authOptions),
     prisma.opnameSession.findUnique({
       where: { id },
@@ -35,9 +36,12 @@ export default async function OpnameDetailPage({ params }: { params: Promise<{ i
         },
       },
     }),
+    prisma.systemSetting.findUnique({ where: { key: OPNAME_SCAN_SETTING_KEY } }).catch(() => null),
   ]);
   if (!opnameSession) notFound();
   const isAdmin = authSession?.user.role === "ADMIN";
+  // Photo-scan module: only surfaces for admins on an open session when enabled.
+  const scanEnabled = scanFlag?.value === "1";
 
   return (
     <div>
@@ -48,6 +52,10 @@ export default async function OpnameDetailPage({ params }: { params: Promise<{ i
         <span className="text-xs text-slate-400">
           · {opnameSession.categories.length ? opnameSession.categories.map((c) => c.name).join(", ") : "All categories"}
         </span>
+        {scanEnabled && (
+          <a href={`/opname-sheet/${opnameSession.id}`} target="_blank" rel="noopener noreferrer"
+            className="ml-auto text-xs text-blue-600 hover:underline">🖨 Print count sheet</a>
+        )}
       </div>
       <OpnameCountSheet
         session={{
@@ -61,6 +69,7 @@ export default async function OpnameDetailPage({ params }: { params: Promise<{ i
           lines: opnameSession.lines,
         }}
         isAdmin={isAdmin}
+        scanEnabled={scanEnabled}
       />
     </div>
   );
