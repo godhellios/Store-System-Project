@@ -107,6 +107,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (action === "approve") {
     if (session.user.role !== "ADMIN")
       return NextResponse.json({ error: "Only admins can approve opname sessions" }, { status: 403 });
+    try {
     const fullSession = await prisma.opnameSession.findUnique({
       where: { id },
       include: { lines: { include: { product: true } } },
@@ -145,28 +146,34 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
               },
             });
 
-            for (const line of discrepancies) {
-              const diff = line.difference!;
-              // Signed quantity: positive = increase stock, negative = decrease stock.
-              // The adjustment approval route applies: newQty = currentQty + line.quantity
-              const orderLine = await tx.orderLine.create({
-                data: { orderId: order.id, productId: line.productId, quantity: diff },
-              });
-              await tx.movement.create({
-                data: {
-                  orderId: order.id,
-                  orderLineId: orderLine.id,
-                  productId: line.productId,
-                  toLocationId: fullSession!.locationId,
-                  quantity: Math.abs(diff),
-                  type: MovementType.ADJUSTMENT,
-                  effectiveDate,
-                },
-              });
-              // Stock NOT updated here — deferred to admin approval of the adjustment order
-            }
+            // Bulk-insert all lines + movements (2 statements) instead of 2 per
+            // discrepancy — a full 1000+ item count can produce hundreds of
+            // discrepancies, and per-row creates blow past the 5s transaction
+            // limit. Pre-generate ids so each movement links to its order line.
+            // Signed quantity: positive = increase, negative = decrease (the
+            // adjustment approval applies newQty = currentQty + quantity).
+            const orderLinesData = discrepancies.map((line) => ({
+              id: crypto.randomUUID(),
+              orderId: order.id,
+              productId: line.productId,
+              quantity: line.difference!,
+            }));
+            await tx.orderLine.createMany({ data: orderLinesData });
+            await tx.movement.createMany({
+              data: orderLinesData.map((ol) => ({
+                id: crypto.randomUUID(),
+                orderId: order.id,
+                orderLineId: ol.id,
+                productId: ol.productId,
+                toLocationId: fullSession!.locationId,
+                quantity: Math.abs(ol.quantity),
+                type: MovementType.ADJUSTMENT,
+                effectiveDate,
+              })),
+            });
+            // Stock NOT updated here — deferred to admin approval of the adjustment order
             return order.id;
-          });
+          }, { timeout: 30000 });
           break; // success
         } catch (err) {
           const isCollision =
@@ -198,6 +205,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     return NextResponse.json({ ...updated, pendingOrderId });
+    } catch (err) {
+      console.error("[opname approve] failed", { sessionId: id, err });
+      return NextResponse.json(
+        { error: `Approve failed: ${err instanceof Error ? err.message : String(err)}` },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

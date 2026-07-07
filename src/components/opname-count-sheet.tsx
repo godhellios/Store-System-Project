@@ -151,7 +151,15 @@ export function OpnameCountSheet({ session, isAdmin, scanEnabled = false }: { se
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" }),
     });
-    if (!res.ok) { toast.error("Failed to approve"); return; }
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "");
+      let msg = `Approve failed (HTTP ${res.status})`;
+      try { const d = JSON.parse(bodyText); if (d?.error) msg = `${d.error} [${res.status}]`; }
+      catch { if (bodyText) msg += `: ${bodyText.slice(0, 160)}`; }
+      console.error("[opname approve] failed", res.status, bodyText.slice(0, 500));
+      toast.error(msg);
+      return;
+    }
     const data = await res.json();
     setConfirmingApprove(false);
     if (data.pendingOrderId) {
