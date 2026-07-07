@@ -73,7 +73,7 @@
   },
   "app": {
     "title": "MRIs — Mitra Ramah Inventory System",
-    "footer": "© 2026 Mitra Ramah — All rights reserved | MRIs v1.6.8",
+    "footer": "© 2026 Mitra Ramah — All rights reserved | MRIs v1.6.9",
     "openNav": "Open navigation",
     "closeMenu": "Close menu",
     "geo": {
@@ -95,7 +95,7 @@
     "signIn": "Sign in",
     "invalidCredentials": "Invalid email or password.",
     "displaced": "Your session was replaced by a login from another device. Please sign in again.",
-    "footer": "© 2026 Mitra Ramah — MRIs v1.6.8"
+    "footer": "© 2026 Mitra Ramah — MRIs v1.6.9"
   },
   "dashboard": {
     "totalProducts": "Total Products",
