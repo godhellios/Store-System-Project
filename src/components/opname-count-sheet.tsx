@@ -101,11 +101,17 @@ export function OpnameCountSheet({ session, isAdmin, scanEnabled = false }: { se
 
   async function saveCounts() {
     setSaving(true);
-    const lines = session.lines.map((l) => ({
-      id: l.id,
-      physicalQty: parseInt(counts[l.id]) || 0,
-      staffConfirmed: confirmedLines.has(l.id),
-    }));
+    // Blank box = "not counted" → send null, not 0. Recording an uncounted
+    // product as a physical zero would zero out its stock on approval.
+    const lines = session.lines.map((l) => {
+      const raw = counts[l.id];
+      const counted = raw !== undefined && raw !== null && raw !== "";
+      return {
+        id: l.id,
+        physicalQty: counted ? (parseInt(raw) || 0) : null,
+        staffConfirmed: confirmedLines.has(l.id),
+      };
+    });
     const res = await fetch(`/api/opname/${session.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

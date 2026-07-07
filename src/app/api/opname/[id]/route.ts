@@ -7,6 +7,9 @@ import { MovementType } from "@/generated/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { viewerGuard } from "@/lib/role-guard";
 import { sendPushNotification } from "@/modules/push-notify/send";
+import { diffCountUpdates } from "@/lib/opname-counts";
+
+export const maxDuration = 60;
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -42,20 +45,26 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   });
   if (!opnameSession) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Update physical counts on lines
+  // Update physical counts on lines. Only write lines that actually changed —
+  // a session can now hold every active product (1000+), so blindly updating
+  // all of them per save would time out. A blank box means "not counted" (null,
+  // difference null) so uncounted products are ignored on approval — never
+  // recorded as a physical zero that would wipe their stock. (See opname-counts.)
   if (action === "update-counts" && lines) {
-    await prisma.$transaction(
-      lines.map((l: { id: string; physicalQty: number; staffConfirmed?: boolean }) =>
-        prisma.opnameLine.update({
-          where: { id: l.id },
-          data: {
-            physicalQty: l.physicalQty,
-            difference: l.physicalQty - (opnameSession.lines.find((ol) => ol.id === l.id)?.bookQty ?? 0),
-            staffConfirmed: l.staffConfirmed ?? false,
-          },
-        })
-      )
+    const updates = diffCountUpdates(
+      opnameSession.lines.map((ol) => ({ id: ol.id, physicalQty: ol.physicalQty, staffConfirmed: ol.staffConfirmed, bookQty: ol.bookQty })),
+      lines as Array<{ id: string; physicalQty: number | null; staffConfirmed?: boolean }>
     );
+    if (updates.length > 0) {
+      await prisma.$transaction(
+        updates.map((u) =>
+          prisma.opnameLine.update({
+            where: { id: u.id },
+            data: { physicalQty: u.physicalQty, difference: u.difference, staffConfirmed: u.staffConfirmed },
+          })
+        )
+      );
+    }
     return NextResponse.json({ ok: true });
   }
 
