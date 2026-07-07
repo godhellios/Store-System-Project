@@ -119,8 +119,11 @@ export function OpnameCountSheet({ session, isAdmin, scanEnabled = false }: { se
     });
     setSaving(false);
     if (!res.ok) {
-      let msg = "Failed to save counts";
-      try { const d = await res.json(); if (d?.error) msg = d.error; } catch {}
+      const bodyText = await res.text().catch(() => "");
+      let msg = `Save failed (HTTP ${res.status})`;
+      try { const d = JSON.parse(bodyText); if (d?.error) msg = `${d.error} [${res.status}]`; }
+      catch { if (bodyText) msg += `: ${bodyText.slice(0, 160)}`; }
+      console.error("[opname save] failed", res.status, bodyText.slice(0, 500));
       toast.error(msg);
       return false;
     }
