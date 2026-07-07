@@ -118,7 +118,12 @@ export function OpnameCountSheet({ session, isAdmin, scanEnabled = false }: { se
       body: JSON.stringify({ action: "update-counts", lines }),
     });
     setSaving(false);
-    if (!res.ok) { toast.error("Failed to save counts"); return false; }
+    if (!res.ok) {
+      let msg = "Failed to save counts";
+      try { const d = await res.json(); if (d?.error) msg = d.error; } catch {}
+      toast.error(msg);
+      return false;
+    }
     toast.success("Counts saved");
     router.refresh();
     return true;

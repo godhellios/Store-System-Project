@@ -55,17 +55,25 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       opnameSession.lines.map((ol) => ({ id: ol.id, physicalQty: ol.physicalQty, staffConfirmed: ol.staffConfirmed, bookQty: ol.bookQty })),
       lines as Array<{ id: string; physicalQty: number | null; staffConfirmed?: boolean }>
     );
-    if (updates.length > 0) {
-      await prisma.$transaction(
-        updates.map((u) =>
-          prisma.opnameLine.update({
-            where: { id: u.id },
-            data: { physicalQty: u.physicalQty, difference: u.difference, staffConfirmed: u.staffConfirmed },
-          })
-        )
+    try {
+      if (updates.length > 0) {
+        await prisma.$transaction(
+          updates.map((u) =>
+            prisma.opnameLine.update({
+              where: { id: u.id },
+              data: { physicalQty: u.physicalQty, difference: u.difference, staffConfirmed: u.staffConfirmed },
+            })
+          )
+        );
+      }
+    } catch (err) {
+      console.error("[opname update-counts] failed", { sessionId: id, changed: updates.length, err });
+      return NextResponse.json(
+        { error: `Save failed (${updates.length} changed): ${err instanceof Error ? err.message : String(err)}` },
+        { status: 500 }
       );
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, saved: updates.length });
   }
 
   // Cancel with note (admin only, for REVIEWING sessions)
