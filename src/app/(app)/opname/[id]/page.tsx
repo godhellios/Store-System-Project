@@ -5,6 +5,7 @@ import { blockOperator } from "@/lib/role-guard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { OPNAME_SCAN_SETTING_KEY } from "@/lib/opname-scan";
+import { OpnameCountDate } from "@/components/opname-count-date";
 
 export default async function OpnameDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await blockOperator();
@@ -57,6 +58,16 @@ export default async function OpnameDetailPage({ params }: { params: Promise<{ i
             className="ml-auto text-xs text-blue-600 hover:underline">🖨 Print count sheet</a>
         )}
       </div>
+      <OpnameCountDate
+        sessionId={opnameSession.id}
+        currentDate={(opnameSession.countDate ?? opnameSession.createdAt).toISOString()}
+        isBackdated={
+          !!opnameSession.countDate &&
+          opnameSession.countDate.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" }) !==
+            opnameSession.createdAt.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+        }
+        canEdit={isAdmin && (opnameSession.status === "IN_PROGRESS" || opnameSession.status === "REVIEWING")}
+      />
       <OpnameCountSheet
         session={{
           id: opnameSession.id,

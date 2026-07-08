@@ -131,8 +131,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         try {
           pendingOrderId = await prisma.$transaction(async (tx) => {
             // Business date for this opname-generated adjustment, stamped on the
-            // order + its movements so they stay consistent.
-            const effectiveDate = new Date();
+            // order + its movements so they stay consistent. A backdated count
+            // carries its countDate so the adjustment lands on the day the count
+            // actually happened (reports, cost replay, freeze rules).
+            const effectiveDate = fullSession!.countDate ?? new Date();
             const order = await tx.order.create({
               data: {
                 orderNumber,

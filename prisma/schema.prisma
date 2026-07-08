@@ -293,6 +293,10 @@ model OpnameSession {
   approvedByName String?
   createdAt      DateTime     @default(now())
   approvedAt     DateTime?
+  // Business date of the physical count ("counted at end of this day").
+  // Null = counted when created. Editing it re-baselines every line's bookQty
+  // to the stock as of that date, so late-entered counts adjust correctly.
+  countDate      DateTime?
 
   lines      OpnameLine[]
   categories Category[]  // scope: empty = whole-warehouse count (all categories)

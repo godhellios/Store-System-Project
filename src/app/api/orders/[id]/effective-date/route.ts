@@ -38,14 +38,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (order.cancelledAt) return NextResponse.json({ error: "Cancelled orders cannot be re-dated" }, { status: 409 });
 
   // Opname-freeze floor: the latest APPROVED opname across the order's location(s).
+  // A backdated count freezes from its business countDate (fall back to approvedAt
+  // for sessions from before count dates existed).
   const locationIds = [order.fromLocationId, order.toLocationId].filter((l): l is string => !!l);
-  const floorAgg = locationIds.length
-    ? await prisma.opnameSession.aggregate({
-        _max: { approvedAt: true },
+  const approvedCounts = locationIds.length
+    ? await prisma.opnameSession.findMany({
         where: { status: "APPROVED", locationId: { in: locationIds } },
+        select: { countDate: true, approvedAt: true },
       })
-    : { _max: { approvedAt: null } };
-  const floor = floorAgg._max.approvedAt ?? null;
+    : [];
+  const floor = approvedCounts.reduce<Date | null>((acc, s) => {
+    const d = s.countDate ?? s.approvedAt;
+    if (!d) return acc;
+    return !acc || d > acc ? d : acc;
+  }, null);
 
   const verdict = isDateAllowed(proposed, floor, new Date());
   if (!verdict.ok) {
