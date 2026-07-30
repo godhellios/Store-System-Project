@@ -442,6 +442,8 @@
     "optional": "Optional",
     "customerName": "Customer Name",
     "referenceNo": "Reference / DO#",
+    "transactionDate": "Transaction date",
+    "transactionDateHint": "(defaults to today)",
     "notes": "Notes",
     "selectLocation": "Select…",
     "avail": "avail",
@@ -474,6 +476,7 @@
       "print": "Print"
     },
     "flow": {
+      "backdatedTo": "Backdated to",
       "confirmTitle": "Save this Goods Out order?",
       "afterSaving": "After saving: Send DO to WhatsApp → Print DO (mandatory)",
       "saveAndProceed": "Yes, Save & Proceed",

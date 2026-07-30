@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { isDateAllowed, resolveEffectiveDate } from "@/lib/effective-date";
+import { isDateAllowed, resolveEffectiveDate, latestApprovedCountFloor, parseBusinessDate } from "@/lib/effective-date";
 
 const JAKARTA_TZ = "Asia/Jakarta"; // for display only
 const fmt = (d: Date) =>
@@ -29,8 +29,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "A reason is required" }, { status: 400 });
 
   // Noon Asia/Jakarta (UTC+7) → the calendar day is preserved in every timezone.
-  const proposed = new Date(`${dateStr}T12:00:00+07:00`);
-  if (Number.isNaN(proposed.getTime()))
+  const proposed = parseBusinessDate(dateStr);
+  if (!proposed)
     return NextResponse.json({ error: "A valid date is required" }, { status: 400 });
 
   const order = await prisma.order.findUnique({ where: { id } });
@@ -47,11 +47,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         select: { countDate: true, approvedAt: true },
       })
     : [];
-  const floor = approvedCounts.reduce<Date | null>((acc, s) => {
-    const d = s.countDate ?? s.approvedAt;
-    if (!d) return acc;
-    return !acc || d > acc ? d : acc;
-  }, null);
+  const floor = latestApprovedCountFloor(approvedCounts);
 
   const verdict = isDateAllowed(proposed, floor, new Date());
   if (!verdict.ok) {

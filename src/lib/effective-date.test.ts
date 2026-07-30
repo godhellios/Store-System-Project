@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveEffectiveDate, isDateAllowed, exceedsSoftCap } from "./effective-date";
+import { resolveEffectiveDate, isDateAllowed, exceedsSoftCap, latestApprovedCountFloor, parseBusinessDate } from "./effective-date";
 
 describe("resolveEffectiveDate", () => {
   const createdAt = new Date("2026-06-15T08:00:00.000Z");
@@ -59,5 +59,61 @@ describe("exceedsSoftCap", () => {
 
   it("does not warn at exactly 90 days (boundary)", () => {
     expect(exceedsSoftCap(daysAgo(90), now)).toBe(false);
+  });
+});
+
+describe("latestApprovedCountFloor", () => {
+  const d = (s: string) => new Date(s);
+
+  it("returns null when there are no approved counts", () => {
+    expect(latestApprovedCountFloor([])).toBeNull();
+  });
+
+  it("prefers the business countDate over approvedAt", () => {
+    const floor = latestApprovedCountFloor([
+      { countDate: d("2026-06-01T23:59:59+07:00"), approvedAt: d("2026-06-10T00:00:00Z") },
+    ]);
+    expect(floor).toEqual(d("2026-06-01T23:59:59+07:00"));
+  });
+
+  it("falls back to approvedAt when countDate is null (legacy session)", () => {
+    const floor = latestApprovedCountFloor([
+      { countDate: null, approvedAt: d("2026-06-10T00:00:00Z") },
+    ]);
+    expect(floor).toEqual(d("2026-06-10T00:00:00Z"));
+  });
+
+  it("picks the most recent floor across multiple locations", () => {
+    const floor = latestApprovedCountFloor([
+      { countDate: d("2026-06-01T00:00:00Z"), approvedAt: null },
+      { countDate: d("2026-06-20T00:00:00Z"), approvedAt: null }, // most recent
+      { countDate: d("2026-06-10T00:00:00Z"), approvedAt: null },
+    ]);
+    expect(floor).toEqual(d("2026-06-20T00:00:00Z"));
+  });
+
+  it("ignores sessions with no usable date", () => {
+    const floor = latestApprovedCountFloor([
+      { countDate: null, approvedAt: null },
+      { countDate: d("2026-06-05T00:00:00Z"), approvedAt: null },
+    ]);
+    expect(floor).toEqual(d("2026-06-05T00:00:00Z"));
+  });
+});
+
+describe("parseBusinessDate", () => {
+  it("parses a valid date to noon Asia/Jakarta", () => {
+    // Noon Jakarta (UTC+7) === 05:00 UTC the same calendar day.
+    expect(parseBusinessDate("2026-06-15")).toEqual(new Date("2026-06-15T05:00:00.000Z"));
+  });
+
+  it("rejects a malformed string", () => {
+    expect(parseBusinessDate("15/06/2026")).toBeNull();
+    expect(parseBusinessDate("2026-6-1")).toBeNull();
+    expect(parseBusinessDate("")).toBeNull();
+  });
+
+  it("rejects an impossible calendar date", () => {
+    expect(parseBusinessDate("2026-13-40")).toBeNull();
   });
 });

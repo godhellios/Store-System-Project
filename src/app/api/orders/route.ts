@@ -9,6 +9,8 @@ import { sendPushNotification } from "@/modules/push-notify/send";
 import { writeAuditLog } from "@/lib/audit-log";
 import { viewerGuard } from "@/lib/role-guard";
 import { transactionBlockedBy } from "@/lib/opname-scope";
+import { isDateAllowed, parseBusinessDate, latestApprovedCountFloor } from "@/lib/effective-date";
+import { qtyAsOf, sumDeltasByProduct, parseCountDate, type AsOfMovement } from "@/lib/stock-asof";
 
 // Large orders do meaningful work in one transaction — give the function room
 // well beyond the platform default so a big order is never killed mid-save.
@@ -17,6 +19,9 @@ export const maxDuration = 60;
 const ORDER_PREFIX: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "OUT", TRANSFER: "TRF", ADJUSTMENT: "ADJ",
 };
+
+const fmtDate = (d: Date) =>
+  d.toLocaleDateString("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" });
 
 // Toggle approval requirement per order type.
 // Set to false to bypass approval and apply stock immediately.
@@ -166,6 +171,93 @@ export async function POST(req: Request) {
   const isAdmin = session.user.role === "ADMIN";
   const warnings: string[] = [];
 
+  // ── Backdating (admin-only): set the transaction's REAL business date ───────
+  // Late entry of a delivery/dispatch that physically happened days ago. The date
+  // only feeds reports + point-in-time history — today's live stock total is the
+  // order-independent sum of all deltas and is never re-ordered by this. Hard
+  // rules mirror the "Change date" edit: no future dates, and never before the
+  // last approved stock count (opname freeze).
+  const rawEffectiveDate = (body as { effectiveDate?: unknown }).effectiveDate;
+  const backdatingRequested = typeof rawEffectiveDate === "string" && rawEffectiveDate !== "";
+  let businessDate = new Date();
+  if (backdatingRequested) {
+    if (!isAdmin)
+      return NextResponse.json({ error: "Only an admin can set a transaction date" }, { status: 403 });
+    const proposed = parseBusinessDate(rawEffectiveDate as string);
+    if (!proposed)
+      return NextResponse.json({ error: "A valid date (YYYY-MM-DD) is required" }, { status: 400 });
+
+    const locIds = [fromLocationId, toLocationId].filter((l): l is string => !!l);
+    const approvedCounts = locIds.length
+      ? await prisma.opnameSession.findMany({
+          where: { status: "APPROVED", locationId: { in: locIds } },
+          select: { countDate: true, approvedAt: true },
+        })
+      : [];
+    const floor = latestApprovedCountFloor(approvedCounts);
+    const verdict = isDateAllowed(proposed, floor, new Date());
+    if (!verdict.ok) {
+      const msg =
+        verdict.reason === "future"
+          ? "The date cannot be in the future"
+          : `Can't date this before the last stock count${floor ? ` on ${fmtDate(floor)}` : ""}`;
+      return NextResponse.json({ error: msg }, { status: 409 });
+    }
+    businessDate = proposed;
+
+    // Soft, NON-blocking heads-up: a backdated OUT/TRANSFER can drive a PAST day's
+    // point-in-time history below zero (today's live balance is already guarded
+    // and stays correct). Heuristic — check the balance at END of the backdated
+    // day (so same-day deliveries count toward the baseline) against this dispatch.
+    if ((type === "GOODS_OUT" || type === "TRANSFER") && fromLocationId) {
+      const productIds = lines.map((l) => l.productId);
+      const dayCutoff = parseCountDate(rawEffectiveDate as string) ?? businessDate;
+      const [stockRows, laterMovements, products] = await Promise.all([
+        prisma.stock.findMany({
+          where: { productId: { in: productIds }, locationId: fromLocationId },
+          select: { productId: true, quantity: true },
+        }),
+        prisma.movement.findMany({
+          where: {
+            productId: { in: productIds },
+            effectiveDate: { gt: dayCutoff },
+            OR: [{ fromLocationId }, { toLocationId: fromLocationId }],
+          },
+          select: {
+            productId: true, quantity: true, fromLocationId: true, toLocationId: true,
+            order: { select: { type: true, cancelledAt: true, grnStatus: true, goodsOutStatus: true, transferStatus: true, adjustmentStatus: true } },
+            orderLine: { select: { quantity: true } },
+          },
+        }),
+        prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true } }),
+      ]);
+      const currentQty = new Map(stockRows.map((s) => [s.productId, s.quantity]));
+      const nameOf = new Map(products.map((p) => [p.id, p.name]));
+      const asOfMovements: AsOfMovement[] = laterMovements.map((m) => ({
+        productId: m.productId,
+        orderType: m.order.type as AsOfMovement["orderType"],
+        cancelledAt: m.order.cancelledAt,
+        grnStatus: m.order.grnStatus,
+        goodsOutStatus: m.order.goodsOutStatus,
+        transferStatus: m.order.transferStatus,
+        adjustmentStatus: m.order.adjustmentStatus,
+        fromLocationId: m.fromLocationId,
+        toLocationId: m.toLocationId,
+        quantity: m.quantity,
+        lineQuantity: m.orderLine?.quantity ?? 0,
+      }));
+      const deltaAfter = sumDeltasByProduct(asOfMovements, fromLocationId);
+      for (const line of lines) {
+        const availableThen = qtyAsOf(currentQty.get(line.productId) ?? 0, deltaAfter.get(line.productId) ?? 0);
+        if (availableThen < line.quantity) {
+          warnings.push(
+            `Heads-up: as of ${fmtDate(businessDate)}, "${nameOf.get(line.productId) ?? line.productId}" had ${availableThen} on hand here — dating a dispatch of ${line.quantity} to then makes its stock history go negative. Today's balance is unaffected.`,
+          );
+        }
+      }
+    }
+  }
+
   let result!: { order: { id: string; orderNumber: string; fromLocationId: string | null }; txWarnings: string[] };
   const MAX_RETRIES = 3;
   let attempt = 0;
@@ -183,9 +275,10 @@ export async function POST(req: Request) {
         const lastNum = last ? parseInt(last.orderNumber.split("-").pop() ?? "0") : 0;
         const orderNumber = `${prefix}-${year}-${String(lastNum + 1).padStart(4, "0")}`;
 
-        // Business date for this transaction (when it really happened). Captured once
-        // and stamped on the order + all its movements so they stay consistent.
-        const effectiveDate = new Date();
+        // Business date for this transaction (when it really happened). Defaults to
+        // now; an admin may backdate it (validated above). Stamped on the order +
+        // all its movements so they stay consistent.
+        const effectiveDate = businessDate;
         const order = await tx.order.create({
         data: {
           orderNumber, type, fromLocationId, toLocationId, customer, supplier, supplierId: supplierId || null, reference, notes,
@@ -380,7 +473,7 @@ export async function POST(req: Request) {
   writeAuditLog({
     session,
     action: actionLabel[type] ?? "CREATE_ORDER",
-    description: `${result.order.orderNumber} — ${lines.length} line${lines.length !== 1 ? "s" : ""}${(isManualAdjustment || (!isAdmin && (type === "GRN" || (type === "GOODS_OUT" && REQUIRE_APPROVAL.GOODS_OUT) || (type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER)))) ? " (pending approval)" : ""}`,
+    description: `${result.order.orderNumber} — ${lines.length} line${lines.length !== 1 ? "s" : ""}${(isManualAdjustment || (!isAdmin && (type === "GRN" || (type === "GOODS_OUT" && REQUIRE_APPROVAL.GOODS_OUT) || (type === "TRANSFER" && REQUIRE_APPROVAL.TRANSFER)))) ? " (pending approval)" : ""}${backdatingRequested ? ` — backdated to ${fmtDate(businessDate)}` : ""}`,
     entityId: result.order.id,
     entityType: "ORDER",
   });

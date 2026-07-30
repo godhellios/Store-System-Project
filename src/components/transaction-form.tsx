@@ -130,8 +130,13 @@ export function TransactionForm({
   const [suppliers, setSuppliers]       = useState<{ id: string; name: string }[]>([]);
   const [reference, setReference]       = useState("");
   const [notes, setNotes]               = useState("");
+  const [effectiveDate, setEffectiveDate] = useState(""); // admin-only backdate; "" = today/now
   const [submitting, setSubmitting]     = useState(false);
   const [scanning, setScanning]         = useState(false);
+
+  const isAdmin = session?.user?.role === "ADMIN";
+  // Local calendar day (Asia/Jakarta) — caps the date picker so no future date.
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 
   const [searchQuery, setSearchQuery]     = useState("");
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
@@ -174,7 +179,7 @@ export function TransactionForm({
 
   function clearDraft() {
     localStorage.removeItem(DRAFT_KEY);
-    setLines([]); setFromLocationId(""); setToLocationId(""); setCustomer(""); setSupplier(""); setReference(""); setNotes("");
+    setLines([]); setFromLocationId(""); setToLocationId(""); setCustomer(""); setSupplier(""); setReference(""); setNotes(""); setEffectiveDate("");
     setDraftRestored(false);
   }
 
@@ -343,6 +348,7 @@ export function TransactionForm({
         supplierId:     type === "GRN" ? (supplierId || undefined) : undefined,
         reference:      reference      || undefined,
         notes:          notes          || undefined,
+        effectiveDate:  effectiveDate  || undefined,
         lines: lines.map((l) => ({
           productId: l.productId,
           quantity:  Math.round((l.quantity ?? 0) * l.conversionFactor),
@@ -407,6 +413,7 @@ export function TransactionForm({
           supplier:       supplier       || undefined,
           reference:      reference      || undefined,
           notes:          notes          || undefined,
+          effectiveDate:  effectiveDate  || undefined,
           lines: lines.map((l) => ({
             productId: l.productId,
             quantity:  Math.round((l.quantity ?? 0) * l.conversionFactor),
@@ -522,6 +529,17 @@ export function TransactionForm({
               className="px-3 py-2.5 md:py-1.5 border border-slate-300 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-40"
               placeholder={t("transactionForm.optional", "Optional")} />
           </div>
+          {isAdmin && (
+            <div className="w-full md:w-auto">
+              <label className="block text-xs font-medium text-slate-500 mb-1">
+                {t("transactionForm.transactionDate", "Transaction date")}
+                <span className="ml-1 text-[10px] font-normal text-slate-400">{t("transactionForm.transactionDateHint", "(defaults to today)")}</span>
+              </label>
+              <input type="date" value={effectiveDate} max={todayStr}
+                onChange={(e) => setEffectiveDate(e.target.value)}
+                className={`px-3 py-2.5 md:py-1.5 border rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-40 ${effectiveDate ? "border-amber-400 bg-amber-50 text-amber-800" : "border-slate-300"}`} />
+            </div>
+          )}
           <div className="flex-1 min-w-[200px]">
             <label className="block text-xs font-medium text-slate-500 mb-1">{t("transactionForm.notes", "Notes")}</label>
             <input value={notes} onChange={(e) => setNotes(e.target.value)}
@@ -792,6 +810,11 @@ export function TransactionForm({
                 )}
                 {customer && (
                   <p className="text-xs text-slate-400 mb-0.5">Customer: {customer}</p>
+                )}
+                {effectiveDate && (
+                  <p className="text-xs font-semibold text-amber-600 mb-0.5">
+                    {t("transactionForm.flow.backdatedTo", "Backdated to")} {effectiveDate}
+                  </p>
                 )}
                 <p className="text-xs text-amber-600 font-medium mt-3 mb-5">
                   {t("transactionForm.flow.afterSaving", "After saving: order will be sent for admin approval. WhatsApp and print available from the order detail page.")}
