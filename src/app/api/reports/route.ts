@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeRestockSuggestions, type RestockInput } from "@/lib/restock";
+import { packingFactorOf } from "@/lib/packing-units";
 import ExcelJS from "exceljs";
 
 export async function GET(req: Request) {
@@ -373,7 +374,7 @@ export async function GET(req: Request) {
         ...(categoryId ? { categoryId } : {}),
         OR: [{ reorderPoint: { gt: 0 } }, ...(movedIds.length ? [{ id: { in: movedIds } }] : [])],
       },
-      include: { category: true, unit: true, unitConversions: true },
+      include: { category: true, unit: true, unitConversions: { include: { unit: true } } },
     });
     const productIds = products.map((p) => p.id);
 
@@ -386,7 +387,9 @@ export async function GET(req: Request) {
     for (const s of stockRows) stockByProduct[s.productId] = (stockByProduct[s.productId] ?? 0) + s.quantity;
 
     const inputs: RestockInput[] = products.map((p) => {
-      const factors = p.unitConversions.map((uc) => uc.conversionFactor).filter((f) => f > 1);
+      const factors = p.unitConversions
+        .map((uc) => packingFactorOf(uc.unit))
+        .filter((f): f is number => f !== null && f > 1);
       return {
         productId: p.id,
         name: p.name,

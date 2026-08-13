@@ -381,19 +381,33 @@ function UnitManager() {
   async function handleSave() {
     if (!editing) return;
     setLoading(true);
-    const res = await fetch(`/api/units/${editing.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: editing.name,
-        parentUnitId: editing.parentUnitId || null,
-        conversionFactor: editing.conversionFactor ? parseFloat(editing.conversionFactor) : null,
-        suffix: editing.suffix.trim() || null,
-      }),
-    });
-    const data = await res.json();
+    const send = async (confirm: boolean) => {
+      const res = await fetch(`/api/units/${editing.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editing.name,
+          parentUnitId: editing.parentUnitId || null,
+          conversionFactor: editing.conversionFactor ? parseFloat(editing.conversionFactor) : null,
+          suffix: editing.suffix.trim() || null,
+          ...(confirm ? { confirm: true } : {}),
+        }),
+      });
+      return { ok: res.ok, data: await res.json().catch(() => ({})) };
+    };
+    let { ok, data } = await send(false);
+    // Changing how much a unit holds redefines every future entry that uses it,
+    // so the server asks first and tells us how many products are affected.
+    if (ok && data.warning === "unit_in_use") {
+      const msg =
+        `"${data.unitName}" is used as a packing unit by ${data.productCount} product(s).\n\n` +
+        `Changing ${data.oldFactor ?? "—"} → ${data.newFactor ?? "—"} means every FUTURE entry of this unit counts differently.\n` +
+        `Orders already saved keep their original quantities.\n\nContinue?`;
+      if (!window.confirm(msg)) { setLoading(false); return; }
+      ({ ok, data } = await send(true));
+    }
     setLoading(false);
-    if (!res.ok) { toast.error(data.error); return; }
+    if (!ok) { toast.error(data.error); return; }
     toast.success("Saved");
     setEditing(null);
     load();

@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useT } from "@/modules/i18n/provider";
+import { eligiblePackingUnits, packingFactorOf, packingUnitLabel, type MasterUnit } from "@/lib/packing-units";
 
 type Category = { id: string; name: string };
-type Unit = { id: string; name: string };
-type UnitConversion = { id?: string; name: string; conversionFactor: number; barcode: string | null };
+type Unit = MasterUnit;
+// A packing unit is now a reference to the Unit master — its name and factor are
+// read from there, never typed here, so they can't drift or be misspelled.
+type UnitConversion = { id?: string; unitId: string; barcode: string | null };
 type Product = {
   id: string; name: string; sku: string; barcode: string;
   categoryId: string; unitId: string; reorderPoint: number;
@@ -71,12 +74,9 @@ export function ProductForm({
   const [conversions, setConversions] = useState<UnitConversion[]>(
     product?.unitConversions?.map((c) => ({ ...c, barcode: c.barcode ?? "" })) ?? []
   );
-  const [newConvName, setNewConvName] = useState("");
-  const [newConvFactor, setNewConvFactor] = useState("");
+  const [newConvUnitId, setNewConvUnitId] = useState("");
   const [newConvBarcode, setNewConvBarcode] = useState("");
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editFactor, setEditFactor] = useState("");
   const [editBarcode, setEditBarcode] = useState("");
 
   function set(field: string, value: string) {
@@ -106,17 +106,21 @@ export function ProductForm({
 
   const baseUnitName = units.find((u) => u.id === form.unitId)?.name ?? t("productForm.baseUnitsLabel", "base units");
 
+  // Only units whose parent IS the chosen base unit — their factor then counts
+  // base units. See lib/packing-units.ts for why a mismatch is dangerous.
+  const eligibleUnits = eligiblePackingUnits(units, form.unitId);
+  const unitById = new Map(units.map((u) => [u.id, u]));
+  const availableUnits = eligibleUnits.filter((u) => !conversions.some((c) => c.unitId === u.id));
+
   function addConversion() {
-    const name = newConvName.trim();
-    const factor = parseFloat(newConvFactor);
-    if (!name || !factor || factor <= 0) return;
-    if (conversions.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
-      toast.error(`"${name}" ${t("productForm.alreadyDefined", "already defined")}`);
+    const unit = unitById.get(newConvUnitId);
+    if (!unit) return;
+    if (conversions.some((c) => c.unitId === unit.id)) {
+      toast.error(`"${unit.name}" ${t("productForm.alreadyDefined", "already defined")}`);
       return;
     }
-    setConversions((prev) => [...prev, { name, conversionFactor: factor, barcode: newConvBarcode.trim() || null }]);
-    setNewConvName("");
-    setNewConvFactor("");
+    setConversions((prev) => [...prev, { unitId: unit.id, barcode: newConvBarcode.trim() || null }]);
+    setNewConvUnitId("");
     setNewConvBarcode("");
   }
 
@@ -125,22 +129,15 @@ export function ProductForm({
     if (editingIdx === index) setEditingIdx(null);
   }
 
+  // Only the barcode is editable here. The unit's name and factor belong to
+  // Settings › Units — changing them there updates every product at once.
   function startEdit(index: number) {
     setEditingIdx(index);
-    setEditName(conversions[index].name);
-    setEditFactor(conversions[index].conversionFactor.toString());
     setEditBarcode(conversions[index].barcode ?? "");
   }
 
   function saveEdit(index: number) {
-    const name = editName.trim();
-    const factor = parseFloat(editFactor);
-    if (!name || !factor || factor <= 0) return;
-    if (conversions.some((c, i) => i !== index && c.name.toLowerCase() === name.toLowerCase())) {
-      toast.error(`"${name}" ${t("productForm.alreadyDefined", "already defined")}`);
-      return;
-    }
-    setConversions((prev) => prev.map((c, i) => i === index ? { ...c, name, conversionFactor: factor, barcode: editBarcode.trim() || null } : c));
+    setConversions((prev) => prev.map((c, i) => i === index ? { ...c, barcode: editBarcode.trim() || null } : c));
     setEditingIdx(null);
   }
 
@@ -175,8 +172,8 @@ export function ProductForm({
 
     // In create mode, sku + barcode are server-generated — don't send them
     const payload = isEdit
-      ? { ...form, reorderPoint: parseInt(form.reorderPoint) || 0, imageUrl: form.imageUrl || null, unitConversions: conversions.map((c) => ({ name: c.name, conversionFactor: c.conversionFactor, barcode: c.barcode || null })) }
-      : { name: form.name, categoryId: form.categoryId, unitId: form.unitId, reorderPoint: parseInt(form.reorderPoint) || 0, colorVariant: form.colorVariant, description: form.description, imageUrl: form.imageUrl || null, unitConversions: conversions.map((c) => ({ name: c.name, conversionFactor: c.conversionFactor, barcode: c.barcode || null })), force };
+      ? { ...form, reorderPoint: parseInt(form.reorderPoint) || 0, imageUrl: form.imageUrl || null, unitConversions: conversions.map((c) => ({ unitId: c.unitId, barcode: c.barcode || null })) }
+      : { name: form.name, categoryId: form.categoryId, unitId: form.unitId, reorderPoint: parseInt(form.reorderPoint) || 0, colorVariant: form.colorVariant, description: form.description, imageUrl: form.imageUrl || null, unitConversions: conversions.map((c) => ({ unitId: c.unitId, barcode: c.barcode || null })), force };
 
     const res = await fetch(url, {
       method,
@@ -502,79 +499,64 @@ export function ProductForm({
 
           {conversions.length > 0 && (
             <div className="space-y-1 mb-3">
-              {conversions.map((c, i) => (
-                <div key={i} className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg text-xs">
-                  {editingIdx === i ? (
-                    <>
-                      <input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveEdit(i); } if (e.key === "Escape") setEditingIdx(null); }}
-                        className="w-28 px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
-                        autoFocus
-                      />
-                      <span className="text-blue-500 shrink-0">=</span>
-                      <input
-                        type="number" inputMode="decimal" min="1" step="any"
-                        value={editFactor}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => setEditFactor(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveEdit(i); } if (e.key === "Escape") setEditingIdx(null); }}
-                        className="w-20 px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
-                      />
-                      <span className="text-blue-500 shrink-0">{baseUnitName}</span>
-                      <input
-                        value={editBarcode}
-                        onChange={(e) => setEditBarcode(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveEdit(i); } if (e.key === "Escape") setEditingIdx(null); }}
-                        placeholder={t("productForm.unitBarcodePlaceholder", "Barcode (auto if blank)")}
-                        className="w-36 px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-mono"
-                      />
-                      <button type="button" onClick={() => saveEdit(i)} className="text-blue-600 font-semibold hover:underline ml-1">{t("common.save", "Save")}</button>
-                      <button type="button" onClick={() => setEditingIdx(null)} className="text-slate-400 hover:text-slate-600">{t("common.cancel", "Cancel")}</button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="flex-1 text-blue-800 font-medium">
-                        1 {c.name} = {c.conversionFactor} {baseUnitName}
-                        {c.barcode && <span className="ml-2 text-slate-400 font-mono font-normal">{c.barcode}</span>}
-                        {!c.barcode && <span className="ml-2 text-slate-300 font-normal italic">barcode auto</span>}
-                      </span>
-                      <button type="button" onClick={() => startEdit(i)} className="text-slate-500 hover:text-blue-600 hover:underline">{t("common.edit", "Edit")}</button>
-                      <button type="button" onClick={() => removeConversion(i)} className="text-red-400 hover:text-red-600 leading-none text-sm font-medium">×</button>
-                    </>
-                  )}
-                </div>
-              ))}
+              {conversions.map((c, i) => {
+                const u = unitById.get(c.unitId);
+                const factor = packingFactorOf(u);
+                const stale = !u || factor === null || u.parentUnitId !== form.unitId;
+                return (
+                  <div key={i} className={`flex items-center gap-2 border px-3 py-1.5 rounded-lg text-xs ${stale ? "bg-amber-50 border-amber-200" : "bg-blue-50 border-blue-100"}`}>
+                    {editingIdx === i ? (
+                      <>
+                        <span className="flex-1 text-blue-800 font-medium">
+                          1 {u?.name ?? c.unitId} = {factor ?? "?"} {baseUnitName}
+                        </span>
+                        <input
+                          value={editBarcode}
+                          onChange={(e) => setEditBarcode(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveEdit(i); } if (e.key === "Escape") setEditingIdx(null); }}
+                          placeholder={t("productForm.unitBarcodePlaceholder", "Barcode (auto if blank)")}
+                          className="w-36 px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-mono"
+                          autoFocus
+                        />
+                        <button type="button" onClick={() => saveEdit(i)} className="text-blue-600 font-semibold hover:underline ml-1">{t("common.save", "Save")}</button>
+                        <button type="button" onClick={() => setEditingIdx(null)} className="text-slate-400 hover:text-slate-600">{t("common.cancel", "Cancel")}</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className={`flex-1 font-medium ${stale ? "text-amber-800" : "text-blue-800"}`}>
+                          1 {u?.name ?? c.unitId} = {factor ?? "?"} {baseUnitName}
+                          {c.barcode && <span className="ml-2 text-slate-400 font-mono font-normal">{c.barcode}</span>}
+                          {!c.barcode && <span className="ml-2 text-slate-300 font-normal italic">barcode auto</span>}
+                          {stale && (
+                            <span className="ml-2 font-normal italic">
+                              {t("productForm.packingMismatch", "— this unit is measured in a different base unit; remove it")}
+                            </span>
+                          )}
+                        </span>
+                        <button type="button" onClick={() => startEdit(i)} className="text-slate-500 hover:text-blue-600 hover:underline">{t("common.edit", "Edit")}</button>
+                        <button type="button" onClick={() => removeConversion(i)} className="text-red-400 hover:text-red-600 leading-none text-sm font-medium">×</button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
           <div className="flex flex-wrap gap-2 items-end">
             <div>
-              <label className="block text-[10px] text-slate-400 mb-0.5">{t("productForm.unitNameLabel", "Unit name")}</label>
-              <input
-                value={newConvName}
-                onChange={(e) => setNewConvName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addConversion(); } }}
-                placeholder="e.g. Box"
-                disabled={!form.unitId}
-                className="w-32 px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] text-slate-400 mb-0.5">
-                {t("productForm.howMany", "= how many")} {form.unitId ? baseUnitName : t("productForm.baseUnitsLabel", "base units")}
-              </label>
-              <input
-                type="number" inputMode="decimal" min="1" step="any"
-                value={newConvFactor}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setNewConvFactor(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addConversion(); } }}
-                placeholder="e.g. 12"
-                disabled={!form.unitId}
-                className="w-24 px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
-              />
+              <label className="block text-[10px] text-slate-400 mb-0.5">{t("productForm.unitNameLabel", "Packing unit")}</label>
+              <select
+                value={newConvUnitId}
+                onChange={(e) => setNewConvUnitId(e.target.value)}
+                disabled={!form.unitId || availableUnits.length === 0}
+                className="w-56 px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 bg-white"
+              >
+                <option value="">{t("productForm.selectPackingUnit", "Select a unit…")}</option>
+                {availableUnits.map((u) => (
+                  <option key={u.id} value={u.id}>{packingUnitLabel(u, baseUnitName)}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-[10px] text-slate-400 mb-0.5">{t("productForm.unitBarcodeLabel", "Barcode")} <span className="text-slate-300">{t("productForm.autoIfBlank", "(auto if blank)")}</span></label>
@@ -590,7 +572,7 @@ export function ProductForm({
             <button
               type="button"
               onClick={addConversion}
-              disabled={!form.unitId || !newConvName.trim() || !newConvFactor || parseFloat(newConvFactor) <= 0}
+              disabled={!form.unitId || !newConvUnitId}
               className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg disabled:opacity-40 transition-colors"
             >
               {t("productForm.addUnit", "+ Add")}
@@ -598,6 +580,16 @@ export function ProductForm({
           </div>
           {!form.unitId && (
             <p className="text-xs text-slate-400 mt-1">{t("productForm.selectBaseFirst", "Select a base unit first")}</p>
+          )}
+          {form.unitId && eligibleUnits.length === 0 && (
+            <p className="text-xs text-slate-400 mt-1">
+              {t("productForm.noPackingUnits", "No packing units are defined for this base unit. Add one in Settings › Units (set its parent to this base unit and how many it holds).")}
+            </p>
+          )}
+          {form.unitId && eligibleUnits.length > 0 && availableUnits.length === 0 && (
+            <p className="text-xs text-slate-400 mt-1">
+              {t("productForm.allPackingUnitsUsed", "All packing units for this base unit are already added.")}
+            </p>
           )}
         </div>
 

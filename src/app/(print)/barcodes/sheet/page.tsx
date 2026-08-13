@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { packingViews } from "@/lib/packing-units";
 import { notFound } from "next/navigation";
 import bwipjs from "bwip-js";
 import { getT } from "@/modules/i18n";
@@ -48,8 +49,8 @@ export default async function BarcodeSheetPage({
         sku: true,
         barcode: true,
         unitConversions: {
-          select: { id: true, name: true, barcode: true, conversionFactor: true },
-          orderBy: { conversionFactor: "asc" },
+          select: { id: true, barcode: true, unit: { select: { name: true, conversionFactor: true } } },
+          orderBy: { unit: { conversionFactor: "asc" } },
         },
       },
     }),
@@ -61,7 +62,7 @@ export default async function BarcodeSheetPage({
     ...p,
     svg: makeSvg(p.barcode),
     unitRows: includeUnits
-      ? p.unitConversions
+      ? packingViews(p.unitConversions)
           .filter((u) => u.barcode)
           .map((u) => ({ ...u, svg: makeSvg(u.barcode!) }))
       : [],

@@ -8,6 +8,7 @@ import { LabelPrintedToggle } from "@/components/label-printed-toggle";
 import { EditEffectiveDate } from "@/components/edit-effective-date";
 import { ChangeWarehouse } from "@/components/change-warehouse";
 import { resolveEffectiveDate } from "@/lib/effective-date";
+import { packingFactorOf } from "@/lib/packing-units";
 import { getT } from "@/modules/i18n";
 
 const TYPE_BADGE: Record<string, string> = {
@@ -29,7 +30,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       include: {
         fromLocation: true,
         toLocation: true,
-        lines: { include: { product: { include: { category: true, unit: true, unitConversions: { select: { conversionFactor: true } } } } }, orderBy: { id: "asc" } },
+        lines: { include: { product: { include: { category: true, unit: true, unitConversions: { select: { unit: { select: { conversionFactor: true } } } } } } }, orderBy: { id: "asc" } },
         supplierRef: true,
       },
     }),
@@ -50,7 +51,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     params.set("copies", order.lines.map((l) => {
       // OrderLine.quantity is base units; the factor used at entry is qty/inputQty.
       const inputFactor = l.inputQty != null && l.inputQty > 0 ? l.quantity / l.inputQty : 1;
-      const packFactors = l.product.unitConversions.map((c) => c.conversionFactor).filter((f) => f > 1);
+      const packFactors = l.product.unitConversions
+        .map((c) => packingFactorOf(c.unit))
+        .filter((f): f is number => f !== null && f > 1);
       const factor = inputFactor > 1 ? inputFactor : (packFactors.length ? Math.min(...packFactors) : 1);
       return `${l.productId}:${l.quantity}:${factor}`;
     }).join(","));

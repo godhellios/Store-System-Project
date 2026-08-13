@@ -86,7 +86,8 @@ model Unit {
   parent   Unit?  @relation("UnitHierarchy", fields: [parentUnitId], references: [id])
   children Unit[] @relation("UnitHierarchy")
 
-  products Product[]
+  products        Product[]
+  packingForItems ProductUnitConversion[]
 }
 
 // User-managed product categories (editable from Settings)
@@ -164,17 +165,29 @@ model Product {
   @@index([isActive, approvalStatus])
 }
 
-// Per-product packaging / larger-unit definitions
-// Example: Product "Thread Roll" can have 1 Box = 12 rolls, 1 Carton = 144 rolls
+// Per-product packaging units — which larger units this product can be entered in.
+// Example: a thread counted in Gross can also be received as "Box Of 500 Yard".
+//
+// The unit's NAME and FACTOR are NOT stored here: they live once on Unit, so
+// renaming a unit in Settings flows to every product automatically and two
+// products can never disagree about how big a box is. A unit is only eligible
+// here when its parentUnitId equals the product's base unitId — that is what
+// makes `Unit.conversionFactor` mean "this many of the product's base unit".
+//
+// `name` / `conversionFactor` are the pre-migration copies, kept nullable as a
+// safety net for one release and no longer read or written. Dropped later.
 model ProductUnitConversion {
   id               String  @id @default(cuid())
   product          Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId        String
-  name             String  // e.g., "Box", "Carton", "Lusin"
-  conversionFactor Float   // 1 of this unit = conversionFactor base units
+  unit             Unit    @relation(fields: [unitId], references: [id])
+  unitId           String
+  name             String? // legacy copy — unused, dropped in a later release
+  conversionFactor Float?  // legacy copy — unused, dropped in a later release
   barcode          String? @unique
 
-  @@unique([productId, name])
+  @@unique([productId, unitId])
+  @@index([unitId])
 }
 
 // Current stock level per product per location

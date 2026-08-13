@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { packingViews } from "@/lib/packing-units";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -34,10 +35,18 @@ export async function GET(req: Request) {
   const take = q ? 20 : 200;
 
   try {
-    const products = full
-      ? await prisma.product.findMany({ where, orderBy, take, include: { category: true, unit: true, unitConversions: true, stock: true } })
-      : await prisma.product.findMany({ where, orderBy, take, select: { id: true, sku: true, name: true } });
-    return NextResponse.json(products);
+    if (!full) {
+      const slim = await prisma.product.findMany({ where, orderBy, take, select: { id: true, sku: true, name: true } });
+      return NextResponse.json(slim);
+    }
+    const products = await prisma.product.findMany({
+      where, orderBy, take,
+      include: { category: true, unit: true, unitConversions: { include: { unit: true } }, stock: true },
+    });
+    // Packing name + factor live on the Unit master — flatten for the entry forms.
+    return NextResponse.json(
+      products.map((p) => ({ ...p, unitConversions: packingViews(p.unitConversions) })),
+    );
   } catch {
     return NextResponse.json([], { status: 200 });
   }

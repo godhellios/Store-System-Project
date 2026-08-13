@@ -174,7 +174,7 @@ export async function POST(req: Request) {
         let ri = 0;
         for (const uc of row.unitConversions) {
           const barcode = uc.barcode || reserved[ri++];
-          allUnitConvData.push({ productId, name: uc.name, conversionFactor: uc.conversionFactor, barcode });
+          allUnitConvData.push({ productId, unitId: uc.unitId, barcode });
         }
       }
       if (allUnitConvData.length > 0) {
@@ -192,7 +192,7 @@ export async function POST(req: Request) {
             await prisma.productUnitConversion.createMany({
               data: row.unitConversions.map((uc) => {
                 const barcode = uc.barcode || reserved[ri++];
-                return { productId: product.id, name: uc.name, conversionFactor: uc.conversionFactor, barcode };
+                return { productId: product.id, unitId: uc.unitId, barcode };
               }),
             });
           }
@@ -249,24 +249,11 @@ export async function POST(req: Request) {
       // Empty packagingUnits in import = "no change to packing units" (safe default).
       const importUCs = row.parsedUnitConversions ?? [];
       const existingUCs = existing?.unitConversions ?? [];
-      const toAddUCs = importUCs.filter((iuc) =>
-        !existingUCs.some(
-          (euc) =>
-            euc.name.toLowerCase() === iuc.name.trim().toLowerCase() &&
-            euc.conversionFactor === iuc.conversionFactor
-        )
-      );
+      // Compared by unit identity now — the name and factor both live on Unit,
+      // so two rows referring to the same unit are the same packing unit.
+      const toAddUCs = importUCs.filter((iuc) => !existingUCs.some((euc) => euc.unitId === iuc.unitId));
       const toDeleteUCIds = importUCs.length > 0
-        ? existingUCs
-            .filter(
-              (euc) =>
-                !importUCs.some(
-                  (iuc) =>
-                    iuc.name.trim().toLowerCase() === euc.name.toLowerCase() &&
-                    iuc.conversionFactor === euc.conversionFactor
-                )
-            )
-            .map((euc) => euc.id)
+        ? existingUCs.filter((euc) => !importUCs.some((iuc) => iuc.unitId === euc.unitId)).map((euc) => euc.id)
         : [];
       const ucChanged = toAddUCs.length > 0 || toDeleteUCIds.length > 0;
 
@@ -300,7 +287,7 @@ export async function POST(req: Request) {
           await prisma.productUnitConversion.createMany({
             data: toAddUCs.map((uc) => {
               const barcode = uc.barcode || reserved[ri++];
-              return { productId: existingProduct!.id, name: uc.name, conversionFactor: uc.conversionFactor, barcode };
+              return { productId: existingProduct!.id, unitId: uc.unitId, barcode };
             }),
           });
         }

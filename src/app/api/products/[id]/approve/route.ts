@@ -12,7 +12,10 @@ type PendingChanges = {
   colorVariant?: string | null;
   description?: string | null;
   imageUrl?: string | null;
-  unitConversions?: { name: string; conversionFactor: number; barcode?: string | null }[];
+  // Packing units are stored as a reference to the Unit master. Older pending
+  // edits (submitted before that change) still carry the typed name/factor —
+  // those are resolved back to a unit on approval rather than being dropped.
+  unitConversions?: { unitId?: string; name?: string; conversionFactor?: number; barcode?: string | null }[];
 };
 
 // POST /api/products/[id]/approve
@@ -79,9 +82,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const changes = product.pendingChanges as PendingChanges | null;
   if (!changes) return NextResponse.json({ error: "No pending changes to apply" }, { status: 409 });
 
-  const validConversions = Array.isArray(changes.unitConversions)
-    ? changes.unitConversions.filter((c) => c.name?.trim() && (c.conversionFactor ?? 0) > 0)
-    : undefined;
+  // Resolve each pending conversion to a Unit id. New submissions already carry
+  // unitId; legacy ones carry a typed name, matched ignoring case and spaces —
+  // the same rule the migration used. Anything unresolvable is dropped rather
+  // than blocking the approval, and is reported back to the admin.
+  let validConversions: Array<{ unitId: string; barcode?: string | null }> | undefined;
+  const unresolved: string[] = [];
+  if (Array.isArray(changes.unitConversions)) {
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+    const allUnits = await prisma.unit.findMany({ select: { id: true, name: true } });
+    const byNorm = new Map(allUnits.map((u) => [norm(u.name), u.id]));
+    const known = new Set(allUnits.map((u) => u.id));
+    validConversions = [];
+    for (const c of changes.unitConversions) {
+      const resolved = c.unitId && known.has(c.unitId)
+        ? c.unitId
+        : c.name ? byNorm.get(norm(c.name)) : undefined;
+      if (resolved) validConversions.push({ unitId: resolved, barcode: c.barcode ?? null });
+      else if (c.name || c.unitId) unresolved.push(c.name ?? c.unitId!);
+    }
+  }
 
   const updated = await prisma.product.update({
     where: { id },
@@ -103,15 +123,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         unitConversions: {
           deleteMany: {},
           create: validConversions.map((c) => ({
-            name: c.name.trim(),
-            conversionFactor: c.conversionFactor,
+            unitId: c.unitId,
             barcode: c.barcode?.trim() || null,
           })),
         },
       } : {}),
     },
-    include: { category: true, unit: true, unitConversions: true },
+    include: { category: true, unit: true, unitConversions: { include: { unit: true } } },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json(
+    unresolved.length ? { ...updated, unresolvedPackingUnits: unresolved } : updated
+  );
 }

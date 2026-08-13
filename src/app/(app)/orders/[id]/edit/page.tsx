@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { OrderEditForm } from "@/components/order-edit-form";
+import { packingViews } from "@/lib/packing-units";
 
 const TYPE_LABEL: Record<string, string> = {
   GRN: "GRN", GOODS_OUT: "Goods Out", TRANSFER: "Transfer", ADJUSTMENT: "Adjustment",
@@ -41,7 +42,7 @@ export default async function OrderEditPage({ params }: { params: Promise<{ id: 
             select: {
               id: true, name: true, sku: true, barcode: true,
               unit: { select: { id: true, name: true } },
-              unitConversions: { select: { id: true, name: true, conversionFactor: true } },
+              unitConversions: { select: { id: true, barcode: true, unit: { select: { name: true, conversionFactor: true } } } },
             },
           },
         },
@@ -50,6 +51,15 @@ export default async function OrderEditPage({ params }: { params: Promise<{ id: 
     },
   });
   if (!order) notFound();
+
+  // Packing name + factor come from the Unit master — flatten for the form.
+  const orderForForm = {
+    ...order,
+    lines: order.lines.map((l) => ({
+      ...l,
+      product: { ...l.product, unitConversions: packingViews(l.product.unitConversions) },
+    })),
+  };
 
   return (
     <div className="max-w-3xl">
@@ -74,7 +84,7 @@ export default async function OrderEditPage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
-      <OrderEditForm order={order} />
+      <OrderEditForm order={orderForForm} />
     </div>
   );
 }

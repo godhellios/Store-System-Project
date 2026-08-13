@@ -221,8 +221,8 @@
     "descriptionNotes": "Deskripsi / Catatan",
     "descPlaceholder": "Keterangan tambahan produk (opsional)…",
     "packagingUnits": "Satuan Kemasan",
-    "packagingHint": "Tambah satuan lebih besar untuk produk ini. Stok selalu disimpan dalam satuan dasar.",
-    "unitNameLabel": "Nama satuan",
+    "packagingHint": "Pilih satuan yang lebih besar dari Pengaturan › Satuan. Stok selalu disimpan dalam satuan dasar.",
+    "unitNameLabel": "Satuan kemasan",
     "howMany": "= berapa",
     "baseUnitsLabel": "satuan dasar",
     "unitBarcodeLabel": "Barcode",
@@ -243,7 +243,11 @@
     "saving": "Menyimpan…",
     "alreadyDefined": "sudah ada",
     "failedSave": "Gagal menyimpan produk",
-    "uploadFailed": "Upload gagal"
+    "uploadFailed": "Upload gagal",
+    "selectPackingUnit": "Pilih satuan…",
+    "noPackingUnits": "Belum ada satuan kemasan untuk satuan dasar ini. Tambahkan di Pengaturan › Satuan (atur induknya ke satuan dasar ini dan isinya berapa).",
+    "allPackingUnitsUsed": "Semua satuan kemasan untuk satuan dasar ini sudah ditambahkan.",
+    "packingMismatch": "— satuan ini diukur dengan satuan dasar berbeda; hapus saja"
   },
   "warehouse": {
     "title": "Data Gudang",

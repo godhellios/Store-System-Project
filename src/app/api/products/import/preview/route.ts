@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isEligiblePackingUnit, type MasterUnit } from "@/lib/packing-units";
 
 export type RawRow = {
   name?: string; sku?: string; barcode?: string;
@@ -17,8 +18,8 @@ export type RawRow = {
 export type RowAction = "create" | "update" | "link" | "conflict" | "file_duplicate" | "invalid";
 
 export type ParsedUnitConversion = {
-  name: string;
-  conversionFactor: number;
+  unitId: string;
+  unitName: string;
   barcode: string | null;
 };
 
@@ -50,21 +51,51 @@ export type PreviewSummary = {
 function normSku(s: string) { return s.trim().toLowerCase(); }
 function normName(s: string) { return s.trim().replace(/\s+/g, " ").toLowerCase(); }
 
-function parsePackagingUnits(raw: string | undefined): { parsed: ParsedUnitConversion[]; errors: string[] } {
+/**
+ * Parse the packagingUnits cell into references to the Unit master.
+ *
+ * Accepted: "Box Of 500 Yard", "Box::BARCODE", and the legacy "Box:12" /
+ * "Box:12:BARCODE". The factor is no longer imported — it lives on the Unit —
+ * but a legacy value that disagrees with the master is reported so a stale
+ * spreadsheet cannot silently mean something different from Settings.
+ */
+function parsePackagingUnits(
+  raw: string | undefined,
+  units: MasterUnit[],
+  baseUnitId: string | null,
+): { parsed: ParsedUnitConversion[]; errors: string[] } {
   if (!raw?.trim()) return { parsed: [], errors: [] };
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+  const byNorm = new Map(units.map((u) => [norm(u.name), u]));
   const errors: string[] = [];
   const parsed: ParsedUnitConversion[] = [];
+
   for (const part of raw.split("|")) {
     const trimmed = part.trim();
     if (!trimmed) continue;
     const [rawName, rawFactor, rawBarcode] = trimmed.split(":");
     const name = rawName?.trim();
-    const factor = parseFloat(rawFactor ?? "");
-    if (!name || isNaN(factor) || factor <= 0) {
-      errors.push(`Invalid packaging unit "${trimmed}" — use Name:Factor or Name:Factor:Barcode`);
+    if (!name) {
+      errors.push(`Invalid packaging unit "${trimmed}" — expected a unit name from Settings`);
       continue;
     }
-    parsed.push({ name, conversionFactor: factor, barcode: rawBarcode?.trim() || null });
+    const unit = byNorm.get(norm(name));
+    if (!unit) {
+      errors.push(`Packing unit "${name}" does not exist in Settings › Units — create it there first`);
+      continue;
+    }
+    if (!isEligiblePackingUnit(unit, baseUnitId)) {
+      errors.push(`Packing unit "${unit.name}" is measured in a different unit than this product's base unit`);
+      continue;
+    }
+    const legacyFactor = parseFloat(rawFactor ?? "");
+    if (!isNaN(legacyFactor) && legacyFactor > 0 && legacyFactor !== unit.conversionFactor) {
+      errors.push(
+        `Packing unit "${unit.name}": the file says ${legacyFactor} but Settings says ${unit.conversionFactor}. Settings wins — fix the file or the unit.`,
+      );
+      continue;
+    }
+    parsed.push({ unitId: unit.id, unitName: unit.name, barcode: rawBarcode?.trim() || null });
   }
   return { parsed, errors };
 }
@@ -81,8 +112,14 @@ export async function POST(req: Request) {
   const [existingProducts, categories, units] = await Promise.all([
     prisma.product.findMany({ select: { id: true, name: true, sku: true } }),
     prisma.category.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
-    prisma.unit.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
+    // parentUnitId + conversionFactor are needed to resolve packing units and
+    // check they belong to the row's base unit.
+    prisma.unit.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, isActive: true, parentUnitId: true, conversionFactor: true },
+    }),
   ]);
+  const allUnits: MasterUnit[] = units;
 
   const skuMap = new Map(existingProducts.map((p) => [normSku(p.sku), p]));
   const nameMap = new Map(existingProducts.map((p) => [normName(p.name), p]));
@@ -111,7 +148,7 @@ export async function POST(req: Request) {
     if (row.category?.trim() && !cat) issues.push(`Category "${row.category}" not found`);
     if (row.unit?.trim() && !unit) issues.push(`Unit "${row.unit}" not found`);
 
-    const { parsed: parsedUnitConversions, errors: unitErrors } = parsePackagingUnits(row.packagingUnits);
+    const { parsed: parsedUnitConversions, errors: unitErrors } = parsePackagingUnits(row.packagingUnits, allUnits, unitId);
     if (unitErrors.length) issues.push(...unitErrors);
 
     const base = { index: i, raw: row, normalizedSku: ns, normalizedName: nn, categoryId, unitId, parsedUnitConversions };

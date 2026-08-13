@@ -6,6 +6,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { Prisma } from "@/generated/prisma";
 import { viewerGuard } from "@/lib/role-guard";
 import { applyOpeningCost, applyCorrectCost, OpeningCostError } from "@/lib/opening-cost";
+import { isEligiblePackingUnit } from "@/lib/packing-units";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -17,7 +18,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     include: {
       category: true,
       unit: true,
-      unitConversions: true,
+      unitConversions: { include: { unit: true } },
       stock: { include: { location: true } },
     },
   });
@@ -128,11 +129,35 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (c) return NextResponse.json({ error: "Barcode already in use" }, { status: 409 });
   }
 
-  const validConversions = Array.isArray(unitConversions)
-    ? unitConversions.filter((c: { name?: string; conversionFactor?: number }) =>
-        c.name?.trim() && (c.conversionFactor ?? 0) > 0
-      )
-    : undefined;
+  // Packing units come from the Unit master; a unit is only legal when its
+  // parent is this product's base unit (see lib/packing-units.ts).
+  let validConversions: Array<{ unitId: string; barcode?: string | null }> | undefined;
+  if (Array.isArray(unitConversions)) {
+    const effectiveBaseUnitId = unitId !== undefined ? unitId : existing.unitId;
+    const ids = [...new Set(
+      (unitConversions as Array<{ unitId?: string }>).map((c) => c.unitId).filter((u): u is string => !!u),
+    )];
+    const master = ids.length
+      ? await prisma.unit.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, name: true, isActive: true, parentUnitId: true, conversionFactor: true },
+        })
+      : [];
+    const byId = new Map(master.map((u) => [u.id, u]));
+    for (const uid of ids) {
+      const u = byId.get(uid);
+      if (!isEligiblePackingUnit(u, effectiveBaseUnitId)) {
+        return NextResponse.json({
+          error: u
+            ? `"${u.name}" can't be used as a packing unit for this product — in Settings it is measured in a different unit.`
+            : "Unknown packing unit",
+        }, { status: 400 });
+      }
+    }
+    validConversions = (unitConversions as Array<{ unitId?: string; barcode?: string | null }>)
+      .filter((c) => c.unitId && byId.has(c.unitId))
+      .map((c) => ({ unitId: c.unitId!, barcode: c.barcode ?? null }));
+  }
 
   const product = await prisma.product.update({
     where: { id },
@@ -154,15 +179,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       ...(validConversions !== undefined ? {
         unitConversions: {
           deleteMany: {},
-          create: validConversions.map((c: { name: string; conversionFactor: number; barcode?: string | null }) => ({
-            name: c.name.trim(),
-            conversionFactor: c.conversionFactor,
+          create: validConversions.map((c) => ({
+            unitId: c.unitId,
             barcode: c.barcode?.trim() || null,
           })),
         },
       } : {}),
     },
-    include: { category: true, unit: true, unitConversions: true },
+    include: { category: true, unit: true, unitConversions: { include: { unit: true } } },
   });
 
   writeAuditLog({ session, action: "EDIT_PRODUCT", description: `Edited "${product.name}" (${product.sku})`, entityId: id, entityType: "PRODUCT" });

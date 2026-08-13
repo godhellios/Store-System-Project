@@ -238,8 +238,8 @@
     "descriptionNotes": "Description / Notes",
     "descPlaceholder": "Optional details about this product…",
     "packagingUnits": "Packaging Units",
-    "packagingHint": "Define larger units for this product. Stock is always stored in the base unit.",
-    "unitNameLabel": "Unit name",
+    "packagingHint": "Choose larger units from Settings › Units. Stock is always stored in the base unit.",
+    "unitNameLabel": "Packing unit",
     "howMany": "= how many",
     "baseUnitsLabel": "base units",
     "unitBarcodeLabel": "Barcode",
@@ -260,7 +260,11 @@
     "saving": "Saving…",
     "alreadyDefined": "already defined",
     "failedSave": "Failed to save product",
-    "uploadFailed": "Upload failed"
+    "uploadFailed": "Upload failed",
+    "selectPackingUnit": "Select a unit…",
+    "noPackingUnits": "No packing units are defined for this base unit. Add one in Settings › Units (set its parent to this base unit and how many it holds).",
+    "allPackingUnitsUsed": "All packing units for this base unit are already added.",
+    "packingMismatch": "— this unit is measured in a different base unit; remove it"
   },
   "warehouse": {
     "title": "Warehouse Locations",

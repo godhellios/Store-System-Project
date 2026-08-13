@@ -21,11 +21,17 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         pendingChanges: true, pendingChangedBy: true, pendingChangedAt: true,
         category: { select: { id: true, name: true } },
         unit: { select: { id: true, name: true } },
-        unitConversions: { select: { id: true, name: true, conversionFactor: true, barcode: true } },
+        unitConversions: { select: { id: true, unitId: true, barcode: true } },
       },
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    prisma.unit.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    // parentUnitId + conversionFactor let the form show only the packing units
+    // that belong to the chosen base unit, with their factor read-only.
+    prisma.unit.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, isActive: true, parentUnitId: true, conversionFactor: true },
+    }),
   ]);
 
   if (!product) notFound();
@@ -36,7 +42,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       <h1 className="text-base font-semibold text-slate-800 mb-5">Edit Product</h1>
       <ProductForm
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-        units={units.map((u) => ({ id: u.id, name: u.name }))}
+        units={units}
         product={{ ...product, pendingChangedAt: product.pendingChangedAt?.toISOString() ?? null }}
         isAdmin={isAdmin}
       />

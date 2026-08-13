@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { packingViews, packingFactorOf } from "@/lib/packing-units";
 
 // GET /api/products/lookup?q=<barcode or SKU>
 export async function GET(req: Request) {
@@ -15,12 +16,19 @@ export async function GET(req: Request) {
   // Only scannable by active products (DRAFT products cannot be used in transactions)
   const activeFilter = { OR: [{ approvalStatus: "ACTIVE" as const }, { approvalStatus: null }] };
 
+  // Packing name + factor live on the Unit master, so the relation must come
+  // along — without it a scanned box barcode has no factor and would be
+  // received as a single base unit.
   const include = {
     category: true,
     unit: true,
-    unitConversions: true,
+    unitConversions: { include: { unit: true } },
     stock: { include: { location: true } },
   };
+  const flatten = <P extends { unitConversions: Parameters<typeof packingViews>[0] }>(p: P) => ({
+    ...p,
+    unitConversions: packingViews(p.unitConversions),
+  });
 
   // 1. Try Product.barcode or Product.sku (base unit)
   const byProduct = await prisma.product.findFirst({
@@ -28,13 +36,13 @@ export async function GET(req: Request) {
     include,
   });
   if (byProduct) {
-    return NextResponse.json({ product: byProduct, matchedUnit: null, isUnitBarcode: false });
+    return NextResponse.json({ product: flatten(byProduct), matchedUnit: null, isUnitBarcode: false });
   }
 
   // 2. Try ProductUnitConversion.barcode
   const byUnit = await prisma.productUnitConversion.findFirst({
     where: { barcode: q },
-    include: { product: { include } },
+    include: { unit: true, product: { include } },
   });
   if (byUnit && byUnit.product) {
     // Check product is active
@@ -42,9 +50,18 @@ export async function GET(req: Request) {
     if (status !== "ACTIVE" && status !== null) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
+    const factor = packingFactorOf(byUnit.unit);
+    if (factor === null) {
+      // The unit lost its factor in Settings — refuse rather than silently
+      // receiving a whole box as one piece.
+      return NextResponse.json(
+        { error: `"${byUnit.unit.name}" has no quantity set in Settings › Units — set how many it holds first` },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({
-      product: byUnit.product,
-      matchedUnit: { id: byUnit.id, name: byUnit.name, conversionFactor: byUnit.conversionFactor },
+      product: flatten(byUnit.product),
+      matchedUnit: { id: byUnit.id, name: byUnit.unit.name, conversionFactor: factor },
       isUnitBarcode: true,
     });
   }

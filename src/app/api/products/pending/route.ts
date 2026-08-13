@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { packingViews } from "@/lib/packing-units";
 
 // GET /api/products/pending — admin-only list of DRAFT products and products with pending edits
 export async function GET() {
@@ -21,9 +22,12 @@ export async function GET() {
     include: {
       category: true,
       unit: true,
-      unitConversions: true,
+      unitConversions: { include: { unit: true } },
     },
   });
 
-  return NextResponse.json(products);
+  // Flatten packing name + factor from the Unit master for the review screen.
+  return NextResponse.json(
+    products.map((p) => ({ ...p, unitConversions: packingViews(p.unitConversions) })),
+  );
 }

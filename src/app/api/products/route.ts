@@ -7,6 +7,7 @@ import { generateBaseBarcode, reserveUnitBarcodes, validateBarcodeUniqueness } f
 import { findSimilarProducts } from "@/lib/duplicate-detect";
 import { viewerGuard } from "@/lib/role-guard";
 import { writeAuditLog } from "@/lib/audit-log";
+import { isEligiblePackingUnit } from "@/lib/packing-units";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -75,12 +76,31 @@ export async function POST(req: Request) {
   const approvalStatus = isAdmin ? "ACTIVE" : "DRAFT";
   const createdByName = session.user.name ?? session.user.email ?? null;
 
-  const validConversions = Array.isArray(unitConversions)
-    ? unitConversions.filter(
-        (c: { name?: string; conversionFactor?: number }) =>
-          c.name?.trim() && (c.conversionFactor ?? 0) > 0
-      )
+  // Packing units are chosen from the Unit master, never typed. Validate here as
+  // well as in the form: a unit is only legal when its parent IS this product's
+  // base unit, otherwise its factor counts a different thing (a "12 Gross" box
+  // on a Dozen product silently means 12 Dozen).
+  const conversionInput: Array<{ unitId?: string; barcode?: string | null }> =
+    Array.isArray(unitConversions) ? unitConversions : [];
+  const requestedUnitIds = [...new Set(conversionInput.map((c) => c.unitId).filter((u): u is string => !!u))];
+  const packingUnits = requestedUnitIds.length
+    ? await prisma.unit.findMany({
+        where: { id: { in: requestedUnitIds } },
+        select: { id: true, name: true, isActive: true, parentUnitId: true, conversionFactor: true },
+      })
     : [];
+  const unitById = new Map(packingUnits.map((u) => [u.id, u]));
+  for (const uid of requestedUnitIds) {
+    const u = unitById.get(uid);
+    if (!isEligiblePackingUnit(u, unitId)) {
+      return NextResponse.json({
+        error: u
+          ? `"${u.name}" can't be used as a packing unit for this product — in Settings it is measured in a different unit. Pick a unit whose parent is the product's base unit.`
+          : "Unknown packing unit",
+      }, { status: 400 });
+    }
+  }
+  const validConversions = conversionInput.filter((c) => c.unitId && unitById.has(c.unitId));
 
   try {
     const product = await prisma.$transaction(async (tx) => {
@@ -94,12 +114,10 @@ export async function POST(req: Request) {
       ).length;
       const reserved = await reserveUnitBarcodes(needsBarcode, tx);
       let ri = 0;
-      const conversionsWithBarcodes = validConversions.map(
-        (c: { name: string; conversionFactor: number; barcode?: string | null }) => {
-          const explicitBarcode = c.barcode?.trim() || null;
-          return { ...c, barcode: explicitBarcode ?? reserved[ri++] };
-        }
-      );
+      const conversionsWithBarcodes = validConversions.map((c) => {
+        const explicitBarcode = c.barcode?.trim() || null;
+        return { unitId: c.unitId!, barcode: explicitBarcode ?? reserved[ri++] };
+      });
 
       const allBarcodes = [
         baseBarcode,
@@ -125,17 +143,14 @@ export async function POST(req: Request) {
           }),
           ...(conversionsWithBarcodes.length > 0 ? {
             unitConversions: {
-              create: conversionsWithBarcodes.map(
-                (c: { name: string; conversionFactor: number; barcode: string | null }) => ({
-                  name: c.name.trim(),
-                  conversionFactor: c.conversionFactor,
-                  barcode: c.barcode || null,
-                })
-              ),
+              create: conversionsWithBarcodes.map((c) => ({
+                unitId: c.unitId,
+                barcode: c.barcode || null,
+              })),
             },
           } : {}),
         },
-        include: { category: true, unit: true, unitConversions: true },
+        include: { category: true, unit: true, unitConversions: { include: { unit: true } } },
       });
     });
 

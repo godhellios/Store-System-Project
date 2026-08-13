@@ -10,7 +10,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const { name, isActive, parentUnitId, conversionFactor, suffix: rawSuffix } = await req.json();
+  const { name, isActive, parentUnitId, conversionFactor, suffix: rawSuffix, confirm } = await req.json();
 
   if (name !== undefined) {
     const conflict = await prisma.unit.findFirst({ where: { name: name.trim(), NOT: { id } } });
@@ -24,6 +24,43 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const suffix = rawSuffix !== undefined ? (rawSuffix ? rawSuffix.toUpperCase().trim() : null) : undefined;
   if (suffix !== undefined && suffix !== null && !/^[A-Z]{1,5}$/.test(suffix))
     return NextResponse.json({ error: "Barcode Suffix must be 1–5 uppercase letters (e.g. BOX)" }, { status: 400 });
+
+  const existing = await prisma.unit.findUnique({
+    where: { id },
+    select: { name: true, conversionFactor: true, parentUnitId: true },
+  });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Renaming is free — the name lives only here, so it flows to every product.
+  // Changing the SIZE is not: it redefines what every future entry of this unit
+  // means. Ask once, and say how many products are affected. (Past orders are
+  // unaffected: they stored their quantity in base units at entry time.)
+  const newFactor = conversionFactor !== undefined
+    ? (conversionFactor ? parseFloat(conversionFactor) : null)
+    : undefined;
+  const factorChanged = newFactor !== undefined && newFactor !== existing.conversionFactor;
+  const parentChanged = parentUnitId !== undefined && (parentUnitId || null) !== existing.parentUnitId;
+  if (factorChanged || parentChanged) {
+    const inUse = await prisma.productUnitConversion.count({ where: { unitId: id } });
+    if (inUse > 0 && !confirm) {
+      return NextResponse.json({
+        warning: "unit_in_use",
+        productCount: inUse,
+        unitName: existing.name,
+        oldFactor: existing.conversionFactor,
+        newFactor: newFactor ?? existing.conversionFactor,
+      }, { status: 200 });
+    }
+  }
+  // Re-pointing a unit's parent orphans it from products built on the old
+  // parent, so that is blocked outright rather than confirmed.
+  if (parentChanged) {
+    const inUse = await prisma.productUnitConversion.count({ where: { unitId: id } });
+    if (inUse > 0)
+      return NextResponse.json({
+        error: `Cannot change what "${existing.name}" is measured in — ${inUse} product(s) use it as a packing unit. Create a new unit instead.`,
+      }, { status: 409 });
+  }
 
   const unit = await prisma.unit.update({
     where: { id },
@@ -46,13 +83,18 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const [productCount, childCount] = await Promise.all([
+  const [productCount, childCount, packingCount] = await Promise.all([
     prisma.product.count({ where: { unitId: id } }),
     prisma.unit.count({ where: { parentUnitId: id } }),
+    // Packing usage — products now reference this unit rather than copying its
+    // name, so deleting it would strip their packaging entirely.
+    prisma.productUnitConversion.count({ where: { unitId: id } }),
   ]);
 
   if (productCount > 0)
     return NextResponse.json({ error: `Cannot delete — ${productCount} product(s) use this unit. Deactivate it instead.` }, { status: 409 });
+  if (packingCount > 0)
+    return NextResponse.json({ error: `Cannot delete — ${packingCount} product(s) use this as a packing unit. Remove it from those products first, or deactivate it.` }, { status: 409 });
   if (childCount > 0)
     return NextResponse.json({ error: `Cannot delete — ${childCount} unit(s) are based on this unit. Remove those conversions first.` }, { status: 409 });
 
