@@ -5,12 +5,21 @@
 // is the only one who knows whether the goods were physically on the shelf when
 // the count happened, and the two answers lead to opposite actions.
 
-export function opnameOverrideMessage(dateLabel: string): string {
+type T = (key: string, fallback: string) => string;
+
+export function opnameOverrideMessage(t: T, dateLabel: string): string {
   return [
-    `This order is dated BEFORE the stock count completed on ${dateLabel}.`,
+    t("opnameOverride.title", "This order is dated BEFORE the stock count completed on {date}.")
+      .replace("{date}", dateLabel),
     "",
-    `• Were the goods already missing when you counted? Press Cancel and reject this instead — your count already includes the loss, and approving would subtract it twice.`,
+    t(
+      "opnameOverride.alreadyMissing",
+      "• Were the goods already missing when you counted? Press Cancel and reject this instead — your count already includes the loss, and approving would subtract it twice.",
+    ),
     "",
-    `• Were they still on the shelf, and the problem found afterwards? Press OK to approve. The order is re-dated to today so your completed count stays correct.`,
+    t(
+      "opnameOverride.foundLater",
+      "• Were they still on the shelf, and the problem found afterwards? Press OK to approve. The order is re-dated to today so your completed count stays correct.",
+    ),
   ].join("\n");
 }

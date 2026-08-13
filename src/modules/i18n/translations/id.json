@@ -14,13 +14,14 @@
     "clear": "Hapus Filter",
     "view": "Lihat",
     "refresh": "Perbarui",
-    "exportExcel": "↓ Export Excel",
+    "exportExcel": "↓ Ekspor Excel",
     "remove": "Hapus",
     "saving": "Menyimpan…",
     "signOut": "Keluar",
     "previous": "Sebelumnya",
     "next": "Berikutnya",
-    "inactive": "Nonaktif"
+    "inactive": "Nonaktif",
+    "saveFailed": "Gagal menyimpan"
   },
   "nav": {
     "sections": {
@@ -49,12 +50,13 @@
       "stockOpname": "Stock Opname",
       "settings": "Pengaturan",
       "userManagement": "Manajemen Pengguna",
-      "auditLog": "Riwayat Perubahan"
+      "auditLog": "Riwayat Perubahan",
+      "openingStock": "Stok Awal"
     }
   },
   "app": {
     "title": "MRIs — Mitra Ramah Inventory System",
-    "footer": "© 2026 Mitra Ramah — Semua hak dilindungi | MRIs v1.7.1",
+    "footer": "© 2026 Mitra Ramah — Semua hak dilindungi | MRIs v1.7.2",
     "openNav": "Buka Menu",
     "closeMenu": "Tutup menu",
     "geo": {
@@ -71,12 +73,12 @@
   "login": {
     "subtitle": "Mitra Ramah Inventory System",
     "email": "Email",
-    "password": "Password",
+    "password": "Kata Sandi",
     "signingIn": "Masuk…",
     "signIn": "Masuk",
     "invalidCredentials": "Email atau kata sandi salah.",
     "displaced": "Sesi Anda digantikan oleh login dari perangkat lain. Silakan login kembali.",
-    "footer": "© 2026 Mitra Ramah — MRIs v1.7.1"
+    "footer": "© 2026 Mitra Ramah — MRIs v1.7.2"
   },
   "dashboard": {
     "totalProducts": "Total Produk",
@@ -116,7 +118,7 @@
   },
   "movements": {
     "title": "Riwayat Mutasi Stok",
-    "exportExcel": "↓ Export Excel",
+    "exportExcel": "↓ Ekspor Excel",
     "allLocations": "Semua Lokasi",
     "noMovements": "Belum ada mutasi stok",
     "cols": {
@@ -208,7 +210,7 @@
     "skuCreate": "Kode Internal / SKU",
     "skuAutoHint": "Kosongkan untuk auto-generate",
     "barcode": "Barcode *",
-    "generate": "Generate",
+    "generate": "Buat",
     "category": "Kategori *",
     "selectCategory": "Pilih kategori…",
     "baseUnit": "Satuan Dasar *",
@@ -255,7 +257,8 @@
     "tabs": {
       "stockOnHand": "Stok Saat Ini",
       "movementLog": "Riwayat Mutasi",
-      "lowStock": "Stok Menipis"
+      "lowStock": "Stok Menipis",
+      "restock": "Restock"
     },
     "filters": {
       "location": "Lokasi",
@@ -297,6 +300,15 @@
       "doneBy": "Dilakukan Oleh",
       "created": "Dibuat",
       "approved": "Disetujui"
+    },
+    "scopeAll": "Semua kategori",
+    "countSheet": {
+      "colPhysical": "Qty Fisik",
+      "colBook": "Qty Buku",
+      "colDifference": "Selisih",
+      "saveDraft": "Simpan Draf",
+      "saving": "Menyimpan…",
+      "submitForReview": "Kirim untuk Ditinjau"
     }
   },
   "barcodes": {
@@ -461,8 +473,11 @@
       "goToOrders": "Lihat Daftar Pesanan",
       "errorTitle": "Terjadi kesalahan",
       "backToForm": "Kembali",
-      "retry": "Coba Lagi"
-    }
+      "retry": "Coba Lagi",
+      "backdatedTo": "Dimundurkan ke"
+    },
+    "transactionDate": "Tanggal transaksi",
+    "transactionDateHint": "(default hari ini)"
   },
   "adjustment": {
     "submitTitle": "Form Penyesuaian Stok",
@@ -490,6 +505,31 @@
       "returnSupplier": "Retur ke Supplier",
       "openingStock": "Stok Awal",
       "other": "Lainnya"
-    }
+    },
+    "transactionDate": "Tanggal transaksi",
+    "transactionDateHint": "(default hari ini)",
+    "backdatedEntered": "Dimundurkan — diinput"
+  },
+  "effectiveDate": {
+    "change": "Ubah tanggal",
+    "label": "Tanggal sebenarnya (kapan kejadiannya)",
+    "reasonPlaceholder": "Alasan (mis. lupa input pengiriman hari Senin)",
+    "reasonRequired": "Mohon isi alasan",
+    "softCapConfirm": "Ini {days} hari yang lalu — yakin?",
+    "saved": "Tanggal diperbarui"
+  },
+  "warehouseChange": {
+    "change": "Ubah gudang",
+    "source": "Gudang asal",
+    "destination": "Gudang tujuan",
+    "reasonPlaceholder": "Alasan (mis. staf salah pilih gudang)",
+    "reasonRequired": "Mohon isi alasan",
+    "opnameConfirm": "Ini akan mengubah hasil stock opname yang sudah selesai tanggal {date}. Tetap lanjutkan?",
+    "saved": "Gudang diperbarui"
+  },
+  "opnameOverride": {
+    "title": "Pesanan ini bertanggal SEBELUM stock opname yang selesai tanggal {date}.",
+    "alreadyMissing": "• Apakah barang sudah hilang saat Anda menghitung? Tekan Cancel lalu tolak pesanan ini — hasil opname sudah memasukkan kehilangan itu, dan menyetujuinya akan mengurangi stok dua kali.",
+    "foundLater": "• Apakah barang masih ada di rak, dan masalahnya baru ditemukan setelahnya? Tekan OK untuk menyetujui. Tanggal pesanan diubah ke hari ini agar hasil opname tetap benar."
   }
 }

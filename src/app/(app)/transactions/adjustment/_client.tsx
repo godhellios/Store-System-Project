@@ -201,7 +201,7 @@ export function AdjustmentClient({
       // Approving behind a completed stock count returns a warning, not a result.
       let { ok, status, data } = await send(false);
       if (ok && data.warning === "opname") {
-        if (!window.confirm(opnameOverrideMessage(String(data.opnameDateLabel ?? "")))) return;
+        if (!window.confirm(opnameOverrideMessage(t, String(data.opnameDateLabel ?? "")))) return;
         ({ ok, status, data } = await send(true));
       }
       if (!ok) { toast.error(data.error ?? `Error ${status}`); return; }

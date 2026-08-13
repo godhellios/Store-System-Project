@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { opnameOverrideMessage } from "@/components/opname-override-message";
+import { useT } from "@/modules/i18n/provider";
 
 type GrnLine = { id: string; productName: string; productSku: string; quantity: number; unitName: string; lastCost: number | null; unitCost: number | null };
 
@@ -28,6 +29,7 @@ export function OrderActions({
   grnLines?: GrnLine[];
 }) {
   const router = useRouter();
+  const t = useT();
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirming, setDeleteConfirming] = useState(false);
   const [cancelConfirming, setCancelConfirming] = useState(false);
@@ -96,7 +98,7 @@ export function OrderActions({
     // the admin confirms, then we re-send.
     let { ok, data } = await send(false);
     if (ok && data.warning === "opname") {
-      if (!window.confirm(opnameOverrideMessage(String(data.opnameDateLabel ?? "")))) {
+      if (!window.confirm(opnameOverrideMessage(t, String(data.opnameDateLabel ?? "")))) {
         setReviewing(false);
         return;
       }

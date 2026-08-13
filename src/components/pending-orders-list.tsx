@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { opnameOverrideMessage } from "@/components/opname-override-message";
+import { useT } from "@/modules/i18n/provider";
 import { useRouter } from "next/navigation";
 
 type OrderLine = {
@@ -60,6 +61,7 @@ function stockEffect(order: PendingOrder) {
 
 export function PendingOrdersList() {
   const router = useRouter();
+  const t = useT();
   const [orders, setOrders] = useState<PendingOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -109,7 +111,7 @@ export function PendingOrdersList() {
       // Approving behind a completed stock count returns a warning, not a result.
       let { ok, status, data } = await send(false);
       if (ok && data.warning === "opname") {
-        if (!window.confirm(opnameOverrideMessage(String(data.opnameDateLabel ?? "")))) return;
+        if (!window.confirm(opnameOverrideMessage(t, String(data.opnameDateLabel ?? "")))) return;
         ({ ok, status, data } = await send(true));
       }
       if (!ok) { toast.error(data.error ?? `Error ${status}`); return; }

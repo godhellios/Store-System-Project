@@ -73,7 +73,7 @@
   },
   "app": {
     "title": "MRIs — Mitra Ramah Inventory System",
-    "footer": "© 2026 Mitra Ramah — All rights reserved | MRIs v1.7.1",
+    "footer": "© 2026 Mitra Ramah — All rights reserved | MRIs v1.7.2",
     "openNav": "Open navigation",
     "closeMenu": "Close menu",
     "geo": {
@@ -95,7 +95,7 @@
     "signIn": "Sign in",
     "invalidCredentials": "Invalid email or password.",
     "displaced": "Your session was replaced by a login from another device. Please sign in again.",
-    "footer": "© 2026 Mitra Ramah — MRIs v1.7.1"
+    "footer": "© 2026 Mitra Ramah — MRIs v1.7.2"
   },
   "dashboard": {
     "totalProducts": "Total Products",
@@ -526,5 +526,10 @@
       "openingStock": "Opening Stock",
       "other": "Other"
     }
+  },
+  "opnameOverride": {
+    "title": "This order is dated BEFORE the stock count completed on {date}.",
+    "alreadyMissing": "• Were the goods already missing when you counted? Press Cancel and reject this instead — your count already includes the loss, and approving would subtract it twice.",
+    "foundLater": "• Were they still on the shelf, and the problem found afterwards? Press OK to approve. The order is re-dated to today so your completed count stays correct."
   }
 }
