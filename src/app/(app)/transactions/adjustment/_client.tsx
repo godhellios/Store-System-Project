@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { useT } from "@/modules/i18n/provider";
 import { NumberField } from "@/components/number-field";
 import { resolveEffectiveDate } from "@/lib/effective-date";
+import { opnameOverrideMessage } from "@/components/opname-override-message";
 
 type Location = { id: string; name: string };
 type ProductResult = { id: string; sku: string; name: string };
@@ -189,13 +190,21 @@ export function AdjustmentClient({
   async function handleReview(orderId: string, action: "approve" | "reject") {
     setReviewing(orderId);
     try {
-      const res = await fetch(`/api/orders/${orderId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, note: reviewNote[orderId] ?? "" }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.error(data.error ?? `Error ${res.status}`); return; }
+      const send = async (confirm: boolean) => {
+        const res = await fetch(`/api/orders/${orderId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, note: reviewNote[orderId] ?? "", ...(confirm ? { confirm: true } : {}) }),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+      };
+      // Approving behind a completed stock count returns a warning, not a result.
+      let { ok, status, data } = await send(false);
+      if (ok && data.warning === "opname") {
+        if (!window.confirm(opnameOverrideMessage(String(data.opnameDateLabel ?? "")))) return;
+        ({ ok, status, data } = await send(true));
+      }
+      if (!ok) { toast.error(data.error ?? `Error ${status}`); return; }
       toast.success(action === "approve" ? "Adjustment approved — stock updated" : "Adjustment rejected");
       router.refresh();
     } catch (e) {

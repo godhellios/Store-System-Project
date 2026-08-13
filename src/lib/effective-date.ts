@@ -64,6 +64,55 @@ export function latestApprovedCountFloor(
   }, null);
 }
 
+export type ApprovalVerdict =
+  | { ok: true }
+  | { ok: false; action: "block"; reason: "open_count" }
+  | { ok: false; action: "warn"; reason: "stale_count"; floor: Date };
+
+/**
+ * Is this order dated on an earlier business DAY than the last approved count?
+ *
+ * Deliberately a calendar-day test, not an instant one. A count approval also
+ * generates its own correction adjustment, stamped within milliseconds of the
+ * session's own `approvedAt` — comparing instants flags that adjustment as
+ * "behind the count" that produced it and blocks the entire opname flow. Days
+ * also match how the freeze is meant to read: a count settles a DAY, so only
+ * something dated on an earlier day rewrites settled history.
+ */
+export function isStaleAgainstCount(effectiveDate: Date, floor: Date | null): boolean {
+  return floor !== null && isFutureBusinessDay(floor, effectiveDate);
+}
+
+/**
+ * The opname rules that must hold at APPROVAL time.
+ *
+ * A pending order had its date validated when it was entered, but its stock only
+ * moves when an admin approves it — possibly days later. A count can be opened or
+ * approved in between, so the rules are re-checked here:
+ *
+ *  1. A count is in progress covering these goods → hard block, no override.
+ *     This mirrors order creation exactly: stock must not move mid-count.
+ *  2. An approved count is NEWER than the order's business date → warn once.
+ *     Approving as-is would rewrite history behind a settled count. The admin
+ *     confirms (they alone know whether the goods were already missing when the
+ *     shelf was counted), and the caller then re-dates the order to the approval
+ *     moment so the completed count stays intact.
+ *
+ * Rule 1 is checked first and ignores `confirmed` — an open count is never
+ * overridable.
+ */
+export function approvalOpnameVerdict(args: {
+  effectiveDate: Date;
+  floor: Date | null;
+  openCountBlocks: boolean;
+  confirmed: boolean;
+}): ApprovalVerdict {
+  if (args.openCountBlocks) return { ok: false, action: "block", reason: "open_count" };
+  if (args.floor !== null && isStaleAgainstCount(args.effectiveDate, args.floor) && !args.confirmed)
+    return { ok: false, action: "warn", reason: "stale_count", floor: args.floor };
+  return { ok: true };
+}
+
 /** Order types whose backdating can drive a past day's history below zero. */
 export type OutboundOrderType = "GOODS_OUT" | "TRANSFER" | "ADJUSTMENT";
 

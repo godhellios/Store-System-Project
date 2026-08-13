@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveEffectiveDate, isDateAllowed, exceedsSoftCap, latestApprovedCountFloor, parseBusinessDate, backdateCheckLocationId, outboundLines } from "./effective-date";
+import { resolveEffectiveDate, isDateAllowed, exceedsSoftCap, latestApprovedCountFloor, parseBusinessDate, backdateCheckLocationId, outboundLines, approvalOpnameVerdict, isStaleAgainstCount } from "./effective-date";
 
 describe("resolveEffectiveDate", () => {
   const createdAt = new Date("2026-06-15T08:00:00.000Z");
@@ -114,6 +114,96 @@ describe("latestApprovedCountFloor", () => {
       { countDate: d("2026-06-05T00:00:00Z"), approvedAt: null },
     ]);
     expect(floor).toEqual(d("2026-06-05T00:00:00Z"));
+  });
+});
+
+describe("approvalOpnameVerdict", () => {
+  const d = (s: string) => new Date(s);
+  const base = {
+    effectiveDate: d("2026-08-10T05:00:00Z"),
+    floor: null as Date | null,
+    openCountBlocks: false,
+    confirmed: false,
+  };
+
+  it("allows a normal approval with no counts involved", () => {
+    expect(approvalOpnameVerdict(base)).toEqual({ ok: true });
+  });
+
+  it("hard-blocks while a count is in progress", () => {
+    expect(approvalOpnameVerdict({ ...base, openCountBlocks: true })).toEqual({
+      ok: false, action: "block", reason: "open_count",
+    });
+  });
+
+  it("hard-blocks an open count even when the admin confirmed — never overridable", () => {
+    expect(approvalOpnameVerdict({ ...base, openCountBlocks: true, confirmed: true })).toEqual({
+      ok: false, action: "block", reason: "open_count",
+    });
+  });
+
+  it("warns when the order predates an approved count", () => {
+    const floor = d("2026-08-12T16:59:59Z");
+    expect(approvalOpnameVerdict({ ...base, floor })).toEqual({
+      ok: false, action: "warn", reason: "stale_count", floor,
+    });
+  });
+
+  it("proceeds once the admin has confirmed the stale-count warning", () => {
+    expect(approvalOpnameVerdict({ ...base, floor: d("2026-08-12T16:59:59Z"), confirmed: true })).toEqual({ ok: true });
+  });
+
+  it("does not warn when the order is newer than the count", () => {
+    expect(approvalOpnameVerdict({
+      ...base,
+      effectiveDate: d("2026-08-14T05:00:00Z"),
+      floor: d("2026-08-12T16:59:59Z"),
+    })).toEqual({ ok: true });
+  });
+
+  it("does not warn when the order sits exactly on the floor (boundary)", () => {
+    const floor = d("2026-08-12T16:59:59Z");
+    expect(approvalOpnameVerdict({ ...base, effectiveDate: floor, floor })).toEqual({ ok: true });
+  });
+
+  // Regression: an approved count generates its own correction adjustment,
+  // stamped milliseconds before the session's approvedAt. Comparing instants
+  // flagged that adjustment as "behind" the very count that created it and broke
+  // the whole opname flow (caught by smoke-stock-paths.mjs, "OPNAME: +3 applied").
+  it("does not warn for an adjustment stamped just before the count on the SAME day", () => {
+    expect(approvalOpnameVerdict({
+      ...base,
+      effectiveDate: d("2026-08-12T09:00:00.000Z"),
+      floor: d("2026-08-12T09:00:00.005Z"), // 5ms later, same Jakarta day
+    })).toEqual({ ok: true });
+  });
+
+  it("warns across a day boundary even when only hours apart", () => {
+    // 2026-08-11 20:00 UTC = 12 Aug 03:00 WIB; 2026-08-10 20:00 UTC = 11 Aug WIB.
+    const floor = d("2026-08-11T20:00:00Z");
+    expect(approvalOpnameVerdict({ ...base, effectiveDate: d("2026-08-10T20:00:00Z"), floor })).toEqual({
+      ok: false, action: "warn", reason: "stale_count", floor,
+    });
+  });
+
+  it("prefers the open-count block over the stale-date warning", () => {
+    expect(approvalOpnameVerdict({
+      ...base, floor: d("2026-08-12T16:59:59Z"), openCountBlocks: true,
+    })).toEqual({ ok: false, action: "block", reason: "open_count" });
+  });
+});
+
+describe("isStaleAgainstCount", () => {
+  const d = (s: string) => new Date(s);
+
+  it("is false when there is no count at all", () => {
+    expect(isStaleAgainstCount(d("2026-08-10T05:00:00Z"), null)).toBe(false);
+  });
+
+  it("is true only when the order is on an EARLIER Jakarta day", () => {
+    expect(isStaleAgainstCount(d("2026-08-10T05:00:00Z"), d("2026-08-12T16:59:59Z"))).toBe(true);
+    expect(isStaleAgainstCount(d("2026-08-12T05:00:00Z"), d("2026-08-12T16:59:59Z"))).toBe(false);
+    expect(isStaleAgainstCount(d("2026-08-14T05:00:00Z"), d("2026-08-12T16:59:59Z"))).toBe(false);
   });
 });
 

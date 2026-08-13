@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { opnameOverrideMessage } from "@/components/opname-override-message";
 import { useRouter } from "next/navigation";
 
 type OrderLine = {
@@ -97,13 +98,21 @@ export function PendingOrdersList() {
   async function doAction(id: string, action: "approve" | "reject", note?: string) {
     setProcessingId(id);
     try {
-      const res = await fetch(`/api/orders/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, note: note?.trim() || undefined }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.error(data.error ?? `Error ${res.status}`); return; }
+      const send = async (confirm: boolean) => {
+        const res = await fetch(`/api/orders/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, note: note?.trim() || undefined, ...(confirm ? { confirm: true } : {}) }),
+        });
+        return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+      };
+      // Approving behind a completed stock count returns a warning, not a result.
+      let { ok, status, data } = await send(false);
+      if (ok && data.warning === "opname") {
+        if (!window.confirm(opnameOverrideMessage(String(data.opnameDateLabel ?? "")))) return;
+        ({ ok, status, data } = await send(true));
+      }
+      if (!ok) { toast.error(data.error ?? `Error ${status}`); return; }
       toast.success(action === "approve" ? "Approved — stock updated" : "Rejected");
       await load();
       router.refresh();

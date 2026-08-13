@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { opnameOverrideMessage } from "@/components/opname-override-message";
 
 type GrnLine = { id: string; productName: string; productSku: string; quantity: number; unitName: string; lastCost: number | null; unitCost: number | null };
 
@@ -78,18 +79,31 @@ export function OrderActions({
         if (!isNaN(v) && v > 0) parsedCosts[l.id] = v;
       });
     }
-    const res = await fetch(`/api/orders/${orderId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action,
-        note: reviewNote || undefined,
-        ...(Object.keys(parsedCosts).length ? { lineCosts: parsedCosts } : {}),
-      }),
-    });
-    const data = await res.json();
+    const send = async (confirm: boolean) => {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          note: reviewNote || undefined,
+          ...(Object.keys(parsedCosts).length ? { lineCosts: parsedCosts } : {}),
+          ...(confirm ? { confirm: true } : {}),
+        }),
+      });
+      return { ok: res.ok, data: await res.json().catch(() => ({})) };
+    };
+    // Approving behind a completed stock count returns a warning, not a result —
+    // the admin confirms, then we re-send.
+    let { ok, data } = await send(false);
+    if (ok && data.warning === "opname") {
+      if (!window.confirm(opnameOverrideMessage(String(data.opnameDateLabel ?? "")))) {
+        setReviewing(false);
+        return;
+      }
+      ({ ok, data } = await send(true));
+    }
     setReviewing(false);
-    if (!res.ok) { toast.error(data.error ?? "Failed to review order"); return; }
+    if (!ok) { toast.error(data.error ?? "Failed to review order"); return; }
     toast.success(action === "approve" ? "Approved — stock updated" : "Rejected");
     setReviewOpen(false);
     setReviewNote("");

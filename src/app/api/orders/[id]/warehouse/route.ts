@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { InsufficientStockError } from "@/lib/stock";
-import { resolveEffectiveDate } from "@/lib/effective-date";
+import { resolveEffectiveDate, latestApprovedCountFloor } from "@/lib/effective-date";
 import {
   computeRecalibrationDeltas,
   resultingNegatives,
@@ -76,11 +76,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // Opname soft-warn: an APPROVED count after this order's date, at any affected
   // warehouse, would be retroactively altered. Admin confirms to override.
   const affected = [order.fromLocationId, order.toLocationId, newFrom, newTo].filter((l): l is string => !!l);
-  const opAgg = await prisma.opnameSession.aggregate({
-    _max: { approvedAt: true },
+  // Use the shared floor helper: a backdated count freezes from its business
+  // countDate, which can be well before the day it was approved. Aggregating on
+  // approvedAt alone missed that and let changes slip behind a settled count.
+  const approvedCounts = await prisma.opnameSession.findMany({
     where: { status: "APPROVED", locationId: { in: affected } },
+    select: { countDate: true, approvedAt: true },
   });
-  const opnameDate = opAgg._max.approvedAt;
+  const opnameDate = latestApprovedCountFloor(approvedCounts);
   if (opnameDate && opnameDate > effectiveDate && !confirm) {
     return NextResponse.json(
       { warning: "opname", opnameDate: opnameDate.toISOString(), opnameDateLabel: fmtDate(opnameDate) },
