@@ -115,6 +115,13 @@ async function main() {
   data = await res.json(); if (data.order) created.push(data.order.id);
   check("FUTURE: future date → 409", res.status === 409 && /future/i.test(data.error || ""), `status=${res.status} err="${data.error}"`);
 
+  // TODAY must be accepted at any hour. Business dates are stored at noon WIB, so
+  // an instant-comparison "is it future?" check rejects today every morning —
+  // exactly the value the picker offers via max={today}. Regression guard.
+  res = await createOrder({ type: "GRN", toLocationId: locationId, effectiveDate: dayStr(0), lines: line(1) });
+  data = await res.json(); if (data.order) created.push(data.order.id);
+  check("TODAY: today's date accepted → 201", res.status === 201, `status=${res.status} err="${data.error}"`);
+
   // ── Test 3: opname freeze — insert an APPROVED count, then try to date before ─
   const sessNum = `SMOKE-BD-${Date.now()}`;
   const floorTs = new Date(Date.now() - 10 * 86400000).toISOString();

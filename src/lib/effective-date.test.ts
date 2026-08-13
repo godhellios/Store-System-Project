@@ -43,6 +43,22 @@ describe("isDateAllowed", () => {
   it("allows any past date when there is no opname floor", () => {
     expect(isDateAllowed(new Date("2020-01-01T00:00:00.000Z"), null, now)).toEqual({ ok: true });
   });
+
+  // Business dates are stored at NOON Jakarta, so a same-day instant sits in the
+  // future all morning. "Today" is what the date picker offers (max={today}), so
+  // it must be accepted whatever the clock says — compare calendar days, not
+  // instants.
+  describe("today, before noon Jakarta", () => {
+    const morning = new Date("2026-08-13T02:30:00.000Z"); // 09:30 WIB
+
+    it("allows today even though noon WIB is still ahead of now", () => {
+      expect(isDateAllowed(parseBusinessDate("2026-08-13")!, null, morning)).toEqual({ ok: true });
+    });
+
+    it("still rejects tomorrow", () => {
+      expect(isDateAllowed(parseBusinessDate("2026-08-14")!, null, morning)).toEqual({ ok: false, reason: "future" });
+    });
+  });
 });
 
 describe("exceedsSoftCap", () => {

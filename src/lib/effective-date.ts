@@ -6,6 +6,8 @@
 // must treat a null effective date as "same as createdAt" — that fallback rule
 // lives here so every caller agrees on it.
 
+import { isFutureBusinessDay } from "./stock-asof";
+
 /** Return the effective date if set, otherwise fall back to createdAt. */
 export function resolveEffectiveDate(
   effectiveDate: Date | null | undefined,
@@ -24,9 +26,14 @@ export type DateAllowedResult =
  * - it cannot be earlier than `floor` — the most recent APPROVED opname for the
  *   transaction's location(s). `floor === null` means no approved count exists,
  *   so any past date is allowed.
+ *
+ * "Future" is a CALENDAR-DAY test, not an instant comparison. Business dates are
+ * stored at noon Jakarta, so today's date is a couple of hours ahead of `now`
+ * every morning — comparing instants would reject today (the very value the date
+ * picker offers via `max={today}`) until midday.
  */
 export function isDateAllowed(proposed: Date, floor: Date | null, now: Date): DateAllowedResult {
-  if (proposed.getTime() > now.getTime()) return { ok: false, reason: "future" };
+  if (isFutureBusinessDay(proposed, now)) return { ok: false, reason: "future" };
   if (floor !== null && proposed.getTime() < floor.getTime()) return { ok: false, reason: "before_opname" };
   return { ok: true };
 }
