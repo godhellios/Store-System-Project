@@ -9,7 +9,7 @@ import { sendPushNotification } from "@/modules/push-notify/send";
 import { writeAuditLog } from "@/lib/audit-log";
 import { viewerGuard } from "@/lib/role-guard";
 import { transactionBlockedBy } from "@/lib/opname-scope";
-import { isDateAllowed, parseBusinessDate, latestApprovedCountFloor } from "@/lib/effective-date";
+import { isDateAllowed, parseBusinessDate, latestApprovedCountFloor, backdateCheckLocationId, outboundLines } from "@/lib/effective-date";
 import { qtyAsOf, sumDeltasByProduct, parseCountDate, type AsOfMovement } from "@/lib/stock-asof";
 
 // Large orders do meaningful work in one transaction — give the function room
@@ -205,23 +205,30 @@ export async function POST(req: Request) {
     }
     businessDate = proposed;
 
-    // Soft, NON-blocking heads-up: a backdated OUT/TRANSFER can drive a PAST day's
-    // point-in-time history below zero (today's live balance is already guarded
-    // and stays correct). Heuristic — check the balance at END of the backdated
-    // day (so same-day deliveries count toward the baseline) against this dispatch.
-    if ((type === "GOODS_OUT" || type === "TRANSFER") && fromLocationId) {
-      const productIds = lines.map((l) => l.productId);
+    // Soft, NON-blocking heads-up: a backdated OUT/TRANSFER/negative ADJUSTMENT
+    // can drive a PAST day's point-in-time history below zero (today's live
+    // balance is already guarded and stays correct). Heuristic — check the
+    // balance at END of the backdated day (so same-day deliveries count toward
+    // the baseline) against the amount this transaction takes away.
+    const outboundType =
+      type === "GOODS_OUT" || type === "TRANSFER" || type === "ADJUSTMENT" ? type : null;
+    const checkLocationId = outboundType
+      ? backdateCheckLocationId(outboundType, fromLocationId, toLocationId)
+      : null;
+    const removals = outboundType ? outboundLines(outboundType, lines) : [];
+    if (checkLocationId && removals.length) {
+      const productIds = removals.map((l) => l.productId);
       const dayCutoff = parseCountDate(rawEffectiveDate as string) ?? businessDate;
       const [stockRows, laterMovements, products] = await Promise.all([
         prisma.stock.findMany({
-          where: { productId: { in: productIds }, locationId: fromLocationId },
+          where: { productId: { in: productIds }, locationId: checkLocationId },
           select: { productId: true, quantity: true },
         }),
         prisma.movement.findMany({
           where: {
             productId: { in: productIds },
             effectiveDate: { gt: dayCutoff },
-            OR: [{ fromLocationId }, { toLocationId: fromLocationId }],
+            OR: [{ fromLocationId: checkLocationId }, { toLocationId: checkLocationId }],
           },
           select: {
             productId: true, quantity: true, fromLocationId: true, toLocationId: true,
@@ -246,12 +253,13 @@ export async function POST(req: Request) {
         quantity: m.quantity,
         lineQuantity: m.orderLine?.quantity ?? 0,
       }));
-      const deltaAfter = sumDeltasByProduct(asOfMovements, fromLocationId);
-      for (const line of lines) {
+      const deltaAfter = sumDeltasByProduct(asOfMovements, checkLocationId);
+      const noun = outboundType === "ADJUSTMENT" ? "removal" : "dispatch";
+      for (const line of removals) {
         const availableThen = qtyAsOf(currentQty.get(line.productId) ?? 0, deltaAfter.get(line.productId) ?? 0);
-        if (availableThen < line.quantity) {
+        if (availableThen < line.qty) {
           warnings.push(
-            `Heads-up: as of ${fmtDate(businessDate)}, "${nameOf.get(line.productId) ?? line.productId}" had ${availableThen} on hand here — dating a dispatch of ${line.quantity} to then makes its stock history go negative. Today's balance is unaffected.`,
+            `Heads-up: as of ${fmtDate(businessDate)}, "${nameOf.get(line.productId) ?? line.productId}" had ${availableThen} on hand here — dating a ${noun} of ${line.qty} to then makes its stock history go negative. Today's balance is unaffected.`,
           );
         }
       }

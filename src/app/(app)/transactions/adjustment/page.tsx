@@ -30,6 +30,7 @@ export default async function AdjustmentPage() {
           id: o.id,
           orderNumber: o.orderNumber,
           createdAt: o.createdAt.toISOString(),
+          effectiveDate: o.effectiveDate?.toISOString() ?? null,
           createdByName: o.createdByName,
           adjustmentReason: o.adjustmentReason,
           notes: o.notes,

@@ -64,6 +64,40 @@ export function latestApprovedCountFloor(
   }, null);
 }
 
+/** Order types whose backdating can drive a past day's history below zero. */
+export type OutboundOrderType = "GOODS_OUT" | "TRANSFER" | "ADJUSTMENT";
+
+/**
+ * Which location's history a backdated transaction can push negative.
+ * Dispatches draw down the SOURCE warehouse; an adjustment has no source and
+ * applies its signed delta at `toLocationId`. Null = nothing to check.
+ */
+export function backdateCheckLocationId(
+  type: OutboundOrderType,
+  fromLocationId: string | null | undefined,
+  toLocationId: string | null | undefined,
+): string | null {
+  return (type === "ADJUSTMENT" ? toLocationId : fromLocationId) ?? null;
+}
+
+/**
+ * The lines that REMOVE stock at that location, with the amount each removes.
+ * Dispatch lines are always outbound and stored positive. Adjustment lines carry
+ * a SIGNED quantity — only the negative ones take stock away, and the amount
+ * removed is their magnitude. Additions can never drive history below zero, so
+ * they are dropped here.
+ */
+export function outboundLines<T extends { productId: string; quantity: number }>(
+  type: OutboundOrderType,
+  lines: T[],
+): Array<{ productId: string; qty: number }> {
+  if (type !== "ADJUSTMENT")
+    return lines.map((l) => ({ productId: l.productId, qty: l.quantity }));
+  return lines
+    .filter((l) => l.quantity < 0)
+    .map((l) => ({ productId: l.productId, qty: -l.quantity }));
+}
+
 /**
  * Parse a "YYYY-MM-DD" business date into an instant at noon Asia/Jakarta
  * (UTC+7). Noon keeps the calendar day identical in every timezone, matching how

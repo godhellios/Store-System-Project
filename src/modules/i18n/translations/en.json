@@ -499,6 +499,9 @@
   "adjustment": {
     "submitTitle": "Submit Adjustment Request",
     "location": "Location",
+    "transactionDate": "Transaction date",
+    "transactionDateHint": "(defaults to today)",
+    "backdatedEntered": "Backdated — entered",
     "searchProduct": "Search product by name or SKU…",
     "addToStock": "+ Add to stock",
     "removeFromStock": "- Remove from stock",

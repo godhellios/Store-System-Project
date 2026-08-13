@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveEffectiveDate, isDateAllowed, exceedsSoftCap, latestApprovedCountFloor, parseBusinessDate } from "./effective-date";
+import { resolveEffectiveDate, isDateAllowed, exceedsSoftCap, latestApprovedCountFloor, parseBusinessDate, backdateCheckLocationId, outboundLines } from "./effective-date";
 
 describe("resolveEffectiveDate", () => {
   const createdAt = new Date("2026-06-15T08:00:00.000Z");
@@ -114,6 +114,62 @@ describe("latestApprovedCountFloor", () => {
       { countDate: d("2026-06-05T00:00:00Z"), approvedAt: null },
     ]);
     expect(floor).toEqual(d("2026-06-05T00:00:00Z"));
+  });
+});
+
+describe("backdateCheckLocationId", () => {
+  it("checks the SOURCE warehouse for a dispatch", () => {
+    expect(backdateCheckLocationId("GOODS_OUT", "from-1", "to-1")).toBe("from-1");
+    expect(backdateCheckLocationId("TRANSFER", "from-1", "to-1")).toBe("from-1");
+  });
+
+  it("checks the TARGET warehouse for an adjustment (it has no source)", () => {
+    expect(backdateCheckLocationId("ADJUSTMENT", null, "to-1")).toBe("to-1");
+  });
+
+  it("returns null when the relevant location is missing", () => {
+    expect(backdateCheckLocationId("GOODS_OUT", null, "to-1")).toBeNull();
+    expect(backdateCheckLocationId("ADJUSTMENT", "from-1", null)).toBeNull();
+    expect(backdateCheckLocationId("TRANSFER", undefined, undefined)).toBeNull();
+  });
+});
+
+describe("outboundLines", () => {
+  it("treats every dispatch line as outbound, quantity as-is", () => {
+    const lines = [{ productId: "p1", quantity: 5 }, { productId: "p2", quantity: 3 }];
+    expect(outboundLines("GOODS_OUT", lines)).toEqual([
+      { productId: "p1", qty: 5 },
+      { productId: "p2", qty: 3 },
+    ]);
+    expect(outboundLines("TRANSFER", lines)).toEqual([
+      { productId: "p1", qty: 5 },
+      { productId: "p2", qty: 3 },
+    ]);
+  });
+
+  it("keeps only the NEGATIVE adjustment lines, as a magnitude", () => {
+    const lines = [
+      { productId: "p1", quantity: -4 }, // removal
+      { productId: "p2", quantity: 7 },  // addition — cannot go negative
+      { productId: "p3", quantity: -1 }, // removal
+    ];
+    expect(outboundLines("ADJUSTMENT", lines)).toEqual([
+      { productId: "p1", qty: 4 },
+      { productId: "p3", qty: 1 },
+    ]);
+  });
+
+  it("returns nothing for an adjustment that only adds stock", () => {
+    expect(outboundLines("ADJUSTMENT", [{ productId: "p1", quantity: 10 }])).toEqual([]);
+  });
+
+  it("drops a zero-quantity adjustment line (removes nothing)", () => {
+    expect(outboundLines("ADJUSTMENT", [{ productId: "p1", quantity: 0 }])).toEqual([]);
+  });
+
+  it("handles an empty line list", () => {
+    expect(outboundLines("ADJUSTMENT", [])).toEqual([]);
+    expect(outboundLines("GOODS_OUT", [])).toEqual([]);
   });
 });
 

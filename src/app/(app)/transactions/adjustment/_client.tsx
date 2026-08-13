@@ -5,16 +5,39 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useT } from "@/modules/i18n/provider";
 import { NumberField } from "@/components/number-field";
+import { resolveEffectiveDate } from "@/lib/effective-date";
 
 type Location = { id: string; name: string };
 type ProductResult = { id: string; sku: string; name: string };
 type AdjLine = { productId: string; productName: string; productSku: string; direction: "add" | "remove"; qty: number | null; reason: string; currentStock: number | null; unitName: string; stockLoading: boolean };
 type PendingOrder = {
-  id: string; orderNumber: string; createdAt: Date | string; createdByName: string | null;
+  id: string; orderNumber: string; createdAt: Date | string; effectiveDate: string | null; createdByName: string | null;
   adjustmentReason: string | null; notes: string | null;
   toLocation: { name: string } | null;
   lines: { quantity: number; product: { name: string; sku: string } }[];
 };
+
+// Business date of an adjustment — what day it really happened. Legacy rows have
+// no effectiveDate, so they fall back to createdAt via the shared rule.
+const businessDateOf = (o: Pick<PendingOrder, "effectiveDate" | "createdAt">) =>
+  resolveEffectiveDate(o.effectiveDate ? new Date(o.effectiveDate) : null, new Date(o.createdAt));
+
+const jakartaDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+
+const businessDayOf = (o: Pick<PendingOrder, "effectiveDate" | "createdAt">) =>
+  businessDateOf(o).toLocaleDateString("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" });
+
+/** Backdated = it happened on a different day than the one it was typed in on. */
+const isBackdated = (o: Pick<PendingOrder, "effectiveDate" | "createdAt">) =>
+  jakartaDay(businessDateOf(o)) !== jakartaDay(new Date(o.createdAt));
+
+// When it was typed in. Locale + timeZone are pinned: this renders during SSR
+// (server runs UTC) and again on the client, and an unpinned toLocaleString()
+// would disagree between the two — a hydration mismatch, and the wrong clock.
+const enteredAt = (o: Pick<PendingOrder, "createdAt">) =>
+  new Date(o.createdAt).toLocaleString("id-ID", {
+    dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta",
+  });
 
 export function AdjustmentClient({
   locations, pendingOrders, role, userName,
@@ -43,7 +66,11 @@ export function AdjustmentClient({
   const BLANK_LINE: AdjLine = { productId: "", productName: "", productSku: "", direction: "add", qty: 1, reason: REASONS[0], currentStock: null, unitName: "", stockLoading: false };
   const [lines, setLines] = useState<AdjLine[]>([{ ...BLANK_LINE }]);
   const [notes, setNotes] = useState("");
+  const [effectiveDate, setEffectiveDate] = useState(""); // admin-only backdate; "" = today
   const [saving, setSaving] = useState(false);
+
+  // Local calendar day (Asia/Jakarta) — caps the date picker so no future date.
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 
   // ── Product search state per line ─────────────────────────────────────────
   const [search, setSearch] = useState<Record<number, { q: string; results: ProductResult[]; open: boolean; loading: boolean }>>({});
@@ -136,14 +163,19 @@ export function AdjustmentClient({
           toLocationId: locationId,
           adjustmentReason: validLines.map((l) => l.reason).join(", "),
           notes: notes || null,
+          effectiveDate: effectiveDate || undefined,
           lines: apiLines,
         }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Failed to submit"); return; }
+      if (Array.isArray(data.warnings)) {
+        data.warnings.forEach((w: string) => toast(w, { icon: "⚠️", duration: 6000 }));
+      }
       toast.success("Adjustment request submitted — waiting for admin approval");
       setLines([{ ...BLANK_LINE }]);
       setNotes("");
+      setEffectiveDate("");
       router.refresh();
     } finally {
       setSaving(false);
@@ -196,6 +228,28 @@ export function AdjustmentClient({
             {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
         </div>
+
+        {isAdmin && (
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+              {t("adjustment.transactionDate", "Transaction date")}
+              <span className="ml-1 text-[10px] font-normal text-slate-400">
+                {t("adjustment.transactionDateHint", "(defaults to today)")}
+              </span>
+            </label>
+            <input
+              type="date"
+              value={effectiveDate}
+              max={todayStr}
+              onChange={(e) => setEffectiveDate(e.target.value)}
+              className={`w-full md:w-48 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                effectiveDate
+                  ? "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
+                  : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 dark:text-slate-200"
+              }`}
+            />
+          </div>
+        )}
 
         <div className="space-y-3">
           {lines.map((line, idx) => (
@@ -342,8 +396,13 @@ export function AdjustmentClient({
                 <div>
                   <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{order.orderNumber}</div>
                   <div className="text-xs text-slate-400 mt-0.5">
-                    {new Date(order.createdAt).toLocaleString()} · {order.createdByName ?? "Unknown"} · {order.toLocation?.name}
+                    {businessDayOf(order)} · {order.createdByName ?? "Unknown"} · {order.toLocation?.name}
                   </div>
+                  {isBackdated(order) && (
+                    <div className="text-xs font-semibold text-amber-600 mt-0.5">
+                      {t("adjustment.backdatedEntered", "Backdated — entered")} {enteredAt(order)}
+                    </div>
+                  )}
                   {order.notes && <div className="text-xs text-slate-500 mt-1 italic">&quot;{order.notes}&quot;</div>}
                 </div>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">PENDING</span>

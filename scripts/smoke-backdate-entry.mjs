@@ -137,11 +137,71 @@ async function main() {
   check("FREEZE: date after approved count → 201", res.status === 201, `status=${res.status}`);
   await db.query(`DELETE FROM "OpnameSession" WHERE "sessionNumber"=$1`, [sessNum]);
 
+  // ── Test 6: backdated ADJUSTMENT ───────────────────────────────────────────
+  // Adjustments carry a SIGNED line quantity and sit PENDING until an admin
+  // approves, so stock must NOT move at entry — only the dates get stamped.
+  const adjDate = dayStr(12);
+  const adjBefore = await stockNow();
+  res = await createOrder({
+    type: "ADJUSTMENT", toLocationId: locationId, adjustmentReason: "Smoke test",
+    effectiveDate: adjDate, lines: line(-3),
+  });
+  data = await res.json(); if (data.order) created.push(data.order.id);
+  check("ADJ: backdated negative adjustment → 201", res.status === 201, `status=${res.status} err="${data.error}"`);
+  const adjId = data.order?.id;
+  const expectAdj = `${adjDate} 05:00:00`;
+  const adjOrd = (await db.query(
+    `SELECT to_char("effectiveDate",'YYYY-MM-DD HH24:MI:SS') wc, "adjustmentStatus" st FROM "Order" WHERE id=$1`, [adjId])).rows[0];
+  const adjMvs = (await db.query(
+    `SELECT to_char("effectiveDate",'YYYY-MM-DD HH24:MI:SS') wc FROM "Movement" WHERE "orderId"=$1`, [adjId])).rows;
+  check("ADJ: order.effectiveDate = Jakarta noon", adjOrd?.wc === expectAdj, `stored="${adjOrd?.wc}"`);
+  check("ADJ: movements synced to same date", adjMvs.length > 0 && adjMvs.every((m) => m.wc === expectAdj), `${adjMvs.length} mv, first="${adjMvs[0]?.wc}"`);
+  check("ADJ: stays PENDING", adjOrd?.st === "PENDING", `status=${adjOrd?.st}`);
+  check("ADJ: stock NOT changed at entry (deferred to approval)", (await stockNow()) === adjBefore, `${adjBefore} → ${await stockNow()}`);
+
+  // Removal dated to a day the balance could not cover → soft warning.
+  const curForAdj = await stockNow();
+  res = await createOrder({
+    type: "ADJUSTMENT", toLocationId: locationId, adjustmentReason: "Smoke test",
+    effectiveDate: oldDate, lines: line(-(curForAdj + 10)),
+  });
+  data = await res.json(); if (data.order) created.push(data.order.id);
+  check("ADJ WARN: backdated removal beyond that day's balance → 201", res.status === 201, `status=${res.status}`);
+  check("ADJ WARN: past-negative warning returned",
+    Array.isArray(data.warnings) && data.warnings.some((w) => /negative/i.test(w)),
+    `warnings=${JSON.stringify(data.warnings)}`);
+  check("ADJ WARN: warning says 'removal', not 'dispatch'",
+    (data.warnings ?? []).some((w) => /removal/i.test(w)), `warnings=${JSON.stringify(data.warnings)}`);
+
+  // Additions can never push history below zero → must stay silent.
+  res = await createOrder({
+    type: "ADJUSTMENT", toLocationId: locationId, adjustmentReason: "Smoke test",
+    effectiveDate: oldDate, lines: line(9999),
+  });
+  data = await res.json(); if (data.order) created.push(data.order.id);
+  check("ADJ NO-WARN: backdated addition → 201, no warning",
+    res.status === 201 && !(data.warnings?.length), `status=${res.status} warnings=${JSON.stringify(data.warnings)}`);
+
   // ── Test 5: staff cannot backdate ──────────────────────────────────────────
   const staffRole = await login("staff@mitraramah.com", "staff123");
   res = await createOrder({ type: "GRN", toLocationId: locationId, effectiveDate: dayStr(5), lines: line(1) });
   data = await res.json(); if (data.order) created.push(data.order.id);
   check("STAFF: backdate forbidden → 403", res.status === 403, `loginRole=${staffRole} status=${res.status}`);
+
+  // Adjustments are staff's main tool — confirm the date is admin-only there too.
+  res = await createOrder({
+    type: "ADJUSTMENT", toLocationId: locationId, adjustmentReason: "Smoke test",
+    effectiveDate: dayStr(5), lines: line(-1),
+  });
+  data = await res.json(); if (data.order) created.push(data.order.id);
+  check("STAFF: adjustment backdate forbidden → 403", res.status === 403, `status=${res.status}`);
+
+  // …but a staff adjustment with NO date must still work (dated today).
+  res = await createOrder({
+    type: "ADJUSTMENT", toLocationId: locationId, adjustmentReason: "Smoke test", lines: line(-1),
+  });
+  data = await res.json(); if (data.order) created.push(data.order.id);
+  check("STAFF: adjustment without a date → 201", res.status === 201, `status=${res.status} err="${data.error}"`);
 
   // ── cleanup: delete everything created, restore stock to Q0 ────────────────
   if (created.length) {
