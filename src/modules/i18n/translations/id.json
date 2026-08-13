@@ -54,7 +54,7 @@
   },
   "app": {
     "title": "MRIs — Mitra Ramah Inventory System",
-    "footer": "© 2026 Mitra Ramah — Semua hak dilindungi | MRIs v1.7.0",
+    "footer": "© 2026 Mitra Ramah — Semua hak dilindungi | MRIs v1.7.1",
     "openNav": "Buka Menu",
     "closeMenu": "Tutup menu",
     "geo": {
@@ -76,7 +76,7 @@
     "signIn": "Masuk",
     "invalidCredentials": "Email atau kata sandi salah.",
     "displaced": "Sesi Anda digantikan oleh login dari perangkat lain. Silakan login kembali.",
-    "footer": "© 2026 Mitra Ramah — MRIs v1.7.0"
+    "footer": "© 2026 Mitra Ramah — MRIs v1.7.1"
   },
   "dashboard": {
     "totalProducts": "Total Produk",
