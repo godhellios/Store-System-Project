@@ -203,6 +203,35 @@ test.describe("packing unit guards", () => {
     expect(after.lines[0].quantity).toBe(10);
   });
 
+  // -- A packing unit added on EDIT must get a barcode, like one added on -----
+  //    CREATE. Without it the box cannot be scanned or labelled, and the form
+  //    says "auto if blank" — so a silent null here is a broken promise.
+  test("a packing unit added while editing is given a barcode", async () => {
+    const units = await getUnits(admin);
+    const packingUnit = units.find((u) => u.parentUnitId && (u.conversionFactor ?? 0) > 0);
+    test.skip(!packingUnit, "seed has no usable packing unit");
+
+    // Created with NO packing units, then given one via edit.
+    const product = await createProduct(admin, "EditBarcode", packingUnit!.parentUnitId!);
+    expect((await (await admin.get(`${BASE_URL}/api/products/${product.id}`)).json()).unitConversions)
+      .toHaveLength(0);
+
+    const res = await admin.put(`${BASE_URL}/api/products/${product.id}`, {
+      data: { unitConversions: [{ unitId: packingUnit!.id, barcode: null }] },
+    });
+    expect(res.ok(), `edit failed: ${res.status()} ${await res.text()}`).toBeTruthy();
+
+    const saved = (await res.json()).unitConversions;
+    expect(saved).toHaveLength(1);
+    expect(saved[0].barcode, "packing unit saved without a barcode").toBeTruthy();
+
+    // Re-saving must not churn the barcode it was just given.
+    const again = await admin.put(`${BASE_URL}/api/products/${product.id}`, {
+      data: { unitConversions: [{ unitId: packingUnit!.id, barcode: saved[0].barcode }] },
+    });
+    expect((await again.json()).unitConversions[0].barcode).toBe(saved[0].barcode);
+  });
+
   // -- Settings: re-pointing an in-use unit's parent is refused outright -----
   test("changing an in-use unit's parent never asks to confirm a factor change", async () => {
     const units = await getUnits(admin);

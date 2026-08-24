@@ -7,6 +7,7 @@ import { Prisma } from "@/generated/prisma";
 import { viewerGuard } from "@/lib/role-guard";
 import { applyOpeningCost, applyCorrectCost, OpeningCostError } from "@/lib/opening-cost";
 import { isEligiblePackingUnit } from "@/lib/packing-units";
+import { reserveUnitBarcodes } from "@/lib/barcode";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -156,7 +157,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
     validConversions = (unitConversions as Array<{ unitId?: string; barcode?: string | null }>)
       .filter((c) => c.unitId && byId.has(c.unitId))
-      .map((c) => ({ unitId: c.unitId!, barcode: c.barcode ?? null }));
+      .map((c) => ({ unitId: c.unitId!, barcode: c.barcode?.trim() || null }));
+
+    // A packing unit with no barcode cannot be scanned or labelled, and the
+    // form offers "auto if blank" — but only product CREATE was reserving one,
+    // so a packing unit added on edit was silently saved without a barcode.
+    // Reserve here too, from the same atomic counter.
+    const needing = validConversions.filter((c) => !c.barcode).length;
+    if (needing > 0) {
+      const reserved = await reserveUnitBarcodes(needing, prisma);
+      let ri = 0;
+      validConversions = validConversions.map((c) =>
+        c.barcode ? c : { ...c, barcode: reserved[ri++] },
+      );
+    }
   }
 
   const product = await prisma.product.update({
