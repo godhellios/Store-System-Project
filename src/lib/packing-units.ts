@@ -89,6 +89,60 @@ export function packingViews(rows: StoredPacking[]): PackingView[] {
   return out;
 }
 
+/** A packing unit as it appears inside a product's stored `pendingChanges` JSON. */
+export type PendingPackingUnit = {
+  unitId?: string;
+  name?: string;        // legacy: pre-migration submissions carried a typed name
+  conversionFactor?: number; // legacy: unused, the Unit master is authoritative
+  barcode?: string | null;
+};
+
+export type ResolvedPending = {
+  resolved: Array<{ unitId: string; barcode: string | null }>;
+  /** Names/ids that matched no unit, or matched one ineligible for the base unit. */
+  rejected: string[];
+};
+
+/**
+ * Resolve the packing units inside a pending product edit against the Unit
+ * master, keeping only those actually eligible for `baseUnitId`.
+ *
+ * A pending edit is stored as raw JSON when STAFF submit it, so it is NOT
+ * validated at submission time — this is the only checkpoint before it becomes
+ * real. Existence alone is not enough: a unit whose parent is not the product's
+ * base unit carries a factor that counts something else entirely (a "12 Gross"
+ * box applied to a Dozen product silently means 12 Dozen). Those are rejected
+ * rather than written back, and reported so the reviewer can see what dropped.
+ *
+ * Legacy submissions carry a typed `name` instead of a `unitId`; those are
+ * matched ignoring case and whitespace — the same rule the migration used.
+ */
+export function resolvePendingPackingUnits(
+  pending: PendingPackingUnit[],
+  units: MasterUnit[],
+  baseUnitId: string | null | undefined,
+): ResolvedPending {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+  const byId = new Map(units.map((u) => [u.id, u]));
+  const byNorm = new Map(units.map((u) => [norm(u.name), u]));
+  const resolved: ResolvedPending["resolved"] = [];
+  const rejected: string[] = [];
+
+  for (const c of pending) {
+    const unit = (c.unitId ? byId.get(c.unitId) : undefined)
+      ?? (c.name ? byNorm.get(norm(c.name)) : undefined);
+    if (unit && isEligiblePackingUnit(unit, baseUnitId)) {
+      resolved.push({ unitId: unit.id, barcode: c.barcode ?? null });
+    } else if (c.name || c.unitId) {
+      // Report the unit's real name whenever we found it — a reviewer told only
+      // "cmpv…h0q was dropped" cannot act on that. Fall back to whatever the
+      // submission carried when nothing matched at all.
+      rejected.push(unit?.name ?? c.name ?? c.unitId!);
+    }
+  }
+  return { resolved, rejected };
+}
+
 /**
  * Human label for a packing unit, e.g. "Box Of 500 Yard (12 Gross)".
  * `baseUnitName` is the product's base unit — the thing the factor counts.

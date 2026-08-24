@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useT } from "@/modules/i18n/provider";
+import { APP_VERSION } from "@/lib/version";
 
 function DisplacedBanner() {
   const searchParams = useSearchParams();
@@ -122,7 +123,7 @@ export default function LoginPage() {
             📖 Staff Guide
           </a>
           <p className="text-xs text-gray-400">
-            {t("login.footer", "© 2026 Mitra Ramah — MRIs v1.8.0")}
+            {t("login.footer", "© 2026 Mitra Ramah — MRIs")} {APP_VERSION}
           </p>
         </div>
       </div>

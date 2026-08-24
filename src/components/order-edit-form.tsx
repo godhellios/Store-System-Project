@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { NumberField } from "@/components/number-field";
+import { eligiblePackingUnits, packingFactorOf, packingUnitLabel, type MasterUnit } from "@/lib/packing-units";
 
 type UnitConversion = { id: string; name: string; conversionFactor: number };
 
@@ -119,7 +120,7 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
   const [customer, setCustomer] = useState(order.customer ?? "");
   const [reference, setReference] = useState(order.reference ?? "");
   const [notes, setNotes] = useState(order.notes ?? "");
-  const [allUnits, setAllUnits] = useState<{ id: string; name: string; conversionFactor: number | null; parentUnitId: string | null }[]>([]);
+  const [allUnits, setAllUnits] = useState<MasterUnit[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -231,17 +232,21 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
     }));
   }
 
+  // Fallback for products with no packing units configured on the product itself:
+  // still only offer units from the Unit master whose parent IS this line's base
+  // unit — the same rule product-form.tsx enforces. A unit's conversionFactor is
+  // only meaningful relative to ITS OWN parent, so a unit unrelated to the line's
+  // base unit must never be selectable here (see lib/packing-units.ts).
   function changeSystemUnit(key: string, unitName: string) {
-    const unit = allUnits.find((u) => u.name === unitName);
     setLines((prev) => prev.map((l) => {
       if (l._key !== key) return l;
-      if (!unit) return l;
-      // If it's the product's own base unit, factor = 1
-      if (unit.name === l.baseUnitName) {
+      if (unitName === l.baseUnitName) {
         return { ...l, inputUnitName: l.baseUnitName, conversionFactor: 1 };
       }
-      // Use the conversion factor defined in unit settings (relative to its parent)
-      const factor = unit.conversionFactor ?? 1;
+      const unit = eligiblePackingUnits(allUnits, l.baseUnitId).find((u) => u.name === unitName);
+      if (!unit) return l;
+      const factor = packingFactorOf(unit);
+      if (factor === null) return l;
       return { ...l, inputUnitName: unit.name, conversionFactor: factor };
     }));
   }
@@ -421,14 +426,12 @@ export function OrderEditForm({ order }: { order: OrderForEdit }) {
                           value={line.inputUnitName}
                           onChange={(e) => changeSystemUnit(line._key, e.target.value)}
                           className="px-2 py-1 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          {allUnits.length === 0
-                            ? <option value={line.inputUnitName}>{line.inputUnitName}</option>
-                            : allUnits.map((u) => (
-                                <option key={u.id} value={u.name}>
-                                  {u.name}{u.conversionFactor ? ` (×${u.conversionFactor})` : ""}
-                                </option>
-                              ))
-                          }
+                          <option value={line.baseUnitName}>{line.baseUnitName}</option>
+                          {eligiblePackingUnits(allUnits, line.baseUnitId).map((u) => (
+                            <option key={u.id} value={u.name}>
+                              {packingUnitLabel(u, line.baseUnitName)}
+                            </option>
+                          ))}
                         </select>
                       )}
                     </td>

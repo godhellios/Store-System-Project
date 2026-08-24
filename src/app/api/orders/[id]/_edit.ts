@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { MovementType, OrderType } from "@/generated/prisma";
 import { resolveEffectiveDate } from "@/lib/effective-date";
 import { InsufficientStockError } from "@/lib/stock";
+import { isEligiblePackingUnit } from "@/lib/packing-units";
 
 const MOVEMENT_TYPE: Record<OrderType, MovementType> = {
   GRN: MovementType.IN,
@@ -41,6 +42,37 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   if (lines !== undefined) {
     if (!lines.length) return NextResponse.json({ error: "At least one line is required" }, { status: 400 });
+
+    // A line's inputUnit (when not the product's own base unit) must be a unit
+    // whose parent IS that product's base unit — otherwise its conversionFactor
+    // was computed against an unrelated unit and `quantity` (already multiplied
+    // client-side) is wrong. See lib/packing-units.ts.
+    const productIds = [...new Set(lines.map((l) => l.productId))];
+    const lineProducts = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, unitId: true, unit: { select: { name: true } } },
+    });
+    const productById = new Map(lineProducts.map((p) => [p.id, p]));
+    const unitNames = [...new Set(lines.map((l) => l.inputUnit).filter((n): n is string => !!n))];
+    const namedUnits = unitNames.length
+      ? await prisma.unit.findMany({
+          where: { name: { in: unitNames } },
+          select: { id: true, name: true, isActive: true, parentUnitId: true, conversionFactor: true },
+        })
+      : [];
+    const unitByName = new Map(namedUnits.map((u) => [u.name, u]));
+    for (const line of lines) {
+      if (!line.inputUnit) continue;
+      const product = productById.get(line.productId);
+      if (!product || line.inputUnit === product.unit.name) continue;
+      const unit = unitByName.get(line.inputUnit);
+      if (!isEligiblePackingUnit(unit, product.unitId)) {
+        return NextResponse.json(
+          { error: `"${line.inputUnit}" is not a valid packing unit for this product's base unit` },
+          { status: 400 },
+        );
+      }
+    }
 
     try {
       await prisma.$transaction(async (tx) => {

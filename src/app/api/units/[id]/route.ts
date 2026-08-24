@@ -31,35 +31,39 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Renaming is free — the name lives only here, so it flows to every product.
-  // Changing the SIZE is not: it redefines what every future entry of this unit
-  // means. Ask once, and say how many products are affected. (Past orders are
-  // unaffected: they stored their quantity in base units at entry time.)
   const newFactor = conversionFactor !== undefined
     ? (conversionFactor ? parseFloat(conversionFactor) : null)
     : undefined;
   const factorChanged = newFactor !== undefined && newFactor !== existing.conversionFactor;
   const parentChanged = parentUnitId !== undefined && (parentUnitId || null) !== existing.parentUnitId;
-  if (factorChanged || parentChanged) {
-    const inUse = await prisma.productUnitConversion.count({ where: { unitId: id } });
-    if (inUse > 0 && !confirm) {
-      return NextResponse.json({
-        warning: "unit_in_use",
-        productCount: inUse,
-        unitName: existing.name,
-        oldFactor: existing.conversionFactor,
-        newFactor: newFactor ?? existing.conversionFactor,
-      }, { status: 200 });
-    }
-  }
+
+  // Count once — both guards below need it.
+  const inUse = (factorChanged || parentChanged)
+    ? await prisma.productUnitConversion.count({ where: { unitId: id } })
+    : 0;
+
   // Re-pointing a unit's parent orphans it from products built on the old
-  // parent, so that is blocked outright rather than confirmed.
-  if (parentChanged) {
-    const inUse = await prisma.productUnitConversion.count({ where: { unitId: id } });
-    if (inUse > 0)
-      return NextResponse.json({
-        error: `Cannot change what "${existing.name}" is measured in — ${inUse} product(s) use it as a packing unit. Create a new unit instead.`,
-      }, { status: 409 });
+  // parent, so it is blocked outright. Checked FIRST: this is a hard refusal,
+  // so never ask the user to confirm a factor change we are going to reject
+  // anyway (a parent-only change has no factor change to describe).
+  if (parentChanged && inUse > 0) {
+    return NextResponse.json({
+      error: `Cannot change what "${existing.name}" is measured in — ${inUse} product(s) use it as a packing unit. Create a new unit instead.`,
+    }, { status: 409 });
+  }
+
+  // Renaming is free — the name lives only here, so it flows to every product.
+  // Changing the SIZE is not: it redefines what every future entry of this unit
+  // means. Ask once, and say how many products are affected. (Past orders are
+  // unaffected: they stored their quantity in base units at entry time.)
+  if (factorChanged && inUse > 0 && !confirm) {
+    return NextResponse.json({
+      warning: "unit_in_use",
+      productCount: inUse,
+      unitName: existing.name,
+      oldFactor: existing.conversionFactor,
+      newFactor: newFactor ?? existing.conversionFactor,
+    }, { status: 200 });
   }
 
   const unit = await prisma.unit.update({
