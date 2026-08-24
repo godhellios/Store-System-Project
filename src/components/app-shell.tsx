@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/modules/i18n/LanguageSwitcher";
 import { useT } from "@/modules/i18n/provider";
+import { APP_VERSION } from "@/lib/version";
 
 export function AppShell({
   children,
@@ -240,7 +241,7 @@ export function AppShell({
         </main>
 
         <footer className="text-center text-xs text-slate-400 dark:text-slate-500 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
-          {t("app.footer", "© 2026 Mitra Ramah — All rights reserved | MRIs v1.8.0")}
+          {t("app.footer", "© 2026 Mitra Ramah — All rights reserved | MRIs")} {APP_VERSION}
         </footer>
       </div>
     </div>
