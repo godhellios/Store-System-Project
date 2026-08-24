@@ -48,12 +48,35 @@ async function main() {
   console.log("  ✓ Units (3: pcs, Roll, Box)");
 
   // ── Users (all 4 roles for testing) ───────────────────────────────────────
+  //
+  // These passwords are committed, so they are development credentials and
+  // nothing else. Seeding a real deployment with them would publish the way in,
+  // so that combination is refused below — set SEED_*_PASSWORD to seed a
+  // deployment, or change the password in the app afterwards.
+  //
+  // (`update: {}` means an existing user's password is never reset by a re-seed,
+  // so this cannot downgrade an account that already has a strong password.)
   const hash = (raw: string) => bcrypt.hashSync(raw, 10);
+
+  const targetsRealDeployment = /supabase|amazonaws|\.vercel\./i.test(process.env.DATABASE_URL ?? "");
+  const seedPassword = (envVar: string, devDefault: string) => {
+    const supplied = process.env[envVar];
+    if (supplied) return supplied;
+    if (targetsRealDeployment) {
+      throw new Error(
+        `Refusing to seed ${envVar.replace("SEED_", "").replace("_PASSWORD", "").toLowerCase()} ` +
+        `with the committed development password against a hosted database. ` +
+        `Set ${envVar} to seed this deployment.`,
+      );
+    }
+    return devDefault;
+  };
+
   await Promise.all([
-    prisma.user.upsert({ where: { email: "admin@mitraramah.com" },    update: {}, create: { name: "Admin",         email: "admin@mitraramah.com",    password: hash("wirawan123"),  role: "ADMIN"    } }),
-    prisma.user.upsert({ where: { email: "staff@mitraramah.com" },    update: {}, create: { name: "Staff Test",    email: "staff@mitraramah.com",    password: hash("staff123"),    role: "STAFF"    } }),
-    prisma.user.upsert({ where: { email: "viewer@mitraramah.com" },   update: {}, create: { name: "Viewer Test",   email: "viewer@mitraramah.com",   password: hash("viewer123"),   role: "VIEWER"   } }),
-    prisma.user.upsert({ where: { email: "operator@mitraramah.com" }, update: {}, create: { name: "Operator Test", email: "operator@mitraramah.com", password: hash("operator123"), role: "OPERATOR" } }),
+    prisma.user.upsert({ where: { email: "admin@mitraramah.com" },    update: {}, create: { name: "Admin",         email: "admin@mitraramah.com",    password: hash(seedPassword("SEED_ADMIN_PASSWORD", "wirawan123")),  role: "ADMIN"    } }),
+    prisma.user.upsert({ where: { email: "staff@mitraramah.com" },    update: {}, create: { name: "Staff Test",    email: "staff@mitraramah.com",    password: hash(seedPassword("SEED_STAFF_PASSWORD", "staff123")),    role: "STAFF"    } }),
+    prisma.user.upsert({ where: { email: "viewer@mitraramah.com" },   update: {}, create: { name: "Viewer Test",   email: "viewer@mitraramah.com",   password: hash(seedPassword("SEED_VIEWER_PASSWORD", "viewer123")),   role: "VIEWER"   } }),
+    prisma.user.upsert({ where: { email: "operator@mitraramah.com" }, update: {}, create: { name: "Operator Test", email: "operator@mitraramah.com", password: hash(seedPassword("SEED_OPERATOR_PASSWORD", "operator123")), role: "OPERATOR" } }),
   ]);
   console.log("  ✓ Users (admin / staff / viewer / operator)");
 
