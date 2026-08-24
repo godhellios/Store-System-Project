@@ -199,7 +199,10 @@ test.describe("Safari / WebKit / iOS", () => {
   });
 
   // ── Key pages: no JS errors on WebKit ───────────────────────────────────
-  test("critical pages have no JS console errors", { timeout: 90000 }, async ({ page }) => {
+  test("critical pages have no JS console errors", async ({ page }) => {
+    // Walks several pages on WebKit — needs more than the default per-test budget.
+    // (Playwright's TestDetails arg accepts only tag/annotation, not timeout.)
+    test.setTimeout(90000);
     const errors: string[] = [];
     page.on("console", (msg) => {
       if (msg.type() === "error") errors.push(msg.text());

@@ -4,6 +4,7 @@ import {
   isEligiblePackingUnit,
   packingFactorOf,
   packingUnitLabel,
+  resolvePendingPackingUnits,
   type MasterUnit,
 } from "./packing-units";
 
@@ -95,5 +96,72 @@ describe("packingUnitLabel", () => {
 
   it("falls back to the bare name when there is no factor", () => {
     expect(packingUnitLabel(NO_FACTOR, "Gross")).toBe("Case");
+  });
+});
+
+// Approving a pending edit is the LAST checkpoint before staff-submitted packing
+// units become real — STAFF submissions are stored as raw JSON without any
+// validation, so a check that only asks "does this unit exist?" lets a
+// mismatched unit straight back in. That is how the production Dozen/Gross bug
+// could return after being fixed.
+describe("resolvePendingPackingUnits", () => {
+  it("accepts a unit that belongs to the product's base unit", () => {
+    const { resolved, rejected } = resolvePendingPackingUnits(
+      [{ unitId: "b500", barcode: "123" }], ALL, "gross",
+    );
+    expect(resolved).toEqual([{ unitId: "b500", barcode: "123" }]);
+    expect(rejected).toEqual([]);
+  });
+
+  // The regression guard: the unit EXISTS, so an existence-only check would
+  // accept it — but it is measured in Gross, not Dozen.
+  it("rejects an existing unit that is measured in a different base unit", () => {
+    const { resolved, rejected } = resolvePendingPackingUnits(
+      [{ unitId: "b500" }], ALL, "dozen",
+    );
+    expect(resolved).toEqual([]);
+    expect(rejected).toEqual(["Box Of 500 Yard"]);
+  });
+
+  it("validates against the NEW base unit when the edit also changes it", () => {
+    // Same submission, judged against each base unit.
+    expect(resolvePendingPackingUnits([{ unitId: "s10" }], ALL, "dozen").resolved).toHaveLength(1);
+    expect(resolvePendingPackingUnits([{ unitId: "s10" }], ALL, "gross").resolved).toHaveLength(0);
+  });
+
+  it("resolves a legacy typed name, ignoring case and spaces", () => {
+    const { resolved } = resolvePendingPackingUnits(
+      [{ name: "sackofzipper 10", conversionFactor: 500 }], ALL, "dozen",
+    );
+    expect(resolved).toEqual([{ unitId: "s10", barcode: null }]);
+  });
+
+  it("rejects a legacy name that matches no unit at all", () => {
+    const { resolved, rejected } = resolvePendingPackingUnits(
+      [{ name: "Crate Of 99" }], ALL, "gross",
+    );
+    expect(resolved).toEqual([]);
+    expect(rejected).toEqual(["Crate Of 99"]);
+  });
+
+  it("rejects inactive units and units with no usable factor", () => {
+    const { resolved, rejected } = resolvePendingPackingUnits(
+      [{ unitId: "old" }, { unitId: "nf" }, { unitId: "zf" }], ALL, "gross",
+    );
+    expect(resolved).toEqual([]);
+    expect(rejected).toHaveLength(3);
+  });
+
+  it("keeps the good entries and reports only the bad ones", () => {
+    const { resolved, rejected } = resolvePendingPackingUnits(
+      [{ unitId: "b500" }, { unitId: "s10" }], ALL, "gross",
+    );
+    expect(resolved).toEqual([{ unitId: "b500", barcode: null }]);
+    expect(rejected).toEqual(["Sack Of Zipper 10"]);
+  });
+
+  it("ignores empty entries rather than reporting them", () => {
+    expect(resolvePendingPackingUnits([{}], ALL, "gross")).toEqual({ resolved: [], rejected: [] });
+    expect(resolvePendingPackingUnits([], ALL, "gross")).toEqual({ resolved: [], rejected: [] });
   });
 });

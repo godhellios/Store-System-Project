@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
+import { resolvePendingPackingUnits } from "@/lib/packing-units";
 
 type PendingChanges = {
   name?: string;
@@ -84,23 +85,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // Resolve each pending conversion to a Unit id. New submissions already carry
   // unitId; legacy ones carry a typed name, matched ignoring case and spaces —
-  // the same rule the migration used. Anything unresolvable is dropped rather
-  // than blocking the approval, and is reported back to the admin.
+  // the same rule the migration used. A resolved unit is only accepted when it
+  // is actually eligible for the product's (possibly also-changing) base unit —
+  // the same check enforced on direct create/edit — otherwise its factor counts
+  // a different thing (see lib/packing-units.ts). Anything unresolved or
+  // ineligible is dropped rather than blocking the approval, and is reported
+  // back to the admin so it isn't silently lost.
+  const effectiveBaseUnitId = changes.unitId !== undefined ? changes.unitId : product.unitId;
   let validConversions: Array<{ unitId: string; barcode?: string | null }> | undefined;
-  const unresolved: string[] = [];
+  let unresolved: string[] = [];
   if (Array.isArray(changes.unitConversions)) {
-    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
-    const allUnits = await prisma.unit.findMany({ select: { id: true, name: true } });
-    const byNorm = new Map(allUnits.map((u) => [norm(u.name), u.id]));
-    const known = new Set(allUnits.map((u) => u.id));
-    validConversions = [];
-    for (const c of changes.unitConversions) {
-      const resolved = c.unitId && known.has(c.unitId)
-        ? c.unitId
-        : c.name ? byNorm.get(norm(c.name)) : undefined;
-      if (resolved) validConversions.push({ unitId: resolved, barcode: c.barcode ?? null });
-      else if (c.name || c.unitId) unresolved.push(c.name ?? c.unitId!);
-    }
+    const allUnits = await prisma.unit.findMany({
+      select: { id: true, name: true, isActive: true, parentUnitId: true, conversionFactor: true },
+    });
+    const { resolved, rejected } = resolvePendingPackingUnits(
+      changes.unitConversions, allUnits, effectiveBaseUnitId,
+    );
+    validConversions = resolved;
+    unresolved = rejected;
   }
 
   const updated = await prisma.product.update({

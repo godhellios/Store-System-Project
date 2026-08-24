@@ -70,6 +70,15 @@ export default function PendingApprovalPage() {
     setRejectingId(null);
     setRejectNote("");
     if (!res.ok) { toast.error(data.error ?? "Failed"); return; }
+    // Packing units that no longer belong to the product's base unit are dropped
+    // on approval rather than written back (they would count the wrong thing).
+    // Say so — silently losing a product's packaging is worse than the edit.
+    if (Array.isArray(data.unresolvedPackingUnits) && data.unresolvedPackingUnits.length > 0) {
+      toast(
+        `Packing unit${data.unresolvedPackingUnits.length !== 1 ? "s" : ""} not applied: ${data.unresolvedPackingUnits.join(", ")} — not valid for this product's base unit. Fix in Settings › Units, then re-add.`,
+        { icon: "⚠️", duration: 8000 },
+      );
+    }
     if (action === "approve" && product) {
       setPrintQueue((q) => [...q, { id: product.id, name: product.name, barcode: product.barcode, colorVariant: product.colorVariant }]);
     } else {
